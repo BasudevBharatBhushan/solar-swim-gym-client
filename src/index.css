@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: #0d7a9f;
+  --color-brand-secondary: #d97642;
+  --color-brand-accent: #1e3a4c;
+  --color-brand-dark: #0f172a; /* Slate 900 for dark text */
+  --color-brand-light: #f8fafc; /* Slate 50 for background */
+  
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-display: Arial, Helvetica, sans-serif;
+
+  --animate-fade-in: fade-in 0.5s ease-out;
+  --animate-slide-up: slide-up 0.5s ease-out;
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-md border border-white/20 shadow-xl;
+  }
+  
+  .btn-primary {
+    @apply bg-brand-primary text-white font-bold py-3 px-6 rounded-full shadow-lg hover:opacity-90 transition-all duration-300 hover:scale-105 active:scale-95;
+  }
+  
+  .btn-secondary {
+    @apply bg-brand-secondary text-white font-bold py-3 px-6 rounded-full shadow-lg hover:opacity-90 transition-all duration-300 hover:scale-105 active:scale-95;
+  }
+}
+
+/* Global Reset & Base Styles */
+:root {
+  font-family: var(--font-sans);
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  background-color: var(--color-brand-light);
+  color: var(--color-brand-dark);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  @apply text-brand-dark bg-brand-light;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  @apply font-bold tracking-tight text-brand-accent;
+}
+
+/* Animations */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
