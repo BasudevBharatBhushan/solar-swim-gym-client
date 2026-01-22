@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { FamilyMember, PrimaryProfile } from '../../../types/api.types';
 
 interface FamilyMembersFormProps {
