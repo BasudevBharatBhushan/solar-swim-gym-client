@@ -4,6 +4,7 @@ import { onboardingApi, servicesApi } from '../../../services/api.service';
 import { useNavigate } from 'react-router-dom';
 import { calculateMemberPrice, getAgeCategory, getAge } from '../../../utils/pricing.utils';
 import type { TenureType } from '../../../utils/pricing.utils';
+import { ContractModal } from '../../../components/ContractModal';
 
 interface ReviewStepProps {
   data: OnboardingRequest;
@@ -14,6 +15,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onPrev }) => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [servicesMap, setServicesMap] = useState<Record<string, string>>({});
+  const [showContractModal, setShowContractModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,7 +34,12 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onPrev }) => {
       .catch(console.error);
   }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
+    // Open contract modal instead of directly submitting
+    setShowContractModal(true);
+  };
+
+  const handlePaymentComplete = async () => {
     setSubmitting(true);
     setError('');
     try {
@@ -47,6 +54,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onPrev }) => {
       setError(err.message || 'Onboarding failed');
     } finally {
       setSubmitting(false);
+      setShowContractModal(false);
     }
   };
 
@@ -282,9 +290,19 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ data, onPrev }) => {
                 </svg>
                 Processing...
              </span>
-          ) : 'Complete Application'}
+          ) : 'Complete Payment'}
         </button>
       </div>
+
+      {/* Contract Modal */}
+      {showContractModal && (
+        <ContractModal
+          data={data}
+          servicesMap={servicesMap}
+          onClose={() => setShowContractModal(false)}
+          onPaymentComplete={handlePaymentComplete}
+        />
+      )}
     </div>
   );
 };
