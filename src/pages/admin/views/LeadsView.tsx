@@ -31,25 +31,33 @@ export const LeadsView: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900">Leads List</h3>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
               {DUMMY_LEADS.length} Total
-            </span>
+          </span>
+          
+          {selectedLeads.length > 0 && (
+            <div className="flex space-x-3 animate-fade-in pl-4 ml-4 border-l border-gray-200">
+              <button
+                onClick={() => handleAction('Add to Campaign')}
+                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+              >
+                Add to Campaign
+              </button>
+              <button
+                onClick={() => handleAction('Send Email')}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+              >
+                Send Email
+              </button>
+            </div>
+          )}
         </div>
         
-        {selectedLeads.length > 0 && (
-          <div className="flex space-x-3 animate-fade-in">
-            <button
-              onClick={() => handleAction('Add to Campaign')}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-            >
-              Add to Campaign
-            </button>
-            <button
-              onClick={() => handleAction('Send Email')}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-            >
-              Send Email
-            </button>
-          </div>
-        )}
+        <div className="flex items-center space-x-3">
+          <button
+            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+          >
+            Import Leads
+          </button>
+        </div>
       </div>
 
       {/* Table */}

@@ -63,6 +63,9 @@ export interface PrimaryProfile {
   case_manager?: CaseManager;
   services?: string[]; // Array of service UUIDs
   tenure?: '12mo' | '6mo' | '3mo';
+  guardian_name?: string;
+  guardian_mobile?: string;
+  emergency_mobile?: string;
 }
 
 export interface FamilyMember {
@@ -74,6 +77,9 @@ export interface FamilyMember {
   case_manager?: CaseManager;
   services: string[]; // Array of service UUIDs
   tenure?: '12mo' | '6mo' | '3mo';
+  guardian_name?: string;
+  guardian_mobile?: string;
+  emergency_mobile?: string;
 }
 
 export interface OnboardingRequest {

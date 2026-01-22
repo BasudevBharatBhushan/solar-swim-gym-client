@@ -27,6 +27,7 @@ export const ParentProfileForm: React.FC<ParentProfileFormProps> = ({
   onNext,
 }) => {
   const [totalMembers, setTotalMembers] = useState<string>(String(1 + familyMembers.length));
+  const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -41,7 +42,7 @@ export const ParentProfileForm: React.FC<ParentProfileFormProps> = ({
     e.preventDefault();
     const count = parseInt(totalMembers);
     if (isNaN(count) || count < 1) {
-      alert("Please enter a valid number of family members (minimum 1).");
+      setError("Min. 1 member required");
       return;
     }
 
@@ -139,6 +140,68 @@ export const ParentProfileForm: React.FC<ParentProfileFormProps> = ({
             />
           </div>
         </div>
+        
+        {/* Guardian & Emergency Contact (Conditional for < 18) */}
+        {(() => {
+            const birthDate = new Date(data.date_of_birth);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const m = today.getMonth() - birthDate.getMonth();
+            if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            
+            if (data.date_of_birth && age < 18) {
+                return (
+                    <div className="bg-orange-50 p-5 rounded-xl border border-orange-100 animate-fade-in">
+                        <div className="mb-4">
+                            <h4 className="font-bold text-orange-800 text-sm flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                Guardian & Emergency Details (Required for under 18)
+                            </h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                             <div className="space-y-2">
+                                <label className="block text-sm font-semibold text-gray-700 ml-1">Guardian Name</label>
+                                <input
+                                    name="guardian_name"
+                                    value={data.guardian_name || ''}
+                                    onChange={handleChange}
+                                    required={age < 18}
+                                    className="w-full px-5 py-3 rounded-xl border border-gray-200 bg-white focus:bg-white focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none"
+                                    placeholder="Parent/Guardian Name"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="block text-sm font-semibold text-gray-700 ml-1">Guardian Mobile</label>
+                                <input
+                                    name="guardian_mobile"
+                                    value={data.guardian_mobile || ''}
+                                    onChange={handleChange}
+                                    required={age < 18}
+                                    className="w-full px-5 py-3 rounded-xl border border-gray-200 bg-white focus:bg-white focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none"
+                                    placeholder="(555) 123-4567"
+                                />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="block text-sm font-semibold text-gray-700 ml-1">Emergency Contact Number</label>
+                                <input
+                                    name="emergency_mobile"
+                                    value={data.emergency_mobile || ''}
+                                    onChange={handleChange}
+                                    required={age < 18}
+                                    className="w-full px-5 py-3 rounded-xl border border-gray-200 bg-white focus:bg-white focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none"
+                                    placeholder="(555) 987-6543"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+            return null;
+        })()}
         <div className="pt-4 border-t border-gray-100">
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-700 ml-1">Number of Family Members to Enroll (including yourself)</label>
@@ -148,11 +211,18 @@ export const ParentProfileForm: React.FC<ParentProfileFormProps> = ({
                 min="1"
                 max="20"
                 value={totalMembers}
-                onChange={handleMemberCountChange}
+                onChange={(e) => {
+                  handleMemberCountChange(e);
+                  setError(null);
+                }}
                 required
-                className="w-40 px-5 py-3 rounded-xl border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none"
+                className={`w-40 px-5 py-3 rounded-xl border ${error ? 'border-red-300 bg-red-50 focus:ring-red-200' : 'border-gray-200 bg-white/50 focus:ring-brand-primary/20 focus:border-brand-primary'} focus:bg-white focus:ring-2 transition-all outline-none`}
               />
-             
+              {error && (
+                <p className="absolute left-0 -bottom-6 text-xs text-red-500 font-medium animate-pulse">
+                  {error}
+                </p>
+              )}
             </div>
           
           </div>

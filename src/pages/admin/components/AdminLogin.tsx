@@ -23,7 +23,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-2xl overflow-hidden glass-panel">
         <div className="text-center">
           <h1 className="text-4xl font-black bg-linear-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent mb-2">
-            SOLAR SWIM GYM
+            SOLAR SWIM & GYM
           </h1>
           <h2 className="text-2xl font-bold text-gray-900">
             Admin Portal

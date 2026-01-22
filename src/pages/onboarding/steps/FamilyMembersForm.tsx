@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { FamilyMember, PrimaryProfile } from '../../../types/api.types';
 
 interface FamilyMembersFormProps {
@@ -14,19 +14,24 @@ interface CaseManagerFormProps {
   rcebFlag: boolean;
   caseManager?: { name: string; email: string };
   onChange: (field: 'name' | 'email', value: string) => void;
+  error?: string;
 }
 
 const CaseManagerForm: React.FC<CaseManagerFormProps> = ({
   rcebFlag,
   caseManager,
-  onChange
+  onChange,
+  error
 }) => {
   if (!rcebFlag) return null;
   return (
-      <div className="mt-4 p-5 bg-blue-50/50 rounded-xl border border-blue-100 animate-fade-in">
-          <h4 className="font-bold text-brand-dark text-sm mb-3 flex items-center">
-              Case Manager Information
-          </h4>
+      <div className={`mt-4 p-5 rounded-xl border animate-fade-in ${error ? 'bg-red-50 border-red-200' : 'bg-blue-50/50 border-blue-100'}`}>
+          <div className="flex justify-between items-center mb-3">
+              <h4 className={`font-bold text-sm flex items-center ${error ? 'text-red-700' : 'text-brand-dark'}`}>
+                  Case Manager Information
+              </h4>
+              {error && <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">{error}</span>}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <input 
                   placeholder="Case Manager Name"
@@ -54,11 +59,80 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
   onNext, 
   onPrev 
 }) => {
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const clearError = (key: string) => {
+    if (errors[key]) {
+        const newErrors = { ...errors };
+        delete newErrors[key];
+        setErrors(newErrors);
+    }
+  };
 
   // --- Primary Profile Handlers ---
 
   const handlePrimaryRcebChange = (checked: boolean) => {
     updatePrimaryProfile({ rceb_flag: checked });
+    if (!checked) clearError('primary_case_manager');
+  };
+
+  const calculateAge = (dob: string) => {
+    if (!dob) return 0;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
+  };
+
+  const handleNext = () => {
+    const newErrors: Record<string, string> = {};
+    let hasError = false;
+
+    // Validate Primary Profile
+    if (primaryProfile.rceb_flag) {
+        if (!primaryProfile.case_manager?.name || !primaryProfile.case_manager?.email) {
+            newErrors['primary_case_manager'] = "Name and Email required";
+            hasError = true;
+        }
+    }
+
+    // Validate Family Members
+    for (let i = 0; i < members.length; i++) {
+        const member = members[i];
+        // const displayIndex = i + 2; 
+        
+        if (!member.first_name) {
+             newErrors[`member_${i}_firstname`] = "First Name is required";
+             hasError = true;
+        }
+        
+        if (member.rceb_flag) {
+             if (!member.case_manager?.name || !member.case_manager?.email) {
+                 newErrors[`member_${i}_casemanager`] = "Case Manager details required";
+                 hasError = true;
+             }
+        }
+        
+        const age = calculateAge(member.date_of_birth);
+        if (age < 18) {
+             if (!member.guardian_name || !member.guardian_mobile) {
+                  newErrors[`member_${i}_guardian`] = "Guardian Name & Mobile required";
+                  hasError = true;
+             }
+        }
+    }
+
+    setErrors(newErrors);
+    if (hasError) {
+        // Scroll to top or first error could be nice, but simple state update for now
+        return;
+    }
+
+    onNext();
   };
 
   const handlePrimaryCaseManagerChange = (field: 'name' | 'email', value: string) => {
@@ -69,6 +143,7 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
         [field]: value
       }
     });
+    clearError('primary_case_manager');
   };
 
   // --- Family Member Handlers ---
@@ -77,6 +152,8 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
     const newMembers = [...members];
     newMembers[index] = { ...newMembers[index], [field]: value };
     updateMembers(newMembers);
+    if (field === 'first_name') clearError(`member_${index}_firstname`);
+    if (field === 'guardian_name' || field === 'guardian_mobile') clearError(`member_${index}_guardian`);
   };
 
   const handleMemberCaseManagerChange = (index: number, field: 'name' | 'email', value: string) => {
@@ -87,6 +164,7 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
         [field]: value
     };
     updateMember(index, 'case_manager', updatedCaseManager);
+    clearError(`member_${index}_casemanager`);
   };
   
   return (
@@ -144,6 +222,7 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
                 rcebFlag={primaryProfile.rceb_flag} 
                 caseManager={primaryProfile.case_manager}
                 onChange={handlePrimaryCaseManagerChange}
+                error={errors['primary_case_manager']}
             />
         </div>
 
@@ -168,8 +247,9 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
                                 value={member.first_name} 
                                 onChange={(e) => updateMember(index, 'first_name', e.target.value)} 
                                 required 
-                                className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none"
+                                className={`w-full px-4 py-2 rounded-lg border ${errors[`member_${index}_firstname`] ? 'border-red-300 bg-red-50' : 'border-gray-200 bg-gray-50'} focus:bg-white focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none`}
                             />
+                            {errors[`member_${index}_firstname`] && <p className="text-xs text-red-500 mt-1">{errors[`member_${index}_firstname`]}</p>}
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Last Name</label>
@@ -201,6 +281,55 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
                         </div>
                     </div>
 
+                    {/* Guardian & Emergency Contact (Conditional for < 18) */}
+                    {(() => {
+                        const age = calculateAge(member.date_of_birth);
+                        if (age < 18) {
+                            return (
+                                <div className="mb-6 p-4 bg-orange-50 rounded-xl border border-orange-100">
+                                    <h5 className="font-bold text-orange-800 text-xs mb-3 flex items-center uppercase tracking-wide">
+                                        Guardian Details (Under 18)
+                                    </h5>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Guardian Name</label>
+                                            <input 
+                                                value={member.guardian_name || ''} 
+                                                onChange={(e) => updateMember(index, 'guardian_name', e.target.value)} 
+                                                className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                                                placeholder="Parent/Guardian Name"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Guardian Mobile</label>
+                                            <input 
+                                                value={member.guardian_mobile || ''} 
+                                                onChange={(e) => updateMember(index, 'guardian_mobile', e.target.value)} 
+                                                className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                                                placeholder="(555) 123-4567"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5 md:col-span-2">
+                                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Emergency Contact Number</label>
+                                            <input 
+                                                value={member.emergency_mobile || ''} 
+                                                onChange={(e) => updateMember(index, 'emergency_mobile', e.target.value)} 
+                                                className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                                                placeholder="(555) 987-6543"
+                                            />
+                                        </div>
+                                    </div>
+                                    {errors[`member_${index}_guardian`] && (
+                                        <div className="mt-3 px-3 py-2 bg-red-100 border border-red-200 rounded-lg text-red-700 text-xs font-bold">
+                                            {errors[`member_${index}_guardian`]}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+                        return null;
+                    })()}
+
                     <div className="border-t border-gray-100 pt-4">
                          {/* RCEB Toggle */}
                         <div className="mb-4">
@@ -220,6 +349,7 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
                             rcebFlag={member.rceb_flag} 
                             caseManager={member.case_manager}
                             onChange={(f, v) => handleMemberCaseManagerChange(index, f, v)}
+                            error={errors[`member_${index}_casemanager`]}
                         />
                     </div>
                 </div>
@@ -231,7 +361,7 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
         <button type="button" onClick={onPrev} className="px-6 py-2 rounded-xl border border-gray-300 text-gray-600 font-bold hover:bg-gray-50 transition-colors">
           Back
         </button>
-        <button type="button" onClick={onNext} className="btn-primary flex items-center">
+        <button type="button" onClick={handleNext} className="btn-primary flex items-center">
           Next Step
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />

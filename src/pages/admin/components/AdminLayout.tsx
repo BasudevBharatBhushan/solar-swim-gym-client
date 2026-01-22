@@ -43,7 +43,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewCha
       <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-10 transition-width duration-300">
         <div className="p-6 flex flex-col items-start justify-center space-y-1">
           <h1 className="text-xl tracking-tighter !text-white uppercase">
-            Solar Swim Gym
+            Solar Swim & Gym
           </h1>
           <span className="text-xs font-semibold text-white/50 uppercase tracking-widest border-t border-white/10 pt-1 w-full block">
             Admin Panel
