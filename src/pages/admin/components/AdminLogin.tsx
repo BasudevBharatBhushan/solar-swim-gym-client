@@ -19,7 +19,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-2xl overflow-hidden glass-panel">
         <div className="text-center">
           <h1 className="text-4xl font-black bg-linear-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent mb-2">
