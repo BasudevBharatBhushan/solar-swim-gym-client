@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/dashboard/DashboardPage";
 import './App.css'
 
 import { OnboardingLayout } from "./pages/onboarding/OnboardingLayout";
+import { AdminPage } from "./pages/admin/AdminPage";
 
 function Home() {
   const { isAuthenticated } = useAuth();
@@ -23,6 +24,7 @@ function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/activate/:token" element={<ActivationPage />} />
       <Route path="/onboarding/*" element={<OnboardingLayout />} />
+      <Route path="/admin" element={<AdminPage />} />
       
       <Route 
         path="/dashboard" 
