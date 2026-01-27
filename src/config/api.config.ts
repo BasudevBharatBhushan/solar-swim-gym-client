@@ -38,6 +38,15 @@ export const API_ENDPOINTS = {
   SERVICES: {
     LIST: '/services',
   },
+
+  // Admin endpoints
+  ADMIN: {
+    SUBSCRIPTION_TYPES: '/admin/subscription-types',
+    SERVICES: '/admin/services',
+    MEMBERSHIPS: '/admin/memberships',
+    SERVICE_PLANS: '/admin/service-plans',
+    MEMBERSHIP_PLANS: '/admin/membership-plans',
+  }
 } as const;
 
 /**

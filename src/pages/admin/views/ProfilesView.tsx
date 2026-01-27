@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-type Profile = {
+// Types matching the API response structure roughly
+interface Profile {
   id: string;
   name: string;
   email?: string;
@@ -14,62 +15,17 @@ type Profile = {
   paymentTenure?: string;
   expiryDate?: string;
   
+  // Hierarchical data
   children?: Profile[];
-};
+}
 
-const DUMMY_PROFILES: Profile[] = [
-  {
-    id: 'h1',
-    name: 'Robert Fox',
-    email: 'robert.fox@example.com',
-    mobile: '(201) 555-0123',
-    dob: '1980-03-10',
-    role: 'Primary',
-    isRceb: false,
-    plan: 'Individual',
-    services: ['Gym Access', 'Pool'],
-    paymentTenure: '12-month',
-    expiryDate: '2025-12-31',
-    children: [
-      {
-        id: 'd1-1',
-        name: 'Lily Fox',
-        dob: '2012-05-14',
-        role: 'Member',
-        isRceb: true,
-        plan: 'Teen',
-        services: ['Swim Class'],
-        paymentTenure: 'Monthly',
-        expiryDate: '2024-06-30'
-      },
-      {
-        id: 'd1-2',
-        name: 'James Fox',
-        dob: '2015-08-22',
-        role: 'Member',
-        isRceb: false,
-        plan: 'Child',
-        services: ['Kids Gym'],
-        paymentTenure: 'Monthly',
-        expiryDate: '2024-06-30'
-      }
-    ]
-  },
-  {
-    id: 'h2',
-    name: 'Eleanor Pena',
-    email: 'eleanor.pena@example.com',
-    mobile: '(201) 555-0124',
-    dob: '1955-11-05',
-    role: 'Primary',
-    isRceb: true,
-    plan: 'Senior 65+',
-    services: ['Gym Access', 'Personal Trainer'],
-    paymentTenure: '6-month',
-    expiryDate: '2024-09-30',
-    children: []
-  }
-];
+interface SearchParams {
+  q: string;
+  page: number;
+  limit: number;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}
 
 const ChevronRight = () => (
   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -143,8 +99,8 @@ const ProfileRow: React.FC<{ profile: Profile; level: number }> = ({ profile, le
           </div>
 
           <div className="col-span-2 text-sm text-gray-600">
-             <div>Category: <span className="font-medium text-gray-900">{profile.plan}</span></div>
-             <div className="text-xs">Expires: {profile.expiryDate}</div>
+             <div>Category: <span className="font-medium text-gray-900">{profile.plan || '-'}</span></div>
+             <div className="text-xs">Expires: {profile.expiryDate || '-'}</div>
           </div>
 
            <div className="col-span-2 text-sm text-gray-600">
@@ -176,17 +132,136 @@ const ProfileRow: React.FC<{ profile: Profile; level: number }> = ({ profile, le
 };
 
 export const ProfilesView: React.FC = () => {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchParams, setSearchParams] = useState<SearchParams>({
+    q: '',
+    page: 1,
+    limit: 10,
+    sortBy: 'created_at',
+    sortOrder: 'desc'
+  });
+  const [totalResults, setTotalResults] = useState(0);
+
+  const fetchProfiles = async () => {
+    setLoading(true);
+    try {
+      // const params = new URLSearchParams({
+      //   q: searchParams.q,
+      //   page: searchParams.page.toString(),
+      //   limit: searchParams.limit.toString(),
+      //   sortBy: searchParams.sortBy,
+      //   sortOrder: searchParams.sortOrder
+      // });
+
+      // TODO: Replace with actual API endpoint
+      // const response = await fetch(`/api/v1/admin/profiles?${params}`);
+      // const data = await response.json();
+      // setProfiles(data.results || []);
+      // setTotalResults(data.total || 0);
+
+      // For now, load empty
+      setProfiles([]);
+      setTotalResults(0);
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfiles();
+  }, [searchParams]);
+
+  const handleSearch = (value: string) => {
+    setSearchParams(prev => ({ ...prev, q: value, page: 1 }));
+  };
+
+  const handleShowAll = () => {
+    setSearchParams(prev => ({ ...prev, limit: 1000, page: 1 }));
+  };
+
+  const totalPages = Math.ceil(totalResults / searchParams.limit);
+
   return (
     <div className="h-full flex flex-col">
        <div className="p-4 border-b border-gray-100 bg-white">
-          <h3 className="text-lg font-medium text-gray-900">Member Profiles</h3>
-          <p className="text-sm text-gray-500">Manage family hierarchies and enrollments</p>
+          <div className="flex justify-between items-center mb-4">
+             <div>
+                <h3 className="text-lg font-medium text-gray-900">Member Profiles</h3>
+                <p className="text-sm text-gray-500">Manage family hierarchies and enrollments</p>
+             </div>
+             <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+               {totalResults} Total Profiles
+             </span>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex space-x-3">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search profiles..."
+                value={searchParams.q}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+            <button
+              onClick={handleShowAll}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Show All
+            </button>
+          </div>
        </div>
+
        <div className="flex-1 overflow-auto">
-          {DUMMY_PROFILES.map(profile => (
-             <ProfileRow key={profile.id} profile={profile} level={0} />
-          ))}
+          {loading ? (
+             <div className="flex items-center justify-center h-64">
+               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+             </div>
+          ) : profiles.length === 0 ? (
+             <div className="flex flex-col items-center justify-center h-64 text-gray-500">
+               <svg className="h-16 w-16 mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+               </svg>
+               <p className="text-lg font-medium">No profiles found</p>
+               <p className="text-sm">Search to find members or check back later</p>
+             </div>
+          ) : (
+             profiles.map(profile => (
+                <ProfileRow key={profile.id} profile={profile} level={0} />
+             ))
+          )}
        </div>
+
+       {/* Pagination */}
+       {totalPages > 1 && (
+         <div className="px-6 py-4 border-t border-gray-200 bg-white flex items-center justify-between">
+           <div className="text-sm text-gray-700">
+             Showing page {searchParams.page} of {totalPages} ({totalResults} total results)
+           </div>
+           <div className="flex space-x-2">
+             <button
+               onClick={() => setSearchParams(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+               disabled={searchParams.page === 1}
+               className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+               Previous
+             </button>
+             <button
+               onClick={() => setSearchParams(prev => ({ ...prev, page: Math.min(totalPages, prev.page + 1) }))}
+               disabled={searchParams.page === totalPages}
+               className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+             >
+               Next
+             </button>
+           </div>
+         </div>
+       )}
     </div>
   );
 };
+

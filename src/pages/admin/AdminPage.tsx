@@ -3,9 +3,10 @@ import { AdminLogin } from './components/AdminLogin';
 import { AdminLayout } from './components/AdminLayout';
 import { LeadsView } from './views/LeadsView';
 import { ProfilesView } from './views/ProfilesView';
+import { AccountsView } from './views/AccountsView';
 import { SettingsView } from './views/SettingsView';
 
-type AdminView = 'leads' | 'profiles' | 'settings';
+type AdminView = 'leads' | 'accounts' | 'profiles' | 'settings';
 
 export const AdminPage: React.FC = () => {
     // Demo State: Login status
@@ -33,8 +34,10 @@ export const AdminPage: React.FC = () => {
             onLogout={handleLogout}
         >
             {currentView === 'leads' && <LeadsView />}
+            {currentView === 'accounts' && <AccountsView />}
             {currentView === 'profiles' && <ProfilesView />}
             {currentView === 'settings' && <SettingsView />}
         </AdminLayout>
     );
 };
+

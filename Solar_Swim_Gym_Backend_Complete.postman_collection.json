@@ -1,0 +1,1091 @@
+{
+	"info": {
+		"_postman_id": "a6b9c8d7-e0f1-4a2b-9c3d-e4f5a6b7c8d9",
+		"name": "Solar Swim Gym Backend - Complete",
+		"description": "Complete API collection for Solar Swim Gym Backend with all routes",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"john.doe@example.com\",\n    \"password\": \"securepassword\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "login"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "logout"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Activation",
+			"item": [
+				{
+					"name": "Validate Token",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/activation/validate/:token",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "activation", "validate", ":token"],
+							"variable": [
+								{
+									"key": "token",
+									"value": "your_token_here"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activate Account",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"your_token_here\",\n    \"password\": \"new_secure_password\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/auth/activation/activate",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "activation", "activate"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Onboarding",
+			"item": [
+				{
+					"name": "Complete Onboarding",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"primary_profile\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"email\": \"john.doe@example.com\",\n        \"password\": \"securepassword\",\n        \"mobile\": \"1234567890\",\n        \"date_of_birth\": \"1985-05-20\",\n        \"rceb_flag\": true,\n        \"case_manager\": {\n            \"name\": \"Jane Smith\",\n            \"email\": \"jane.smith@rceb.org\"\n        }\n    },\n    \"family_members\": [\n        {\n            \"first_name\": \"Little\",\n            \"last_name\": \"Doe\",\n            \"date_of_birth\": \"2015-08-10\",\n            \"email\": \"\",\n            \"rceb_flag\": true,\n            \"services\": []\n        }\n    ]\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/onboarding/complete",
+							"host": ["{{baseUrl}}"],
+							"path": ["onboarding", "complete"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Profiles",
+			"item": [
+				{
+					"name": "Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/profile/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["profile", "me"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Family Profiles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/profile/family",
+							"host": ["{{baseUrl}}"],
+							"path": ["profile", "family"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Services",
+			"item": [
+				{
+					"name": "Get All Services",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/services",
+							"host": ["{{baseUrl}}"],
+							"path": ["services"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. Subscriptions",
+			"item": [
+				{
+					"name": "Create Subscription (Membership)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"accountId\": \"{{accountId}}\",\n    \"profileId\": \"{{profileId}}\",\n    \"membershipPlanId\": \"uuid-membership-plan-id\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subscriptions",
+							"host": ["{{baseUrl}}"],
+							"path": ["subscriptions"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Subscription (Addon)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"accountId\": \"{{accountId}}\",\n    \"profileId\": \"{{profileId}}\",\n    \"servicePlanId\": \"uuid-service-plan-id\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subscriptions",
+							"host": ["{{baseUrl}}"],
+							"path": ["subscriptions"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Subscriptions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/subscriptions?accountId={{accountId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["subscriptions"],
+							"query": [
+								{
+									"key": "accountId",
+									"value": "{{accountId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Subscription By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/subscriptions/:subscriptionId",
+							"host": ["{{baseUrl}}"],
+							"path": ["subscriptions", ":subscriptionId"],
+							"variable": [
+								{
+									"key": "subscriptionId",
+									"value": "uuid-subscription-id"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Subscription",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"immediately\": false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/subscriptions/:subscriptionId/cancel",
+							"host": ["{{baseUrl}}"],
+							"path": ["subscriptions", ":subscriptionId", "cancel"],
+							"variable": [
+								{
+									"key": "subscriptionId",
+									"value": "uuid-subscription-id"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "7. Billing",
+			"item": [
+				{
+					"name": "Subscribe (Create Subscription + Invoice)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"accountId\": \"{{accountId}}\",\n    \"profileId\": \"{{profileId}}\",\n    \"servicePlanId\": \"uuid-service-plan-id\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/billing/subscribe",
+							"host": ["{{baseUrl}}"],
+							"path": ["billing", "subscribe"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Invoices",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/billing/invoices?accountId={{accountId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["billing", "invoices"],
+							"query": [
+								{
+									"key": "accountId",
+									"value": "{{accountId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Invoice By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/billing/invoices/:invoiceId?accountId={{accountId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["billing", "invoices", ":invoiceId"],
+							"query": [
+								{
+									"key": "accountId",
+									"value": "{{accountId}}"
+								}
+							],
+							"variable": [
+								{
+									"key": "invoiceId",
+									"value": "uuid-invoice-id"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Pending Invoices",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/billing/invoices/pending/:accountId",
+							"host": ["{{baseUrl}}"],
+							"path": ["billing", "invoices", "pending", ":accountId"],
+							"variable": [
+								{
+									"key": "accountId",
+									"value": "{{accountId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Pay Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"invoiceId\": \"uuid-invoice-id\",\n    \"accountId\": \"{{accountId}}\",\n    \"paymentMethodId\": \"card_visa_1234\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/billing/pay",
+							"host": ["{{baseUrl}}"],
+							"path": ["billing", "pay"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "8. Legal",
+			"item": [
+				{
+					"name": "Get All Contracts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/legal/contracts?accountId={{accountId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["legal", "contracts"],
+							"query": [
+								{
+									"key": "accountId",
+									"value": "{{accountId}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Contract By ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/legal/contracts/:contractId?accountId={{accountId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["legal", "contracts", ":contractId"],
+							"query": [
+								{
+									"key": "accountId",
+									"value": "{{accountId}}"
+								}
+							],
+							"variable": [
+								{
+									"key": "contractId",
+									"value": "uuid-contract-id"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Sign Contract",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{accessToken}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"accountId\": \"{{accountId}}\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/legal/contracts/:contractId/sign",
+							"host": ["{{baseUrl}}"],
+							"path": ["legal", "contracts", ":contractId", "sign"],
+							"variable": [
+								{
+									"key": "contractId",
+									"value": "uuid-contract-id"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "9. Admin",
+			"item": [
+				{
+					"name": "Subscription Types",
+					"item": [
+						{
+							"name": "Create Subscription Type",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"type_name\": \"Monthly\",\n    \"billing_interval_unit\": \"month\",\n    \"billing_interval_count\": 1,\n    \"auto_renew\": true\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/subscription-types",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "subscription-types"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Subscription Types",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/subscription-types",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "subscription-types"]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Services",
+					"item": [
+						{
+							"name": "Create Service",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"service_name\": \"New Swim Class\",\n    \"eligibility_rules\": {\n        \"min_age\": 5,\n        \"max_age\": 65\n    },\n    \"is_active\": true\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/services",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "services"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Services",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/services",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "services"]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Memberships",
+					"item": [
+						{
+							"name": "Create Membership",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"membership_name\": \"Silver Pass\",\n    \"description\": \"Basic access to gym and pool\",\n    \"is_active\": true\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/memberships",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "memberships"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Memberships",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/memberships",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "memberships"]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Service Plans",
+					"item": [
+						{
+							"name": "Create Service Plan",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"service_id\": \"uuid-service-id\",\n    \"subscription_type_id\": \"uuid-subscription-type-id\",\n    \"age_group\": \"child\",\n    \"funding_type\": \"private\",\n    \"price\": 100.00,\n    \"currency\": \"USD\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/service-plans",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "service-plans"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Service Plan",
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"price\": 120.00\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/service-plans/:id",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "service-plans", ":id"],
+									"variable": [
+										{
+											"key": "id",
+											"value": "uuid-service-plan-id"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Service Plans",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/service-plans",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "service-plans"]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Membership Plans",
+					"item": [
+						{
+							"name": "Create Membership Plan",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"membership_id\": \"uuid-membership-id\",\n    \"subscription_type_id\": \"uuid-subscription-type-id\",\n    \"age_group\": \"child\",\n    \"funding_type\": \"private\",\n    \"price\": 3000.00,\n    \"currency\": \"USD\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/membership-plans",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "membership-plans"]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Update Membership Plan",
+							"request": {
+								"method": "PATCH",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"price\": 3500.00\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/membership-plans/:id",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "membership-plans", ":id"],
+									"variable": [
+										{
+											"key": "id",
+											"value": "uuid-membership-plan-id"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Membership Plans",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/membership-plans",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "membership-plans"]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Audit & Search",
+					"item": [
+						{
+							"name": "Search Profiles",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/profiles?q=John&page=1&limit=10&sortBy=created_at&sortOrder=desc",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "profiles"],
+									"query": [
+										{ "key": "q", "value": "John" },
+										{ "key": "page", "value": "1" },
+										{ "key": "limit", "value": "10" },
+										{ "key": "sortBy", "value": "created_at" },
+										{ "key": "sortOrder", "value": "desc" }
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Search Accounts",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/accounts?q=active&page=1&limit=10&sortBy=created_at&sortOrder=desc",
+									"host": ["{{baseUrl}}"],
+									"path": ["admin", "accounts"],
+									"query": [
+										{ "key": "q", "value": "active" },
+										{ "key": "page", "value": "1" },
+										{ "key": "limit", "value": "10" },
+										{ "key": "sortBy", "value": "created_at" },
+										{ "key": "sortOrder", "value": "desc" }
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Search Leads",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/leads?search=&page=1&limit=10&useElasticsearch=true",
+									"host": ["{{baseUrl}}"],
+									"path": ["leads"],
+									"query": [
+										{ "key": "search", "value": "" },
+										{ "key": "page", "value": "1" },
+										{ "key": "limit", "value": "10" },
+										{ "key": "useElasticsearch", "value": "true" }
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "10. Leads",
+			"item": [
+				{
+					"name": "Get All Leads",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/leads?page=1&limit=10&search=&status=&source=",
+							"host": ["{{baseUrl}}"],
+							"path": ["leads"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number"
+								},
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Items per page"
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search query"
+								},
+								{
+									"key": "status",
+									"value": "",
+									"description": "Filter by status: new, contacted, qualified, converted, lost"
+								},
+								{
+									"key": "source",
+									"value": "",
+									"description": "Filter by source"
+								},
+								{
+									"key": "useElasticsearch",
+									"value": "false",
+									"description": "Use Elasticsearch for search"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Lead By ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/leads/:leadId",
+							"host": ["{{baseUrl}}"],
+							"path": ["leads", ":leadId"],
+							"variable": [
+								{
+									"key": "leadId",
+									"value": "uuid-lead-id"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Lead",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"first_name\": \"Jane\",\n    \"last_name\": \"Smith\",\n    \"email\": \"jane.smith@example.com\",\n    \"phone\": \"555-1234\",\n    \"source\": \"website\",\n    \"status\": \"new\",\n    \"company\": \"Example Corp\",\n    \"notes\": \"Interested in swimming lessons\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/leads",
+							"host": ["{{baseUrl}}"],
+							"path": ["leads"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Lead",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"contacted\",\n    \"notes\": \"Called and left voicemail\",\n    \"last_contacted_at\": \"2026-01-27T10:00:00Z\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/leads/:leadId",
+							"host": ["{{baseUrl}}"],
+							"path": ["leads", ":leadId"],
+							"variable": [
+								{
+									"key": "leadId",
+									"value": "uuid-lead-id"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Lead",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/leads/:leadId",
+							"host": ["{{baseUrl}}"],
+							"path": ["leads", ":leadId"],
+							"variable": [
+								{
+									"key": "leadId",
+									"value": "uuid-lead-id"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Lead Statistics",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/leads/stats",
+							"host": ["{{baseUrl}}"],
+							"path": ["leads", "stats"]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "11. Debug",
+			"item": [
+				{
+					"name": "Get Recent Activation Tokens",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/debug/activation-tokens",
+							"host": ["{{baseUrl}}"],
+							"path": ["debug", "activation-tokens"]
+						},
+						"description": "EXTREMELY INSECURE: Only for testing/development. Fetches recent tokens to help bypass email in automation."
+					},
+					"response": []
+				},
+				{
+					"name": "Clear All Database Data",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/debug/clear-db",
+							"host": ["{{baseUrl}}"],
+							"path": ["debug", "clear-db"]
+						},
+						"description": "Wipes all data from supported tables. Use with caution."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "accountId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "profileId",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

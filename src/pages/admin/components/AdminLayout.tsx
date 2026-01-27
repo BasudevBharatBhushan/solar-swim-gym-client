@@ -1,6 +1,6 @@
 import React from 'react';
 
-type AdminView = 'leads' | 'profiles' | 'settings';
+type AdminView = 'leads' | 'accounts' | 'profiles' | 'settings';
 
 interface AdminLayoutProps {
   currentView: AdminView;
@@ -42,7 +42,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewCha
       {/* Sidebar */}
       <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-10 transition-width duration-300">
         <div className="p-6 flex flex-col items-start justify-center space-y-1">
-          <h1 className="text-xl tracking-tighter !text-white uppercase">
+          <h1 className="text-xl tracking-tighter text-white! uppercase">
             Solar Swim & Gym
           </h1>
           <span className="text-xs font-semibold text-white/50 uppercase tracking-widest border-t border-white/10 pt-1 w-full block">
@@ -61,6 +61,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewCha
           >
             <UsersIcon />
             <span className="font-medium">Leads</span>
+          </button>
+
+          <button
+            onClick={() => onViewChange('accounts')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+              currentView === 'accounts' 
+                ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30' 
+                : 'text-gray-400 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <span className="font-medium">Accounts</span>
           </button>
 
           <button
@@ -115,9 +129,9 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewCha
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-gray-50 p-6">
-          <div className="max-w-7xl mx-auto h-full">
-             <div className="bg-white rounded-2xl shadow-sm h-full overflow-hidden border border-gray-100">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+          <div className="max-w-7xl mx-auto">
+             <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
                 {children}
              </div>
           </div>
