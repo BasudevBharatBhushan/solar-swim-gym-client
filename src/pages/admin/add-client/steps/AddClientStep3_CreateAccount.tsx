@@ -27,13 +27,36 @@ export const AddClientStep3_CreateAccount: React.FC<Props> = ({
 
             if (response.success) {
                 setAccountCreatedData(response);
-                onNext();
             } else {
                 setError(response.message || 'Failed to create account.');
+                // Set empty data to allow proceeding even on failure
+                setAccountCreatedData({
+                    success: false,
+                    message: response.message || 'Failed to create account.',
+                    account_id: '',
+                    primary_profile_id: '',
+                    family_member_ids: []
+                });
             }
+            // Always proceed to next step for demo purposes
+            setTimeout(() => {
+                onNext();
+            }, 500);
         } catch (err: any) {
             console.error('Error creating account:', err);
             setError(err.message || 'An unexpected error occurred.');
+            // Set empty data to allow proceeding even on error
+            setAccountCreatedData({
+                success: false,
+                message: err.message || 'An unexpected error occurred.',
+                account_id: '',
+                primary_profile_id: '',
+                family_member_ids: []
+            });
+            // Always proceed to next step for demo purposes
+            setTimeout(() => {
+                onNext();
+            }, 500);
         } finally {
             setSubmitting(false);
         }
