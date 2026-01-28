@@ -190,8 +190,8 @@ export const ServiceManager: React.FC = () => {
                                 <div
                                     key={s.id}
                                     className={`group relative p-5 rounded-2xl cursor-pointer transition-all duration-200 border-2 ${selectedService?.id === s.id
-                                            ? 'bg-white border-green-500 shadow-md ring-1 ring-green-100'
-                                            : 'bg-white border-transparent hover:border-green-200 hover:shadow-sm shadow-sm'
+                                        ? 'bg-white border-green-500 shadow-md ring-1 ring-green-100'
+                                        : 'bg-white border-transparent hover:border-green-200 hover:shadow-sm shadow-sm'
                                         }`}
                                     onClick={() => setSelectedService(s)}
                                 >
@@ -324,7 +324,7 @@ export const ServiceManager: React.FC = () => {
                         <div>
                             <p className="text-sm font-bold text-blue-900 mb-1">Add-On Service Pricing</p>
                             <p className="text-sm text-blue-700 leading-relaxed">
-                                This service price is only applicable if opted as an ADDON. If CORE, these charges will not apply.
+                                This service price is only applicable if opted as an add-on. If bundled with a membership, these charges will not apply.
                             </p>
                         </div>
                     </div>
