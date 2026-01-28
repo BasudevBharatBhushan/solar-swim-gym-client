@@ -324,21 +324,31 @@ export const AddClientStep5_Review: React.FC<Props> = ({
 
             <div className="flex justify-between pt-6 border-t border-gray-100">
                 <button onClick={onPrev} disabled={submitting} className="px-6 py-2 border rounded-xl text-gray-600 font-bold hover:bg-gray-50 transition-colors">Back</button>
-                <button
-                    onClick={handleSave}
-                    disabled={submitting}
-                    className="btn-primary flex items-center shadow-lg disabled:opacity-70"
-                >
-                    {submitting ? (
-                        <>
-                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Saving Subscriptions...
-                        </>
-                    ) : 'Confirm & Activate Subscriptions'}
-                </button>
+                <div className="flex gap-3">
+                    {error && (
+                        <button
+                            onClick={onNext}
+                            className="px-6 py-2 border-2 border-yellow-500 rounded-xl text-yellow-700 font-bold hover:bg-yellow-50 transition-colors"
+                        >
+                            Skip & Continue
+                        </button>
+                    )}
+                    <button
+                        onClick={handleSave}
+                        disabled={submitting}
+                        className="btn-primary flex items-center shadow-lg disabled:opacity-70"
+                    >
+                        {submitting ? (
+                            <>
+                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Saving Subscriptions...
+                            </>
+                        ) : error ? 'Retry' : 'Confirm & Activate Subscriptions'}
+                    </button>
+                </div>
             </div>
         </div>
     );
