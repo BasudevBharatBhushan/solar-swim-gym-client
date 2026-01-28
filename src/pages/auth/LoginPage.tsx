@@ -15,7 +15,7 @@ export const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
+
     try {
       await login({ email, password });
       navigate(from, { replace: true });
@@ -25,31 +25,22 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-brand-primary/10 via-brand-light to-brand-secondary/10">
-      {/* Background Decorative Elements */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10">
-        <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-brand-secondary/5 blur-[100px] animate-pulse" />
-        <div className="absolute top-[60%] -left-[10%] w-[40%] h-[40%] rounded-full bg-brand-primary/10 blur-[100px]" />
-      </div>
-
-      <div className="w-full max-w-md p-8 sm:p-10 relative z-10 glass-panel rounded-3xl animate-slide-up">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-brand-accent mb-2">Solar Swim & Gym</h1>
-          <p className="text-gray-500 font-medium">Welcome back! Please login to continue.</p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-sm border border-gray-200">
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Login</h1>
+          <p className="text-gray-500 text-sm">Solar Swim & Gym Admin Portal</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm flex items-center animate-fade-in">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
+          <div className="mb-6 p-3 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label htmlFor="email" className="block text-sm font-semibold text-gray-700 ml-1">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label htmlFor="email" className="block text-xs font-bold text-gray-400 uppercase mb-1.5 tracking-wider">
               Email Address
             </label>
             <input
@@ -58,18 +49,18 @@ export const LoginPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-5 py-3 rounded-xl border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none"
-              placeholder="you@example.com"
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-1 focus:ring-black focus:border-black transition-all outline-none text-sm"
+              placeholder="name@example.com"
             />
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between items-center ml-1">
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <label htmlFor="password" className="block text-xs font-bold text-gray-400 uppercase tracking-wider">
                 Password
               </label>
-              <Link to="/forgot-password" className="text-xs font-semibold text-brand-primary hover:text-brand-secondary transition-colors">
-                Forgot Password?
+              <Link to="/forgot-password" shaking-text-on-hover="true" className="text-xs text-gray-400 hover:text-black transition-colors">
+                Forgot password?
               </Link>
             </div>
             <input
@@ -78,7 +69,7 @@ export const LoginPage: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-5 py-3 rounded-xl border border-gray-200 bg-white/50 focus:bg-white focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none"
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-1 focus:ring-black focus:border-black transition-all outline-none text-sm"
               placeholder="••••••••"
             />
           </div>
@@ -86,27 +77,17 @@ export const LoginPage: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3.5 px-6 rounded-xl text-white font-bold text-lg shadow-lg shadow-brand-primary/30 transition-all duration-300 transform 
-              ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-brand-primary hover:bg-brand-secondary hover:-translate-y-1 hover:shadow-xl'}`}
+            className={`w-full py-3 px-6 rounded-lg text-white font-semibold text-sm transition-all 
+              ${loading ? 'bg-gray-300 cursor-not-allowed' : 'bg-black hover:bg-gray-800'}`}
           >
-            {loading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Logging in...
-              </span>
-            ) : (
-              'Login'
-            )}
+            {loading ? 'Logging in...' : 'Sign In'}
           </button>
         </form>
 
-        <div className="mt-8 text-center text-sm text-gray-500">
+        <div className="mt-8 pt-6 border-t border-gray-100 text-center text-sm text-gray-500">
           Don't have an account?{' '}
-          <Link to="/onboarding" className="font-bold text-brand-primary hover:text-brand-secondary transition-colors">
-            Sign up now
+          <Link to="/onboarding" className="font-semibold text-black hover:underline">
+            Register
           </Link>
         </div>
       </div>

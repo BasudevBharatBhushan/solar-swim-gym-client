@@ -294,6 +294,7 @@ export const FamilyMembersForm: React.FC<FamilyMembersFormProps> = ({
                                                     onClick={() => {
                                                         updateMember(index, 'guardian_name', `${primaryProfile.first_name} ${primaryProfile.last_name}`);
                                                         updateMember(index, 'guardian_mobile', primaryProfile.mobile);
+                                                        updateMember(index, 'emergency_mobile', primaryProfile.mobile);
                                                     }}
                                                     className="text-[10px] bg-white border border-orange-200 text-orange-700 px-2 py-1 rounded hover:bg-orange-100 transition-colors"
                                                 >
