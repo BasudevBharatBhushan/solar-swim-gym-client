@@ -38,26 +38,25 @@ const LogoutIcon = () => (
 
 export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewChange, onLogout, children }) => {
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-10 transition-width duration-300">
-        <div className="p-6 flex flex-col items-start justify-center space-y-1">
-          <h1 className="text-xl tracking-tighter text-white! uppercase">
+      <div className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm z-10 transition-width duration-300">
+        <div className="p-6 flex flex-col items-start justify-center space-y-2 border-b border-gray-100">
+          <h1 className="text-xl font-bold tracking-tight text-gray-900 uppercase">
             Solar Swim & Gym
           </h1>
-          <span className="text-xs font-semibold text-white/50 uppercase tracking-widest border-t border-white/10 pt-1 w-full block">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">
             Admin Panel
           </span>
         </div>
-        
-        <nav className="flex-1 px-4 space-y-2 mt-4">
+
+        <nav className="flex-1 px-3 space-y-1 mt-4">
           <button
             onClick={() => onViewChange('leads')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-              currentView === 'leads' 
-                ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30' 
-                : 'text-gray-400 hover:bg-slate-800 hover:text-white'
-            }`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'leads'
+                ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
           >
             <UsersIcon />
             <span className="font-medium">Leads</span>
@@ -65,11 +64,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewCha
 
           <button
             onClick={() => onViewChange('accounts')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-              currentView === 'accounts' 
-                ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30' 
-                : 'text-gray-400 hover:bg-slate-800 hover:text-white'
-            }`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'accounts'
+                ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -79,11 +77,10 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewCha
 
           <button
             onClick={() => onViewChange('profiles')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-              currentView === 'profiles' 
-                ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30' 
-                : 'text-gray-400 hover:bg-slate-800 hover:text-white'
-            }`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'profiles'
+                ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
           >
             <UserIcon />
             <span className="font-medium">Profiles</span>
@@ -91,21 +88,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewCha
 
           <button
             onClick={() => onViewChange('settings')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-              currentView === 'settings' 
-                ? 'bg-brand-primary text-white shadow-lg shadow-brand-primary/30' 
-                : 'text-gray-400 hover:bg-slate-800 hover:text-white'
-            }`}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${currentView === 'settings'
+                ? 'bg-blue-50 text-blue-700 font-semibold shadow-sm'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+              }`}
           >
             <CogIcon />
             <span className="font-medium">Settings</span>
           </button>
         </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="p-3 border-t border-gray-100">
           <button
             onClick={onLogout}
-            className="w-full flex items-center space-x-3 px-4 py-2 rounded-lg text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all duration-200"
           >
             <LogoutIcon />
             <span className="font-medium">Logout</span>
@@ -121,19 +117,19 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ currentView, onViewCha
               {currentView} Dashboard
             </h2>
             <div className="flex items-center space-x-4">
-               <span className="text-sm text-gray-500">Welcome, Admin</span>
-               <div className="h-8 w-8 rounded-full bg-brand-secondary text-white flex items-center justify-center font-bold">
-                 A
-               </div>
+              <span className="text-sm text-gray-500">Welcome, Admin</span>
+              <div className="h-8 w-8 rounded-full bg-brand-secondary text-white flex items-center justify-center font-bold">
+                A
+              </div>
             </div>
           </div>
         </header>
 
         <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
           <div className="max-w-7xl mx-auto">
-             <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
-                {children}
-             </div>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
+              {children}
+            </div>
           </div>
         </main>
       </div>
