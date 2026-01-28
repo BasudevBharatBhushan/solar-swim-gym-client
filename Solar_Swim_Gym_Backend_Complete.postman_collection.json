@@ -25,27 +25,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/login",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "login"]
-						}
-					},
-					"response": []
-				},
-				{
-					"name": "Logout",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Authorization",
-								"value": "Bearer {{accessToken}}",
-								"type": "text"
-							}
-						],
-						"url": {
-							"raw": "{{baseUrl}}/auth/logout",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "logout"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"login"
+							]
 						}
 					},
 					"response": []
@@ -62,8 +48,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/auth/activation/validate/:token",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "activation", "validate", ":token"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"activation",
+								"validate",
+								":token"
+							],
 							"variable": [
 								{
 									"key": "token",
@@ -90,8 +83,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/auth/activation/activate",
-							"host": ["{{baseUrl}}"],
-							"path": ["auth", "activation", "activate"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"auth",
+								"activation",
+								"activate"
+							]
 						}
 					},
 					"response": []
@@ -117,8 +116,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/onboarding/complete",
-							"host": ["{{baseUrl}}"],
-							"path": ["onboarding", "complete"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"onboarding",
+								"complete"
+							]
 						}
 					},
 					"response": []
@@ -141,8 +145,13 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/profile/me",
-							"host": ["{{baseUrl}}"],
-							"path": ["profile", "me"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"profile",
+								"me"
+							]
 						}
 					},
 					"response": []
@@ -160,8 +169,13 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/profile/family",
-							"host": ["{{baseUrl}}"],
-							"path": ["profile", "family"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"profile",
+								"family"
+							]
 						}
 					},
 					"response": []
@@ -178,8 +192,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/services",
-							"host": ["{{baseUrl}}"],
-							"path": ["services"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"services"
+							]
 						}
 					},
 					"response": []
@@ -211,8 +229,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/subscriptions",
-							"host": ["{{baseUrl}}"],
-							"path": ["subscriptions"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"subscriptions"
+							]
 						}
 					},
 					"response": []
@@ -239,8 +261,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/subscriptions",
-							"host": ["{{baseUrl}}"],
-							"path": ["subscriptions"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"subscriptions"
+							]
 						}
 					},
 					"response": []
@@ -258,8 +284,12 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/subscriptions?accountId={{accountId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["subscriptions"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"subscriptions"
+							],
 							"query": [
 								{
 									"key": "accountId",
@@ -283,8 +313,13 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/subscriptions/:subscriptionId",
-							"host": ["{{baseUrl}}"],
-							"path": ["subscriptions", ":subscriptionId"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"subscriptions",
+								":subscriptionId"
+							],
 							"variable": [
 								{
 									"key": "subscriptionId",
@@ -317,8 +352,14 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/subscriptions/:subscriptionId/cancel",
-							"host": ["{{baseUrl}}"],
-							"path": ["subscriptions", ":subscriptionId", "cancel"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"subscriptions",
+								":subscriptionId",
+								"cancel"
+							],
 							"variable": [
 								{
 									"key": "subscriptionId",
@@ -350,8 +391,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/billing/subscribe",
-							"host": ["{{baseUrl}}"],
-							"path": ["billing", "subscribe"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"billing",
+								"subscribe"
+							]
 						}
 					},
 					"response": []
@@ -369,8 +415,13 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/billing/invoices?accountId={{accountId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["billing", "invoices"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"billing",
+								"invoices"
+							],
 							"query": [
 								{
 									"key": "accountId",
@@ -394,8 +445,14 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/billing/invoices/:invoiceId?accountId={{accountId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["billing", "invoices", ":invoiceId"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"billing",
+								"invoices",
+								":invoiceId"
+							],
 							"query": [
 								{
 									"key": "accountId",
@@ -419,8 +476,15 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/billing/invoices/pending/:accountId",
-							"host": ["{{baseUrl}}"],
-							"path": ["billing", "invoices", "pending", ":accountId"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"billing",
+								"invoices",
+								"pending",
+								":accountId"
+							],
 							"variable": [
 								{
 									"key": "accountId",
@@ -453,8 +517,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/billing/pay",
-							"host": ["{{baseUrl}}"],
-							"path": ["billing", "pay"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"billing",
+								"pay"
+							]
 						}
 					},
 					"response": []
@@ -477,8 +546,13 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/legal/contracts?accountId={{accountId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["legal", "contracts"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"legal",
+								"contracts"
+							],
 							"query": [
 								{
 									"key": "accountId",
@@ -502,8 +576,14 @@
 						],
 						"url": {
 							"raw": "{{baseUrl}}/legal/contracts/:contractId?accountId={{accountId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["legal", "contracts", ":contractId"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"legal",
+								"contracts",
+								":contractId"
+							],
 							"query": [
 								{
 									"key": "accountId",
@@ -542,8 +622,15 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/legal/contracts/:contractId/sign",
-							"host": ["{{baseUrl}}"],
-							"path": ["legal", "contracts", ":contractId", "sign"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"legal",
+								"contracts",
+								":contractId",
+								"sign"
+							],
 							"variable": [
 								{
 									"key": "contractId",
@@ -578,8 +665,13 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/admin/subscription-types",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "subscription-types"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"subscription-types"
+									]
 								}
 							},
 							"response": []
@@ -591,88 +683,13 @@
 								"header": [],
 								"url": {
 									"raw": "{{baseUrl}}/admin/subscription-types",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "subscription-types"]
-								}
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Services",
-					"item": [
-						{
-							"name": "Create Service",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"service_name\": \"New Swim Class\",\n    \"eligibility_rules\": {\n        \"min_age\": 5,\n        \"max_age\": 65\n    },\n    \"is_active\": true\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/admin/services",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "services"]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Get All Services",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/admin/services",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "services"]
-								}
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Memberships",
-					"item": [
-						{
-							"name": "Create Membership",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"membership_name\": \"Silver Pass\",\n    \"description\": \"Basic access to gym and pool\",\n    \"is_active\": true\n}",
-									"options": {
-										"raw": {
-											"language": "json"
-										}
-									}
-								},
-								"url": {
-									"raw": "{{baseUrl}}/admin/memberships",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "memberships"]
-								}
-							},
-							"response": []
-						},
-						{
-							"name": "Get All Memberships",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/admin/memberships",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "memberships"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"subscription-types"
+									]
 								}
 							},
 							"response": []
@@ -689,7 +706,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"service_id\": \"uuid-service-id\",\n    \"subscription_type_id\": \"uuid-subscription-type-id\",\n    \"age_group\": \"child\",\n    \"funding_type\": \"private\",\n    \"price\": 100.00,\n    \"currency\": \"USD\"\n}",
+									"raw": "{\n    \"service_id\": \"uuid-service-id\",\n    \"subscription_type_id\": \"uuid-subscription-type-id\",\n    \"age_group\": \"Child (6–12)\",\n    \"funding_type\": \"private\",\n    \"price\": 100.00,\n    \"currency\": \"USD\"\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -698,8 +715,13 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/admin/service-plans",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "service-plans"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"service-plans"
+									]
 								}
 							},
 							"response": []
@@ -720,8 +742,14 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/admin/service-plans/:id",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "service-plans", ":id"],
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"service-plans",
+										":id"
+									],
 									"variable": [
 										{
 											"key": "id",
@@ -739,8 +767,174 @@
 								"header": [],
 								"url": {
 									"raw": "{{baseUrl}}/admin/service-plans",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "service-plans"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"service-plans"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Services (Admin)",
+					"item": [
+						{
+							"name": "Create Service",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"service_name\": \"Swimming Lessons\",\n    \"eligibility_rules\": {}\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/services",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"services"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Services (Admin)",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/services",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"services"
+									]
+								}
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Memberships",
+					"item": [
+						{
+							"name": "Create Membership",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"membership_name\": \"Premium Gold\",\n    \"description\": \"Comprehensive access to all facilities\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/memberships",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"memberships"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get All Memberships",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/memberships",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"memberships"
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Assign Service to Membership (Bundle)",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"serviceId\": \"uuid-service-id\",\n    \"accessType\": \"CORE\"\n}",
+									"options": {
+										"raw": {
+											"language": "json"
+										}
+									}
+								},
+								"url": {
+									"raw": "{{baseUrl}}/admin/memberships/:id/services",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"memberships",
+										":id",
+										"services"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "uuid-membership-id"
+										}
+									]
+								}
+							},
+							"response": []
+						},
+						{
+							"name": "Get Membership Services",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/admin/memberships/:id/services",
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"memberships",
+										":id",
+										"services"
+									],
+									"variable": [
+										{
+											"key": "id",
+											"value": "uuid-membership-id"
+										}
+									]
 								}
 							},
 							"response": []
@@ -757,7 +951,7 @@
 								"header": [],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"membership_id\": \"uuid-membership-id\",\n    \"subscription_type_id\": \"uuid-subscription-type-id\",\n    \"age_group\": \"child\",\n    \"funding_type\": \"private\",\n    \"price\": 3000.00,\n    \"currency\": \"USD\"\n}",
+									"raw": "{\n    \"membership_id\": \"uuid-membership-id\",\n    \"subscription_type_id\": \"uuid-subscription-type-id\",\n    \"age_group\": \"Child (6–12)\",\n    \"funding_type\": \"private\",\n    \"price\": 3000.00,\n    \"currency\": \"USD\"\n}",
 									"options": {
 										"raw": {
 											"language": "json"
@@ -766,8 +960,13 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/admin/membership-plans",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "membership-plans"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"membership-plans"
+									]
 								}
 							},
 							"response": []
@@ -788,8 +987,14 @@
 								},
 								"url": {
 									"raw": "{{baseUrl}}/admin/membership-plans/:id",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "membership-plans", ":id"],
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"membership-plans",
+										":id"
+									],
 									"variable": [
 										{
 											"key": "id",
@@ -807,8 +1012,13 @@
 								"header": [],
 								"url": {
 									"raw": "{{baseUrl}}/admin/membership-plans",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "membership-plans"]
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"membership-plans"
+									]
 								}
 							},
 							"response": []
@@ -825,14 +1035,34 @@
 								"header": [],
 								"url": {
 									"raw": "{{baseUrl}}/admin/profiles?q=John&page=1&limit=10&sortBy=created_at&sortOrder=desc",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "profiles"],
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"profiles"
+									],
 									"query": [
-										{ "key": "q", "value": "John" },
-										{ "key": "page", "value": "1" },
-										{ "key": "limit", "value": "10" },
-										{ "key": "sortBy", "value": "created_at" },
-										{ "key": "sortOrder", "value": "desc" }
+										{
+											"key": "q",
+											"value": "John"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "sortBy",
+											"value": "created_at"
+										},
+										{
+											"key": "sortOrder",
+											"value": "desc"
+										}
 									]
 								}
 							},
@@ -845,14 +1075,34 @@
 								"header": [],
 								"url": {
 									"raw": "{{baseUrl}}/admin/accounts?q=active&page=1&limit=10&sortBy=created_at&sortOrder=desc",
-									"host": ["{{baseUrl}}"],
-									"path": ["admin", "accounts"],
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"admin",
+										"accounts"
+									],
 									"query": [
-										{ "key": "q", "value": "active" },
-										{ "key": "page", "value": "1" },
-										{ "key": "limit", "value": "10" },
-										{ "key": "sortBy", "value": "created_at" },
-										{ "key": "sortOrder", "value": "desc" }
+										{
+											"key": "q",
+											"value": "active"
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "sortBy",
+											"value": "created_at"
+										},
+										{
+											"key": "sortOrder",
+											"value": "desc"
+										}
 									]
 								}
 							},
@@ -865,13 +1115,29 @@
 								"header": [],
 								"url": {
 									"raw": "{{baseUrl}}/leads?search=&page=1&limit=10&useElasticsearch=true",
-									"host": ["{{baseUrl}}"],
-									"path": ["leads"],
+									"host": [
+										"{{baseUrl}}"
+									],
+									"path": [
+										"leads"
+									],
 									"query": [
-										{ "key": "search", "value": "" },
-										{ "key": "page", "value": "1" },
-										{ "key": "limit", "value": "10" },
-										{ "key": "useElasticsearch", "value": "true" }
+										{
+											"key": "search",
+											"value": ""
+										},
+										{
+											"key": "page",
+											"value": "1"
+										},
+										{
+											"key": "limit",
+											"value": "10"
+										},
+										{
+											"key": "useElasticsearch",
+											"value": "true"
+										}
 									]
 								}
 							},
@@ -891,8 +1157,12 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/leads?page=1&limit=10&search=&status=&source=",
-							"host": ["{{baseUrl}}"],
-							"path": ["leads"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"leads"
+							],
 							"query": [
 								{
 									"key": "page",
@@ -936,8 +1206,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/leads/:leadId",
-							"host": ["{{baseUrl}}"],
-							"path": ["leads", ":leadId"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"leads",
+								":leadId"
+							],
 							"variable": [
 								{
 									"key": "leadId",
@@ -964,8 +1239,12 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/leads",
-							"host": ["{{baseUrl}}"],
-							"path": ["leads"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"leads"
+							]
 						}
 					},
 					"response": []
@@ -986,8 +1265,13 @@
 						},
 						"url": {
 							"raw": "{{baseUrl}}/leads/:leadId",
-							"host": ["{{baseUrl}}"],
-							"path": ["leads", ":leadId"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"leads",
+								":leadId"
+							],
 							"variable": [
 								{
 									"key": "leadId",
@@ -1005,8 +1289,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/leads/:leadId",
-							"host": ["{{baseUrl}}"],
-							"path": ["leads", ":leadId"],
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"leads",
+								":leadId"
+							],
 							"variable": [
 								{
 									"key": "leadId",
@@ -1024,8 +1313,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/leads/stats",
-							"host": ["{{baseUrl}}"],
-							"path": ["leads", "stats"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"leads",
+								"stats"
+							]
 						}
 					},
 					"response": []
@@ -1042,8 +1336,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/debug/activation-tokens",
-							"host": ["{{baseUrl}}"],
-							"path": ["debug", "activation-tokens"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"debug",
+								"activation-tokens"
+							]
 						},
 						"description": "EXTREMELY INSECURE: Only for testing/development. Fetches recent tokens to help bypass email in automation."
 					},
@@ -1056,8 +1355,13 @@
 						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/debug/clear-db",
-							"host": ["{{baseUrl}}"],
-							"path": ["debug", "clear-db"]
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"debug",
+								"clear-db"
+							]
 						},
 						"description": "Wipes all data from supported tables. Use with caution."
 					},

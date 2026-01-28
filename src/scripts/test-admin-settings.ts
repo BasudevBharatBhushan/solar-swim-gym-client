@@ -6,7 +6,7 @@
 const BASE_URL = 'http://localhost:3000/api/v1';
 
 // Credentials - Replace with actual admin credentials if known
-const EMAIL = 'mfsi.basudevb@gmail.com'; 
+const EMAIL = 'mfsi.basudevb@gmail.com';
 const PASSWORD = '123456';
 
 async function testAdminAPIs() {
@@ -20,7 +20,7 @@ async function testAdminAPIs() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: EMAIL, password: PASSWORD })
         });
-        
+
         if (!loginRes.ok) {
             console.error('Login failed:', await loginRes.text());
             return;
@@ -81,8 +81,8 @@ async function testAdminAPIs() {
         const getRes = await fetch(`${BASE_URL}/admin/services`, { headers });
         console.log('GET /admin/services status:', getRes.status);
         if (getRes.ok) {
-            const data = await getRes.json();
-             // console.log('Services (GET):', JSON.stringify(data, null, 2));
+            // const data = await getRes.json();
+            // console.log('Services (GET):', JSON.stringify(data, null, 2));
         }
 
         // POST
@@ -99,9 +99,9 @@ async function testAdminAPIs() {
         if (postRes.ok) {
             const data = await postRes.json();
             console.log('Service (POST):', JSON.stringify(data, null, 2));
-             serviceId = data.id || data.service_id;
+            serviceId = data.id || data.service_id;
         } else {
-             console.error('Failed to create service:', await postRes.text());
+            console.error('Failed to create service:', await postRes.text());
         }
     } catch (e) { console.error(e); }
 
@@ -111,7 +111,7 @@ async function testAdminAPIs() {
     try {
         const getRes = await fetch(`${BASE_URL}/admin/memberships`, { headers });
         console.log('GET /admin/memberships status:', getRes.status);
-        
+
         const postRes = await fetch(`${BASE_URL}/admin/memberships`, {
             method: 'POST',
             headers,
@@ -123,7 +123,7 @@ async function testAdminAPIs() {
         });
         console.log('POST /admin/memberships status:', postRes.status);
         if (postRes.ok) {
-             const data = await postRes.json();
+            const data = await postRes.json();
             console.log('Membership (POST):', JSON.stringify(data, null, 2));
             membershipId = data.id || data.membership_id;
         } else {
@@ -132,22 +132,22 @@ async function testAdminAPIs() {
     } catch (e) { console.error(e); }
 
     // --- Service Plans ---
-     console.log('\n[5] Testing Service Plans...');
+    console.log('\n[5] Testing Service Plans...');
     try {
         if (serviceId && subscriptionTypeId) {
-             // Probe common age groups and user specific terms
-             const groupsToTest = [
-                'adult', 'child', 'senior', 
+            // Probe common age groups and user specific terms
+            const groupsToTest = [
+                'adult', 'child', 'senior',
                 'teen', 'individual', 'individual_plus', 'senior_65', 'add_18', '13_17', '6_12',
                 'Adult', 'Child', 'Senior', 'Individual', 'Individual Plus'
-             ];
-             
-             for (const group of groupsToTest) {
+            ];
+
+            for (const group of groupsToTest) {
                 console.log(`Testing age_group: ${group}`);
                 const payload = {
                     service_id: serviceId,
                     subscription_type_id: subscriptionTypeId,
-                    age_group: group, 
+                    age_group: group,
                     funding_type: "private",
                     price: 15.50,
                     currency: "USD"
@@ -162,28 +162,28 @@ async function testAdminAPIs() {
                 if (postRes.ok) {
                     console.log(`SUCCESS: Valid age_group found: ${group}`);
                 } else {
-                     // console.log(`Failed for ${group}:`, await postRes.text());
+                    // console.log(`Failed for ${group}:`, await postRes.text());
                 }
-             }
+            }
         }
 
     } catch (e) { console.error(e); }
 
     // --- Membership Plans ---
-     console.log('\n[6] Testing Membership Plans...');
+    console.log('\n[6] Testing Membership Plans...');
     try {
         if (membershipId && subscriptionTypeId) {
             // Trying 'senior' based on guess
             const payload = {
                 membership_id: membershipId,
                 subscription_type_id: subscriptionTypeId,
-                age_group: "senior", 
+                age_group: "senior",
                 funding_type: "private",
                 price: 99.99,
                 currency: "USD"
             };
-            
-             const postRes = await fetch(`${BASE_URL}/admin/membership-plans`, {
+
+            const postRes = await fetch(`${BASE_URL}/admin/membership-plans`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify(payload)

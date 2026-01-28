@@ -1,35 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { adminService } from '../../../services/admin.service';
+import type { Lead } from '../../../types/api.types';
 
-interface Lead {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  source?: string;
-  status: string;
-  company?: string;
-  notes?: string;
-  created_at: string;
-}
-
-interface SearchParams {
+interface ViewSearchParams {
   search: string;
   page: number;
   limit: number;
   status?: string;
   source?: string;
   useElasticsearch: boolean;
-}
-
-interface NewLeadForm {
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  source: string;
-  company: string;
-  notes: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 export const LeadsView: React.FC = () => {
@@ -38,14 +19,16 @@ export const LeadsView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [searchParams, setSearchParams] = useState<SearchParams>({
+  const [searchParams, setSearchParams] = useState<ViewSearchParams>({
     search: '',
     page: 1,
     limit: 10,
-    useElasticsearch: true
+    useElasticsearch: true,
+    sortBy: 'created_at',
+    sortOrder: 'desc'
   });
   const [totalResults, setTotalResults] = useState(0);
-  const [newLead, setNewLead] = useState<NewLeadForm>({
+  const [newLead, setNewLead] = useState({
     first_name: '',
     last_name: '',
     email: '',
@@ -59,27 +42,13 @@ export const LeadsView: React.FC = () => {
   const fetchLeads = async () => {
     setLoading(true);
     try {
-      // const params = new URLSearchParams({
-      //   search: searchParams.search,
-      //   page: searchParams.page.toString(),
-      //   limit: searchParams.limit.toString(),
-      //   useElasticsearch: searchParams.useElasticsearch.toString()
-      // });
-
-      // if (searchParams.status) params.append('status', searchParams.status);
-      // if (searchParams.source) params.append('source', searchParams.source);
-
-      // TODO: Replace with actual API endpoint
-      // const response = await fetch(`/api/v1/leads?${params}`);
-      // const data = await response.json();
-      // setLeads(data.results || []);
-      // setTotalResults(data.total || 0);
-      
-      // For now, load empty
-      setLeads([]);
-      setTotalResults(0);
+      const response = await adminService.getLeads(searchParams as any);
+      setLeads(response.results || []);
+      setTotalResults(response.total || 0);
     } catch (error) {
       console.error('Error fetching leads:', error);
+      setLeads([]);
+      setTotalResults(0);
     } finally {
       setLoading(false);
     }
@@ -90,7 +59,7 @@ export const LeadsView: React.FC = () => {
   }, [searchParams]);
 
   const toggleLead = (id: string) => {
-    setSelectedLeads(prev => 
+    setSelectedLeads(prev =>
       prev.includes(id) ? prev.filter(leadId => leadId !== id) : [...prev, id]
     );
   };
@@ -102,6 +71,15 @@ export const LeadsView: React.FC = () => {
 
   const handleSearch = (value: string) => {
     setSearchParams(prev => ({ ...prev, search: value, page: 1 }));
+  };
+
+  const handleSort = (field: string) => {
+    setSearchParams(prev => ({
+      ...prev,
+      sortBy: field,
+      sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc',
+      page: 1
+    }));
   };
 
   const handleShowAll = () => {
@@ -129,7 +107,8 @@ export const LeadsView: React.FC = () => {
       //     notes: ''
       //   });
       // }
-      
+
+
       console.log('Adding lead:', newLead);
       alert('Lead creation will be implemented with API integration');
       setShowAddModal(false);
@@ -143,47 +122,59 @@ export const LeadsView: React.FC = () => {
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
-      <div className="p-4 border-b border-gray-100 bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center space-x-2">
-            <h3 className="text-lg font-medium text-gray-900">Leads List</h3>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50">
+        <div className="flex justify-between items-center mb-5">
+          <div className="flex items-center space-x-3">
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Leads Management</h3>
+              <p className="text-sm text-gray-500 mt-0.5">Track and manage your sales leads</p>
+            </div>
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-sm">
               {totalResults} Total
             </span>
-            
+
             {selectedLeads.length > 0 && (
-              <div className="flex space-x-3 animate-fade-in pl-4 ml-4 border-l border-gray-200">
+              <div className="flex space-x-2 animate-fade-in pl-4 ml-4 border-l-2 border-indigo-200">
+                <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-100 text-indigo-700">
+                  {selectedLeads.length} selected
+                </span>
                 <button
                   onClick={() => handleAction('Add to Campaign')}
-                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all shadow-sm hover:shadow"
                 >
+                  <svg className="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
                   Add to Campaign
                 </button>
                 <button
                   onClick={() => handleAction('Send Email')}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                  className="inline-flex items-center px-3 py-1.5 border-2 border-indigo-200 text-xs font-semibold rounded-lg text-indigo-700 bg-white hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
                 >
+                  <svg className="h-3.5 w-3.5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
                   Send Email
                 </button>
               </div>
             )}
           </div>
-          
-          <div className="flex items-center space-x-3">
+
+          <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowImportModal(true)}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+              className="inline-flex items-center px-4 py-2 border-2 border-gray-200 text-sm font-semibold rounded-lg text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all shadow-sm"
             >
-              <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
               </svg>
-              Import Leads
+              Import
             </button>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all shadow-md hover:shadow-lg"
             >
-              <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               Add New Lead
@@ -193,19 +184,24 @@ export const LeadsView: React.FC = () => {
 
         {/* Search and Filters */}
         <div className="flex space-x-3">
-          <div className="flex-1">
+          <div className="flex-1 relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
             <input
               type="text"
-              placeholder="Search leads..."
+              placeholder="Search by name, email, phone, or company..."
               value={searchParams.search}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-shadow text-sm"
             />
           </div>
           <select
             value={searchParams.status || ''}
             onChange={(e) => setSearchParams(prev => ({ ...prev, status: e.target.value || undefined, page: 1 }))}
-            className="px-4 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            className="px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm bg-white text-sm font-medium transition-all hover:border-gray-400"
           >
             <option value="">All Status</option>
             <option value="new">New</option>
@@ -216,7 +212,7 @@ export const LeadsView: React.FC = () => {
           </select>
           <button
             onClick={handleShowAll}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="px-5 py-2.5 border-2 border-gray-200 rounded-lg text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 shadow-sm transition-all"
           >
             Show All
           </button>
@@ -242,12 +238,12 @@ export const LeadsView: React.FC = () => {
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
-                  <input 
-                    type="checkbox" 
-                    className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary"
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-brand-primary focus:ring-brand-primary cursor-pointer"
                     checked={selectedLeads.length === leads.length && leads.length > 0}
                     onChange={(e) => {
-                      if(e.target.checked) {
+                      if (e.target.checked) {
                         setSelectedLeads(leads.map(l => l.id));
                       } else {
                         setSelectedLeads([]);
@@ -255,17 +251,72 @@ export const LeadsView: React.FC = () => {
                     }}
                   />
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('first_name')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Name</span>
+                    {searchParams.sortBy === 'first_name' && (
+                      <span>{searchParams.sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('email')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Contact Details</span>
+                    {searchParams.sortBy === 'email' && (
+                      <span>{searchParams.sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('company')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Company / Business</span>
+                    {searchParams.sortBy === 'company' && (
+                      <span>{searchParams.sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('status')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Lead Status</span>
+                    {searchParams.sortBy === 'status' && (
+                      <span>{searchParams.sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={() => handleSort('created_at')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Created Date</span>
+                    {searchParams.sortBy === 'created_at' && (
+                      <span>{searchParams.sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {leads.map((lead) => (
-                <tr 
-                  key={lead.id} 
+                <tr
+                  key={lead.id}
                   className={`hover:bg-blue-50/50 transition-colors ${selectedLeads.includes(lead.id) ? 'bg-blue-50' : ''}`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -278,32 +329,35 @@ export const LeadsView: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="h-8 w-8 rounded-full bg-linear-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-bold text-xs mr-3">
-                        {lead.first_name.charAt(0)}{lead.last_name.charAt(0)}
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm mr-3 shadow-md ring-2 ring-white">
+                        {lead.first_name?.charAt(0) || ''}{lead.last_name?.charAt(0) || ''}
                       </div>
-                      <div className="text-sm font-medium text-gray-900">{lead.first_name} {lead.last_name}</div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-900">{lead.first_name} {lead.last_name}</div>
+                        <div className="text-xs text-gray-500">Lead ID: {lead.id.substring(0, 8)}...</div>
+                      </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{lead.email}</div>
-                    <div className="text-sm text-gray-500">{lead.phone}</div>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <div className="text-gray-900 font-medium">{lead.email}</div>
+                    <div className="text-gray-500">{lead.phone}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    <div className="font-medium text-gray-900">{lead.company || '-'}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{lead.company || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      lead.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                      lead.status === 'contacted' ? 'bg-yellow-100 text-yellow-800' :
-                      lead.status === 'qualified' ? 'bg-purple-100 text-purple-800' :
-                      lead.status === 'converted' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`inline-flex items-center px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-full shadow-sm ${lead.status === 'new' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' :
+                        lead.status === 'contacted' ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-gray-900' :
+                          lead.status === 'qualified' ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white' :
+                            lead.status === 'converted' ? 'bg-gradient-to-r from-green-500 to-green-600 text-white' :
+                              'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
+                      }`}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-white mr-1.5 animate-pulse"></span>
                       {lead.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {lead.source || '-'}
+                    {lead.created_at ? new Date(lead.created_at).toLocaleDateString() : '-'}
                   </td>
                 </tr>
               ))}
@@ -313,29 +367,54 @@ export const LeadsView: React.FC = () => {
       </div>
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="px-6 py-4 border-t border-gray-200 bg-white flex items-center justify-between">
-          <div className="text-sm text-gray-700">
-            Showing page {searchParams.page} of {totalPages} ({totalResults} total results)
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setSearchParams(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
-              disabled={searchParams.page === 1}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setSearchParams(prev => ({ ...prev, page: Math.min(totalPages, prev.page + 1) }))}
-              disabled={searchParams.page === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
-          </div>
+      <div className="px-6 py-4 border-t border-gray-200 bg-white flex items-center justify-between shadow-xs">
+        <div className="text-sm text-gray-700 font-medium">
+          Showing <span className="text-gray-900">{(searchParams.page - 1) * searchParams.limit + 1}</span> to <span className="text-gray-900">{Math.min(searchParams.page * searchParams.limit, totalResults)}</span> of <span className="text-gray-900">{totalResults}</span> results
         </div>
-      )}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setSearchParams(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+            disabled={searchParams.page === 1 || loading}
+            className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Previous
+          </button>
+
+          <div className="flex items-center space-x-1 px-2">
+            {[...Array(Math.min(5, totalPages))].map((_, i) => {
+              const pageNum = i + 1;
+              // Simple pagination logic for now
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setSearchParams(prev => ({ ...prev, page: pageNum }))}
+                  className={`w-8 h-8 flex items-center justify-center rounded-md text-xs font-bold transition-all ${searchParams.page === pageNum
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            {totalPages > 5 && <span className="px-1 text-gray-400">...</span>}
+          </div>
+
+          <button
+            onClick={() => setSearchParams(prev => ({ ...prev, page: Math.min(totalPages, prev.page + 1) }))}
+            disabled={searchParams.page === totalPages || totalPages === 0 || loading}
+            className="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+            <svg className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
 
       {/* Add Lead Modal */}
       {showAddModal && (

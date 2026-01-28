@@ -8,6 +8,7 @@ import './App.css'
 
 import { OnboardingLayout } from "./pages/onboarding/OnboardingLayout";
 import { AdminPage } from "./pages/admin/AdminPage";
+import { AddClientLayout } from "./pages/admin/add-client/AddClientLayout";
 
 function Home() {
   const { isAuthenticated } = useAuth();
@@ -25,14 +26,15 @@ function App() {
       <Route path="/activate/:token" element={<ActivationPage />} />
       <Route path="/onboarding/*" element={<OnboardingLayout />} />
       <Route path="/admin" element={<AdminPage />} />
-      
-      <Route 
-        path="/dashboard" 
+      <Route path="/admin/add-client/*" element={<AddClientLayout />} />
+
+      <Route
+        path="/dashboard"
         element={
           <ProtectedRoute>
             <DashboardPage />
           </ProtectedRoute>
-        } 
+        }
       />
     </Routes>
   )

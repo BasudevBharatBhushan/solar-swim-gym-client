@@ -16,24 +16,24 @@ export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/login',
   },
-  
+
   // Onboarding endpoints
   ONBOARDING: {
     COMPLETE: '/onboarding/complete',
   },
-  
+
   // Activation endpoints
   ACTIVATION: {
     VALIDATE: (token: string) => `/activation/validate/${token}`,
     ACTIVATE: '/activation/activate',
   },
-  
+
   // Profile endpoints
   PROFILES: {
     ME: '/profiles/me',
     FAMILY: '/profiles/family',
   },
-  
+
   // Services endpoints
   SERVICES: {
     LIST: '/services',
@@ -46,6 +46,14 @@ export const API_ENDPOINTS = {
     MEMBERSHIPS: '/admin/memberships',
     SERVICE_PLANS: '/admin/service-plans',
     MEMBERSHIP_PLANS: '/admin/membership-plans',
+    PROFILES: '/admin/profiles',
+    ACCOUNTS: '/admin/accounts',
+  },
+
+  // Leads endpoints
+  LEADS: {
+    LIST: '/leads',
+    STATS: '/leads/stats',
   }
 } as const;
 
