@@ -14,8 +14,7 @@ export const AGE_GROUPS_UI = [
     'Individual Plus',
     'Senior (65+)',
     'Adult (18+)',
-    'Teen (13–17)',
-    'Child (6–12)',
+    'Child (6–17)',
     'Infant (0–5)'
 ] as const;
 
@@ -23,13 +22,12 @@ export const AGE_GROUPS_UI = [
 export type AgeGroupUI = typeof AGE_GROUPS_UI[number];
 
 // Type for backend age groups (exact values from database schema)
-export type AgeGroupDB = 
+export type AgeGroupDB =
     | 'Individual'
     | 'Individual Plus'
     | 'Senior (65+)'
     | 'Adult (18+)'
-    | 'Teen (13–17)'
-    | 'Child (6–12)'
+    | 'Child (6–17)'
     | 'Infant (0–5)';
 
 // Mapping from UI labels to backend database values
@@ -39,8 +37,7 @@ export const AGE_GROUP_UI_TO_DB: Record<AgeGroupUI, AgeGroupDB> = {
     'Individual Plus': 'Individual Plus',
     'Senior (65+)': 'Senior (65+)',
     'Adult (18+)': 'Adult (18+)',
-    'Teen (13–17)': 'Teen (13–17)',
-    'Child (6–12)': 'Child (6–12)',
+    'Child (6–17)': 'Child (6–17)',
     'Infant (0–5)': 'Infant (0–5)'
 };
 
@@ -50,8 +47,7 @@ export const AGE_GROUP_DB_TO_UI: Record<AgeGroupDB, AgeGroupUI> = {
     'Individual Plus': 'Individual Plus',
     'Senior (65+)': 'Senior (65+)',
     'Adult (18+)': 'Adult (18+)',
-    'Teen (13–17)': 'Teen (13–17)',
-    'Child (6–12)': 'Child (6–12)',
+    'Child (6–17)': 'Child (6–17)',
     'Infant (0–5)': 'Infant (0–5)'
 };
 
@@ -103,6 +99,6 @@ export function isValidAgeGroupUi(value: string): value is AgeGroupUI {
 
 // Example usage:
 // import { mapAgeGroupToDb, mapAgeGroupToUi } from './ageGroupConstants';
-// 
+//
 // const dbValue = mapAgeGroupToDb('Individual'); // Returns: 'Individual'
 // const uiLabel = mapAgeGroupToUi('Senior (65+)'); // Returns: 'Senior (65+)'

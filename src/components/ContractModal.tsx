@@ -20,11 +20,11 @@ interface ContractModalProps {
   onPaymentComplete: () => void;
 }
 
-export const ContractModal: React.FC<ContractModalProps> = ({ 
-  data, 
-  servicesMap, 
+export const ContractModal: React.FC<ContractModalProps> = ({
+  data,
+  servicesMap,
   onClose,
-  onPaymentComplete 
+  onPaymentComplete
 }) => {
   const [clients, setClients] = useState<ClientContract[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -36,7 +36,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
   // Initialize clients from data
   useEffect(() => {
     const clientsList: ClientContract[] = [];
-    
+
     // Add primary profile
     clientsList.push({
       id: 'primary',
@@ -70,11 +70,10 @@ export const ContractModal: React.FC<ContractModalProps> = ({
   const getAgeCategoryLabel = (dob: string): string => {
     const age = getAge(dob);
     const category = getAgeCategory(dob);
-    
+
     if (category === 'senior') return `Senior (${age} years, 65+)`;
     if (category === 'adult') return `Adult (${age} years, 18+)`;
-    if (category === 'teen') return `Teen (${age} years, 13-17)`;
-    return `Child (${age} years, 6mo-12yr)`;
+    return `Child (${age} years, 6-17)`;
   };
 
   const getTenureLabel = (tenure?: string): string => {
@@ -166,7 +165,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
     // Signature is valid (could save to state if needed for backend submission)
 
     // Mark current client as signed
-    setClients(prev => prev.map(c => 
+    setClients(prev => prev.map(c =>
       c.id === selectedClientId ? { ...c, signed: true } : c
     ));
 
@@ -243,7 +242,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
                         </span>
                       )}
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-gray-600 font-medium">Client Name:</span>
@@ -299,14 +298,14 @@ export const ContractModal: React.FC<ContractModalProps> = ({
                   {/* Dummy Contract Content */}
                   <div className="bg-white border border-gray-200 rounded-xl p-6 text-sm text-gray-700 leading-relaxed">
                     <h4 className="font-bold text-lg text-gray-800 mb-4">Terms and Conditions</h4>
-                    
+
                     <p className="mb-4">
                       This Membership Agreement ("Agreement") is entered into between Solar Swim & Gym ("Facility") and <strong>{selectedClient.name}</strong> ("Member").
                     </p>
 
                     <h5 className="font-bold text-gray-800 mt-6 mb-2">1. Membership Details</h5>
                     <p className="mb-4">
-                      The Member is enrolling in a <strong>{selectedClient.tenure}</strong> membership plan. 
+                      The Member is enrolling in a <strong>{selectedClient.tenure}</strong> membership plan.
                       The Member falls under the <strong>{selectedClient.ageGroup}</strong> category.
                       {selectedClient.rcebFlag && ' This membership is designated as an RCEB-funded membership.'}
                     </p>
@@ -349,8 +348,8 @@ export const ContractModal: React.FC<ContractModalProps> = ({
                       <>
                         <h5 className="font-bold text-gray-800 mt-6 mb-2">7. RCEB Funding Acknowledgment</h5>
                         <p className="mb-4">
-                          The Member acknowledges that this membership is funded through the Regional Center of the East Bay (RCEB). 
-                          The Member agrees to comply with all RCEB requirements and reporting obligations. 
+                          The Member acknowledges that this membership is funded through the Regional Center of the East Bay (RCEB).
+                          The Member agrees to comply with all RCEB requirements and reporting obligations.
                           Case Manager: <strong>{selectedClient.caseManager?.name}</strong> ({selectedClient.caseManager?.email}).
                         </p>
                       </>
@@ -407,17 +406,16 @@ export const ContractModal: React.FC<ContractModalProps> = ({
                 {clients.filter(c => c.signed).length} of {clients.length} signed
               </p>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {clients.map((client) => (
                 <button
                   key={client.id}
                   onClick={() => setSelectedClientId(client.id)}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    selectedClientId === client.id
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${selectedClientId === client.id
                       ? 'border-brand-primary bg-brand-primary/5 shadow-md'
                       : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -456,7 +454,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
                     <p className="text-xs text-gray-500 mt-1">{paymentProgress}%</p>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                    <div 
+                    <div
                       className="bg-linear-to-r from-brand-primary to-brand-secondary h-full transition-all duration-300 ease-out"
                       style={{ width: `${paymentProgress}%` }}
                     />
@@ -467,11 +465,10 @@ export const ContractModal: React.FC<ContractModalProps> = ({
                   <button
                     onClick={handlePay}
                     disabled={!allSigned}
-                    className={`w-full py-3 rounded-xl font-bold text-white transition-all ${
-                      allSigned
+                    className={`w-full py-3 rounded-xl font-bold text-white transition-all ${allSigned
                         ? 'bg-linear-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
                         : 'bg-gray-300 cursor-not-allowed'
-                    }`}
+                      }`}
                   >
                     {allSigned ? 'Pay Now' : 'Complete All Contracts'}
                   </button>
@@ -482,7 +479,7 @@ export const ContractModal: React.FC<ContractModalProps> = ({
                   )}
                 </>
               )}
-              
+
               <button
                 onClick={onClose}
                 disabled={isProcessingPayment}

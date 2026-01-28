@@ -52,7 +52,7 @@ async function testEndpoint(
 
         const response = await fetch(`${BASE_URL}${endpoint}`, options);
         const contentType = response.headers.get('content-type');
-        
+
         let data;
         if (contentType?.includes('application/json')) {
             data = await response.json();
@@ -92,7 +92,7 @@ async function main() {
     console.log('[1] Testing Subscription Types...');
     const subTypesGet = await testEndpoint('/admin/subscription-types', 'GET');
     logResult(subTypesGet);
-    
+
     if (subTypesGet.success) {
         console.log('   Sample data:', JSON.stringify(subTypesGet.data, null, 2).substring(0, 200));
     }
@@ -139,7 +139,7 @@ async function main() {
 
     // Step 5: Test Service Plans with different age_group values
     console.log('[4] Testing Service Plans with various age_group values...');
-    
+
     if (serviceId && subscriptionTypeId) {
         const ageGroupsToTest = [
             // Exact values from new schema
@@ -147,8 +147,7 @@ async function main() {
             'Individual Plus',
             'Senior (65+)',
             'Adult (18+)',
-            'Teen (13–17)',
-            'Child (6–12)',
+            'Child (6–17)',
             'Infant (0–5)'
         ];
 
@@ -162,10 +161,10 @@ async function main() {
                 price: 10.00,
                 currency: 'USD'
             });
-            
+
             const icon = result.success ? '✅' : '❌';
             console.log(`   ${icon} Status: ${result.status}`);
-            
+
             if (result.success) {
                 console.log(`      ✨ VALID age_group: "${ageGroup}"`);
                 console.log(`      Response:`, JSON.stringify(result.data, null, 2));
@@ -182,7 +181,7 @@ async function main() {
 
     // Step 6: Test Membership Plans
     console.log('[5] Testing Membership Plans...');
-    
+
     if (membershipId && subscriptionTypeId) {
         const result = await testEndpoint('/admin/membership-plans', 'POST', {
             membership_id: membershipId,
@@ -193,7 +192,7 @@ async function main() {
             currency: 'USD'
         });
         logResult(result);
-        
+
         if (result.success) {
             console.log('   Response:', JSON.stringify(result.data, null, 2));
         }

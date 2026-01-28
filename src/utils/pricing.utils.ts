@@ -6,15 +6,13 @@ export const PRICING_STRUCTURE = {
     individual_plus: 66.50,
     senior: 37.35,
     add_adult: 35.00,
-    add_teen: 30.00, // 13-17
-    add_child: 20.00, // 6mo-12yr
+    add_child: 20.00, // 6-17yr
   },
   '6mo': {
     individual: 333.00,
     individual_plus: 513.00,
     senior: 299.70,
     add_adult: 228.00,
-    add_teen: 200.00,
     add_child: 150.00,
   },
   '3mo': {
@@ -22,7 +20,6 @@ export const PRICING_STRUCTURE = {
     individual_plus: 294.50,
     senior: 175.95,
     add_adult: 120.00,
-    add_teen: 105.00,
     add_child: 90.00,
   },
 };
@@ -39,12 +36,11 @@ export const getAge = (dob: string): number => {
   return age;
 };
 
-export const getAgeCategory = (dob: string): 'senior' | 'adult' | 'teen' | 'child' => {
+export const getAgeCategory = (dob: string): 'senior' | 'adult' | 'child' => {
   const age = getAge(dob);
   if (age >= 65) return 'senior';
   if (age >= 18) return 'adult';
-  if (age >= 13) return 'teen';
-  return 'child'; // 6mo - 12yr
+  return 'child'; // 6mo - 17yr
 };
 
 export const calculateMemberPrice = (
@@ -74,7 +70,6 @@ export const calculateMemberPrice = (
     } else {
       // Add-on members
       if (category === 'senior' || category === 'adult') return structure.add_adult;
-      if (category === 'teen') return structure.add_teen;
       return structure.add_child;
     }
   }
