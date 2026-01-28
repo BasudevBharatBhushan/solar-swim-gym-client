@@ -35,12 +35,15 @@ export const AddClientStep4_Membership: React.FC<Props> = ({
 
     // Initialize selections based on account data if empty
     useEffect(() => {
-        if (selections.length === 0 && accountData.primary_profile_id) {
+        if (selections.length === 0) {
             const initialSelections: ProfileSelection[] = [];
+
+            // Use real IDs if available, otherwise use temporary ones for demo
+            const primaryId = accountData.primary_profile_id || `temp-primary-${Date.now()}`;
 
             // Primary
             initialSelections.push({
-                profileId: accountData.primary_profile_id,
+                profileId: primaryId,
                 name: `${formData.primary_profile.first_name} ${formData.primary_profile.last_name}`,
                 isPrimary: true,
                 membershipId: '',
@@ -49,12 +52,15 @@ export const AddClientStep4_Membership: React.FC<Props> = ({
             });
 
             // Family
-            if (accountData.family_member_ids && accountData.family_member_ids.length > 0) {
-                accountData.family_member_ids.forEach((id, index) => {
-                    const member = formData.family_members[index];
+            if (formData.family_members && formData.family_members.length > 0) {
+                formData.family_members.forEach((member, index) => {
+                    // Use real ID if available, otherwise use temporary one
+                    const familyId = (accountData.family_member_ids && accountData.family_member_ids[index])
+                        || `temp-family-${index}-${Date.now()}`;
+
                     initialSelections.push({
-                        profileId: id,
-                        name: member ? `${member.first_name} ${member.last_name}` : `Family Member ${index + 1}`,
+                        profileId: familyId,
+                        name: `${member.first_name} ${member.last_name}`,
                         isPrimary: false,
                         membershipId: '',
                         subscriptionTypeId: '',
