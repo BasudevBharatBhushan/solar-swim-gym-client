@@ -1,6 +1,6 @@
 export const dropdownOptions = {
   subscriptionTerms: [
-    { value: 'Recurring', label: 'Recurring' },
+    { value: 'RECURRING', label: 'Recurring' },
     { value: 'PAY_IN_FULL', label: 'Pay in Full' },
   ],
   serviceType: [

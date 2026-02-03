@@ -4,7 +4,6 @@ import {
   Typography,
   TextField,
   MenuItem,
-  FormControlLabel,
   Switch,
   Paper,
   Button,
@@ -14,11 +13,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Divider,
-  InputAdornment
+  InputAdornment,
+  Grid
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
-import { Service, AgeGroupPricing } from '../../types/service';
+import { Service } from '../../types/service';
 import { dropdownOptions } from '../../lib/dropdownOptions';
 import { useConfig } from '../../context/ConfigContext';
 
@@ -93,140 +92,165 @@ export const ServiceDetail: React.FC<ServiceDetailProps> = ({ service, onSave, i
   };
 
   return (
-    <Box sx={{ p: 3, height: '100%', overflow: 'auto', bgcolor: 'background.paper' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" color="text.primary" fontWeight={600}>
-          {isNew ? 'New Service' : 'Edit Service'}
+    <Box sx={{ p: 3, height: '100%', overflow: 'auto', bgcolor: '#fbfcfd' }}>
+      {/* 1. Header Box */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+            p: 2, 
+            mb: 3, 
+            borderRadius: 1, 
+            border: '1px solid', 
+            borderColor: '#e2e8f0',
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            bgcolor: 'background.paper'
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          {isNew ? 'New Service' : 'Service Detail'}
         </Typography>
         <Button
           variant="contained"
-          color="primary"
+          disableElevation
           startIcon={<SaveIcon />}
           onClick={handleSave}
-          disableElevation
+          sx={{ 
+              bgcolor: '#1e293b', 
+              borderRadius: 1,
+              px: 3,
+              textTransform: 'none',
+              fontWeight: 600,
+              '&:hover': { bgcolor: '#0f172a' } 
+          }}
         >
           Save Changes
         </Button>
-      </Box>
+      </Paper>
 
-      {/* Main Details Form */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(12, 1fr)' }, gap: 3, mb: 4 }}>
-        <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 8' } }}>
-          <TextField
-            fullWidth
-            label="Service Name"
-            value={formData.name}
-            onChange={(e) => handleChange('name', e.target.value)}
-          />
-        </Box>
-        <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 4' }, display: 'flex', alignItems: 'center' }}>
-           <FormControlLabel
-            control={
-              <Switch
-                checked={formData.is_active}
-                onChange={(e) => handleChange('is_active', e.target.checked)}
-                color="primary"
-              />
-            }
-            label="Active Status"
-          />
-        </Box>
-        <Box sx={{ gridColumn: 'span 12' }}>
-          <TextField
-            fullWidth
-            label="Description"
-            multiline
-            rows={2}
-            value={formData.description}
-            onChange={(e) => handleChange('description', e.target.value)}
-          />
-        </Box>
-        <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 4' } }}>
-          <TextField
-            select
-            fullWidth
-            label="Type"
-            value={formData.type}
-            onChange={(e) => handleChange('type', e.target.value)}
-          >
-            {dropdownOptions.serviceType.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Box>
-        <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 4' } }}>
-          <TextField
-            select
-            fullWidth
-            label="Service Type"
-            value={formData.service_type}
-            onChange={(e) => handleChange('service_type', e.target.value)}
-          >
-            {dropdownOptions.serviceCategory.map((opt) => (
-              <MenuItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </MenuItem>
-            ))}
-          </TextField>
-        </Box>
-        <Box sx={{ gridColumn: { xs: 'span 12', md: 'span 4' }, display: 'flex', alignItems: 'center' }}>
-           <FormControlLabel
-            control={
-              <Switch
-                checked={formData.is_addon_only || false}
-                onChange={(e) => handleChange('is_addon_only', e.target.checked)}
-                color="secondary"
-              />
-            }
-            label="Is Add-On Only?"
-          />
-        </Box>
-      </Box>
-
-      <Divider sx={{ mb: 3 }} />
-
-      {/* Pricing Structure - PIVOT TABLE GRID */}
-      <Box sx={{ bgcolor: '#FFB6C1', p: 2, borderRadius: 1 }}>
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: '#333' }}>
-          SERVICE FEE (if Opted as Add ON)
-        </Typography>
-        
-        {ageGroups.length === 0 || subscriptionTerms.length === 0 ? (
-             <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'rgba(255,255,255,0.5)', borderRadius: 1 }}>
-                <Typography variant="body2" color="text.secondary">
-                    No age groups or subscription terms configured. Please configure them in Settings.
+      {/* 2. Details Box */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+            p: 3, 
+            mb: 3, 
+            borderRadius: 1, 
+            border: '1px solid', 
+            borderColor: '#e2e8f0',
+            bgcolor: 'background.paper' 
+        }}
+      >
+        <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 8 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                    SERVICE NAME
                 </Typography>
-             </Box>
-        ) : (
-          <TableContainer component={Paper} elevation={0} sx={{ border: '2px solid #FF8C00' }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#FFD700' }}>
-                  <TableCell sx={{ fontWeight: 900, borderRight: '1px solid #FF8C00', color: '#000' }}>
-                    Age Group / Subscription Term
-                  </TableCell>
-                  {subscriptionTerms.map(term => (
-                    <TableCell 
-                        key={term.subscription_term_id || term.id} 
-                        align="center" 
-                        sx={{ fontWeight: 900, color: '#000' }}
-                    >
-                      {term.name}
+                <TextField
+                  fullWidth
+                  value={formData.name}
+                  onChange={(e) => handleChange('name', e.target.value)}
+                  placeholder="e.g. Swimming Class"
+                />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pt: 3 }}>
+                <Typography variant="body2" sx={{ mr: 2, fontWeight: 500, color: 'text.secondary' }}>Active Status</Typography>
+                <Switch
+                    checked={formData.is_active}
+                    onChange={(e) => handleChange('is_active', e.target.checked)}
+                    color="success"
+                />
+            </Grid>
+            
+            <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                    DESCRIPTION
+                </Typography>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={2}
+                  value={formData.description}
+                  onChange={(e) => handleChange('description', e.target.value)}
+                  placeholder="Service description..."
+                />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 4 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                    TYPE
+                </Typography>
+                <TextField
+                  select
+                  fullWidth
+                  value={formData.type}
+                  onChange={(e) => handleChange('type', e.target.value)}
+                >
+                    {dropdownOptions.serviceType.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                        </MenuItem>
+                    ))}
+                </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                    SERVICE TYPE
+                </Typography>
+                <TextField
+                  select
+                  fullWidth
+                  value={formData.service_type}
+                  onChange={(e) => handleChange('service_type', e.target.value)}
+                >
+                    {dropdownOptions.serviceCategory.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                        </MenuItem>
+                    ))}
+                </TextField>
+            </Grid>
+
+        </Grid>
+      </Paper>
+
+      {/* 3. Pricing Box */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+            borderRadius: 1, 
+            border: '1px solid', 
+            borderColor: '#e2e8f0', 
+            overflow: 'hidden',
+            bgcolor: 'background.paper'
+        }}
+      >
+        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f8fafc' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
+              SERVICE FEE
+            </Typography>
+        </Box>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 600, bgcolor: 'transparent', borderBottom: '1px solid', borderColor: '#e2e8f0', py: 1.5 }}>Age Group / Subscription Term</TableCell>
+                {subscriptionTerms.map(term => (
+                    <TableCell key={term.subscription_term_id || term.id} align="center" sx={{ fontWeight: 600, bgcolor: 'transparent', borderBottom: '1px solid', borderColor: '#e2e8f0' }}>
+                        {term.name}
                     </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {ageGroups.map((ag) => {
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {ageGroups.map((ag) => {
                   const ageGroupId = ag.age_group_id || ag.id || '';
                   const ageGroupName = ag.name;
                   const ageGroupPricing = formData.pricing_structure.find(p => p.age_group_id === ageGroupId);
                   
                   return (
-                    <TableRow key={ageGroupId}>
-                      <TableCell sx={{ bgcolor: '#FFE4B5', fontWeight: 700, borderRight: '1px solid #FF8C00' }}>
+                    <TableRow key={ageGroupId} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                      <TableCell component="th" scope="row" sx={{ fontWeight: 500, py: 2 }}>
                         {ageGroupName}
                       </TableCell>
                       {subscriptionTerms.map(st => {
@@ -235,32 +259,34 @@ export const ServiceDetail: React.FC<ServiceDetailProps> = ({ service, onSave, i
                         const pricingTerm = ageGroupPricing?.terms.find(t => t.subscription_term_id === termId);
                         
                         return (
-                          <TableCell key={termId} align="center" sx={{ bgcolor: '#FFE4B5' }}>
+                          <TableCell key={termId} align="center">
                             <TextField
-                              type="number"
-                              size="small"
-                              value={pricingTerm?.price ?? ''}
-                              placeholder="0.00"
-                              onChange={(e) => handlePriceChange(ageGroupId, ageGroupName, termId, termName, e.target.value)}
-                              InputProps={{
-                                startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                              }}
-                              sx={{ 
-                                  width: '110px',
-                                  '& .MuiInputBase-root': { bgcolor: 'white' }
-                              }}
+                                type="number"
+                                size="small"
+                                placeholder="0.00"
+                                value={pricingTerm?.price ?? ''}
+                                onChange={(e) => handlePriceChange(ageGroupId, ageGroupName, termId, termName, e.target.value)}
+                                sx={{ 
+                                    width: 120,
+                                    backgroundColor: 'white',
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: 1 
+                                    }
+                                }}
+                                InputProps={{
+                                  startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.8rem', color: 'text.secondary' } }}>$</InputAdornment>,
+                                }}
                             />
                           </TableCell>
                         );
                       })}
                     </TableRow>
                   );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </Box>
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </Box>
   );
 };
