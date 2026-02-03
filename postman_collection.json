@@ -1,0 +1,492 @@
+{
+	"info": {
+		"_postman_id": "a2b3c4d5-e6f7-48a9-bc0d-1e2f3a4b5c6d",
+		"name": "Solar Swim Gym API",
+		"description": "Comprehensive API collection for Solar Swim Gym Backend II. Includes Auth, Locations, Config, Services, Pricing, Membership, CRM, and Billing.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Staff Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"superadmin@solar.com\",\n    \"password\": \"password123\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/auth/staff/login", "host": ["{{baseUrl}}"], "path": ["auth", "staff", "login"] }
+					},
+					"response": []
+				},
+				{
+					"name": "User Register (Complex)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"primary_profile\": {\n        \"first_name\": \"John\",\n        \"last_name\": \"Doe\",\n        \"email\": \"john.doe.{{$timestamp}}@example.com\",\n        \"date_of_birth\": \"1990-01-01\",\n        \"emergency_contact_name\": \"Jane Doe\",\n        \"emergency_contact_phone\": \"555-0199\",\n        \"waiver_program_id\": \"{{lastWaiverId}}\",\n        \"case_manager_name\": \"Manager Name\",\n        \"case_manager_email\": \"manager@example.com\"\n    },\n    \"family_members\": [\n        {\n            \"first_name\": \"Jimmy\",\n            \"last_name\": \"Doe\",\n            \"date_of_birth\": \"2015-05-05\",\n            \"waiver_program_id\": null\n        }\n    ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/auth/user/register", "host": ["{{baseUrl}}"], "path": ["auth", "user", "register"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Activation Token",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/auth/user/activate?token={{activationToken}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["auth", "user", "activate"],
+							"query": [
+								{
+									"key": "token",
+									"value": "{{activationToken}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "User Activate",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{activationToken}}\",\n    \"password\": \"password123\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/auth/user/activate", "host": ["{{baseUrl}}"], "path": ["auth", "user", "activate"] }
+					},
+					"response": []
+				},
+				{
+					"name": "User Login",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/auth/user/login", "host": ["{{baseUrl}}"], "path": ["auth", "user", "login"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Locations",
+			"item": [
+				{
+					"name": "Get All Locations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/locations", "host": ["{{baseUrl}}"], "path": ["locations"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Location",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Downtown Branch\",\n    \"address\": \"123 Main St, City\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/locations", "host": ["{{baseUrl}}"], "path": ["locations"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Configuration",
+			"item": [
+				{
+					"name": "Get Age Groups",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/config/age-groups", "host": ["{{baseUrl}}"], "path": ["config", "age-groups"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Age Group",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Adult\",\n    \"min_age\": 18,\n    \"max_age\": 65\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/config/age-groups", "host": ["{{baseUrl}}"], "path": ["config", "age-groups"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Get Subscription Terms",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/config/subscription-terms", "host": ["{{baseUrl}}"], "path": ["config", "subscription-terms"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Subscription Term",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Monthly\",\n    \"duration_months\": 1,\n    \"payment_mode\": \"RECURRING\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/config/subscription-terms", "host": ["{{baseUrl}}"], "path": ["config", "subscription-terms"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Get Waiver Programs",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/config/waiver-programs", "host": ["{{baseUrl}}"], "path": ["config", "waiver-programs"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Waiver Program",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Standard Liability Waiver\",\n    \"description\": \"Full waiver details...\",\n    \"code\": \"SLW-001\",\n    \"requires_case_manager\": false\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/config/waiver-programs", "host": ["{{baseUrl}}"], "path": ["config", "waiver-programs"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Pricing",
+			"item": [
+				{
+					"name": "Get Base Prices",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/base-prices", "host": ["{{baseUrl}}"], "path": ["base-prices"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Base Price",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Standard Monthly Fee\",\n    \"role\": \"PRIMARY\",\n    \"age_group_id\": \"{{lastAgeGroupId}}\",\n    \"subscription_term_id\": \"{{lastTermId}}\",\n    \"price\": 29.99\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/base-prices", "host": ["{{baseUrl}}"], "path": ["base-prices"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Services",
+			"item": [
+				{
+					"name": "Get All Services",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/services", "host": ["{{baseUrl}}"], "path": ["services"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Service (With Pricing)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson\",\n    \"description\": \"Group swimming lesson for beginners\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false,\n    \"pricing_structure\": [\n        {\n            \"age_group_id\": \"{{lastAgeGroupId}}\",\n            \"terms\": [\n                {\n                    \"subscription_term_id\": \"{{lastTermId}}\",\n                    \"price\": 50.00\n                }\n            ]\n        }\n    ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/services", "host": ["{{baseUrl}}"], "path": ["services"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Memberships",
+			"item": [
+				{
+					"name": "Get Memberships",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/memberships", "host": ["{{baseUrl}}"], "path": ["memberships"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Membership Program",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Gold Access Plan\",\n    \"categories\": [\n        {\n            \"name\": \"Individual\",\n            \"fees\": [\n                {\n                    \"fee_type\": \"JOINING\",\n                    \"billing_cycle\": \"ONE_TIME\",\n                    \"amount\": 100.00\n                }\n            ],\n            \"rules\": [\n                {\n                    \"priority\": 1,\n                    \"result\": \"ALLOW\",\n                    \"message\": \"Adult Policy\",\n                    \"condition_json\": {\n                        \"minAdult\": 1,\n                        \"maxAdult\": 1\n                    }\n                }\n            ],\n            \"services\": [\n                {\n                   \"service_id\": \"{{lastServiceId}}\", \n                   \"is_included\": true,\n                   \"discount\": \"20%\",\n                   \"usage_limit\": \"10 visits\"\n                }\n            ]\n        }\n    ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/memberships", "host": ["{{baseUrl}}"], "path": ["memberships"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Billing & Subscriptions",
+			"item": [
+				{
+					"name": "Create Subscription",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"{{lastAccountId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"subscription_type\": \"BASE\",\n    \"reference_id\": \"{{lastTermId}}\",\n    \"subscription_term_id\": \"{{lastTermId}}\",\n    \"unit_price_snapshot\": 29.99,\n    \"total_amount\": 29.99,\n    \"billing_period_start\": \"2024-02-01\",\n    \"billing_period_end\": \"2024-03-01\",\n    \"coverage\": [\n        {\n            \"profile_id\": \"{{lastProfileId}}\",\n            \"role\": \"PRIMARY\",\n            \"exempt\": false\n        }\n    ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/billing/subscriptions", "host": ["{{baseUrl}}"], "path": ["billing", "subscriptions"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Get Account Subscriptions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/billing/accounts/{{lastAccountId}}/subscriptions", "host": ["{{baseUrl}}"], "path": ["billing", "accounts", "{{lastAccountId}}", "subscriptions"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "CRM",
+			"item": [
+				{
+					"name": "Get Leads",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/leads", "host": ["{{baseUrl}}"], "path": ["leads"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Search Leads",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-location-id",
+								"value": "{{lastLocationId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/leads/search?q=test",
+							"host": ["{{baseUrl}}"],
+							"path": ["leads", "search"],
+							"query": [
+								{
+									"key": "q",
+									"value": "test"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reindex Leads",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-location-id",
+								"value": "{{lastLocationId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/leads/reindex",
+							"host": ["{{baseUrl}}"],
+							"path": ["leads", "reindex"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Search Accounts",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-location-id",
+								"value": "{{lastLocationId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/accounts/search?q=test",
+							"host": ["{{baseUrl}}"],
+							"path": ["accounts", "search"],
+							"query": [
+								{
+									"key": "q",
+									"value": "test"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reindex All (Cron)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "x-location-id",
+								"value": "{{lastLocationId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/cron/reindex-all",
+							"host": ["{{baseUrl}}"],
+							"path": ["cron", "reindex-all"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upsert Account (Complex)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"account_id\": \"{{lastAccountId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"primary_profile\": {\n        \"first_name\": \"Mike\",\n        \"last_name\": \"Johnson\",\n        \"email\": \"mike.j@example.com\",\n        \"date_of_birth\": \"1985-05-15\",\n        \"waiver_program_id\": \"{{lastWaiverId}}\"\n    },\n    \"family_members\": [\n        {\n            \"first_name\": \"Lily\",\n            \"last_name\": \"Johnson\",\n            \"date_of_birth\": \"2015-08-20\"\n        }\n    ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/accounts/upsert", "host": ["{{baseUrl}}"], "path": ["accounts", "upsert"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Discounts",
+			"item": [
+				{
+					"name": "Get Discount Codes",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/discounts", "host": ["{{baseUrl}}"], "path": ["discounts"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Discount Code",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"discount_code\": \"WINTER6\",\n    \"discount\": \"6%\",\n    \"staff_name\": \"John Doe\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/discounts", "host": ["{{baseUrl}}"], "path": ["discounts"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Discount Code",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/discounts/validate/WINTER6", "host": ["{{baseUrl}}"], "path": ["discounts", "validate", "WINTER6"] }
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+	},
+	"event": [
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"if (pm.response.code === 200 || pm.response.code === 201) {",
+					"    const jsonData = pm.response.json();",
+					"    if (jsonData.token) pm.environment.set(\"token\", jsonData.token);",
+					"    if (jsonData.location_id) pm.environment.set(\"lastLocationId\", jsonData.location_id);",
+					"    if (jsonData.activation_token) pm.environment.set(\"activationToken\", jsonData.activation_token);",
+					"    if (jsonData.age_group_id) pm.environment.set(\"lastAgeGroupId\", jsonData.age_group_id);",
+					"    if (jsonData.subscription_term_id) pm.environment.set(\"lastTermId\", jsonData.subscription_term_id);",
+					"    if (jsonData.waiver_program_id) pm.environment.set(\"lastWaiverId\", jsonData.waiver_program_id);",
+					"    if (jsonData.service_id) pm.environment.set(\"lastServiceId\", jsonData.service_id);",
+					"    if (jsonData.base_price_id) pm.environment.set(\"lastBasePriceId\", jsonData.base_price_id);",
+					"    if (jsonData.membership_program_id) pm.environment.set(\"lastMembershipProgramId\", jsonData.membership_program_id);",
+					"    if (jsonData.account_id) pm.environment.set(\"lastAccountId\", jsonData.account_id);",
+					"    if (jsonData.profile_id) pm.environment.set(\"lastProfileId\", jsonData.profile_id);",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:3001/api/v1", "type": "string" },
+		{ "key": "token", "value": "", "type": "string" },
+		{ "key": "lastLocationId", "value": "", "type": "string" }
+	]
+}
