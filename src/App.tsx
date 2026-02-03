@@ -11,6 +11,8 @@ import { Services } from './pages/Services/Services';
 import { MainLayout } from './components/Layout/MainLayout';
 import { Typography } from '@mui/material';
 
+import { LayoutProvider } from './context/LayoutContext';
+
 // Placeholder Component
 const Placeholder = ({ title }: { title: string }) => (
   <Typography variant="h4">{title} (Coming Soon)</Typography>
@@ -21,8 +23,9 @@ function App() {
     <ThemeProvider theme={theme}>
       <AuthProvider>
         <ConfigProvider>
-          <Router>
-          <Routes>
+          <LayoutProvider>
+            <Router>
+            <Routes>
             <Route path="/login" element={<Login />} />
             
             {/* Protected Routes */}
@@ -45,7 +48,8 @@ function App() {
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </Router>
-      </ConfigProvider>
+        </LayoutProvider>
+        </ConfigProvider>
       </AuthProvider>
     </ThemeProvider>
   );

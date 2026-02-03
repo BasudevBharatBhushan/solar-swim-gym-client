@@ -7,8 +7,9 @@ import {
   ListItemIcon,
   ListItemText,
   Toolbar,
-  Divider,
   Collapse,
+  Box,
+  Typography,
 } from '@mui/material';
 import {
   PeopleAlt,
@@ -28,6 +29,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+//Import logo from asset
+import logo from '../../assets/logo.png';
 
 const drawerWidth = 240;
 
@@ -163,8 +166,43 @@ export const Sidebar = () => {
         [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
       }}
     >
-      <Toolbar /> {/* Spacer for AppBar */}
-      <Divider />
+      <Box sx={{ display: 'flex', alignItems: 'center', p: 2, justifyContent: '', minHeight: 64 }}>
+        <img 
+          src={logo} 
+          alt="Solar Swim Gym" 
+          style={{ height: '50px', marginRight: '10px' }} 
+        />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+          <Typography 
+            variant="h6" 
+            component="div" 
+            sx={{ 
+              fontWeight: 600, 
+              color: 'white', 
+              fontSize: '1rem', 
+              lineHeight: 0.9,
+              letterSpacing: '-0.5px',
+              textTransform: 'none'
+            }}
+          >
+            Solar Swim
+          </Typography>
+          <Typography 
+            variant="h6" 
+            component="div" 
+            sx={{ 
+              fontWeight: 600, 
+              color: 'white', 
+              fontSize: '1rem', 
+              lineHeight: 1.2,
+              letterSpacing: '-0.5px',
+              textTransform: 'none'
+            }}
+          >
+            & Gym
+          </Typography>
+        </Box>
+      </Box>
       <List>
         {menuItems.map((item) => renderMenuItem(item))}
       </List>

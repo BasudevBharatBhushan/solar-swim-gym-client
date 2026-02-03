@@ -120,9 +120,10 @@ export const SubscriptionTerms = () => {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ width: '100%' }}>
       <PageHeader 
-        title={`Subscription Terms - ${currentLocation?.name || ''}`}
+        title={`Subscription Terms`}
+        description="Define and manage subscription durations and payment modes."
         breadcrumbs={[
             { label: 'Settings', href: '/settings' },
             { label: 'Subscription', active: true }

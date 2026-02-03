@@ -67,45 +67,51 @@ export const AgeProfiles = () => {
 
   const handleSave = async () => {
     try {
-      await axios.post(`${API_URL}/config/age-groups`, currentProfile, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setSuccess('Age group saved successfully');
-      setOpenDialog(false);
-      await fetchData();
-      await refreshAgeGroups();
+      const payload = {
+        name: currentProfile.name,
+        min_age: parseFloat(currentProfile.min_age),
+        max_age: parseFloat(currentProfile.max_age)
+      };
+
+      if (currentProfile.id) {
+        await axios.put(`${API_URL}/config/age-groups/${currentProfile.id}`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setSuccess('Profile updated successfully');
+      } else {
+        await axios.post(`${API_URL}/config/age-groups`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setSuccess('Profile created successfully');
+      }
+      
+      handleCloseDialog();
+      fetchData();
+      refreshAgeGroups(); // Update global config context
     } catch (err) {
       console.error(err);
-      setError('Failed to save age group');
+      setError('Failed to save age profile');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this profile?')) return;
-    // Assuming there's a delete endpoint, otherwise this part might need adjustment based on API capabilities
-    // The prompt implied standard management. If no DELETE endpoint exists, this might fail or need removal.
-    // For now I'll mock the success or try a delete call if standard REST.
-    // If not standard, I'll just show error.
+    if (!window.confirm('Are you sure you want to delete this age profile?')) return;
+    
     try {
-        // Optimistic delete for now as API might not support it yet based on previous conversations?
-        // Actually earlier conversation said "Use POST ... Do NOT deduplicate", didn't mention delete.
-        // But the ID shows "Trash" icon.
-        // I'll try standard DELETE.
-        // If it fails, I will alert user.
-         await axios.delete(`${API_URL}/config/age-groups/${id}`, {
+        await axios.delete(`${API_URL}/config/age-groups/${id}`, {
             headers: { Authorization: `Bearer ${token}` }
-         });
-         setSuccess('Age group deleted');
-         fetchData();
+        });
+        setSuccess('Profile deleted successfully');
+        fetchData();
+        refreshAgeGroups();
     } catch (err) {
-        // Fallback or explicit error
         console.error(err);
         setError('Delete operation not supported or failed');
     }
   };
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1200, mx: 'auto' }}>
+    <Box sx={{ width: '100%' }}>
       <PageHeader 
         title="Age Profiles Management" 
         description="Define and manage age ranges for membership subscriptions."
@@ -129,70 +135,49 @@ export const AgeProfiles = () => {
         <Table sx={{ minWidth: 650 }} aria-label="age profiles table">
           <TableHead sx={{ bgcolor: '#f8fafc' }}>
             <TableRow>
-              <TableCell style={{ width: '40%', fontWeight: 600 }}>Profile Name</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600 }}>Min Age</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 600 }}>Max Age</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }}>Profile Name</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }} align="center">Min Age</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }} align="center">Max Age</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }} align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {data.map((row) => (
-              <TableRow
-                key={row.id || row.age_group_id}
-                sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-              >
-                <TableCell component="th" scope="row">
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                    {row.name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                    ID: {row.id || row.age_group_id}
-                  </Typography>
+              <TableRow key={row.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
+                  {row.name}
                 </TableCell>
                 <TableCell align="center">{row.min_age}</TableCell>
                 <TableCell align="center">{row.max_age}</TableCell>
                 <TableCell align="right">
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ color: 'text.secondary' }}>
-                            <EditOutlined fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(row.id || row.age_group_id)} sx={{ color: 'text.secondary' }}>
-                            <DeleteOutline fontSize="small" />
-                        </IconButton>
-                    </Stack>
+                  <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ mr: 1, color: 'text.secondary' }}>
+                    <EditOutlined fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" onClick={() => handleDelete(row.id)} sx={{ color: 'text.secondary' }}>
+                    <DeleteOutline fontSize="small" />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
             {data.length === 0 && (
-                <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                        No age profiles found. Create one to get started.
-                    </TableCell>
-                </TableRow>
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                  No age profiles found.
+                </TableCell>
+              </TableRow>
             )}
           </TableBody>
         </Table>
       </TableContainer>
-      
-      {/* Footer Info Box */}
-      <Paper 
-        elevation={0} 
-        sx={{ 
-            p: 2.5, 
-            bgcolor: '#eff6ff', 
-            borderRadius: 1,
-            display: 'flex',
-            gap: 2
-        }}
-      >
-        <InfoOutlined color="primary" sx={{ mt: 0.5 }} />
+
+      <Paper elevation={0} sx={{ p: 2, bgcolor: '#f8fafc', border: '1px solid', borderColor: '#e2e8f0', display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+        <InfoOutlined color="info" sx={{ mt: 0.25 }} />
         <Box>
-            <Typography variant="subtitle2" color="primary.main" gutterBottom>
-                Profile Synchronization
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-                Changes made to age profiles will automatically propagate to all service fee calculations and membership eligibility checks for the selected location.
-            </Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Profile Synchronization</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Changes to age profiles will immediately reflect across all new subscription plans and service bookings. 
+            Existing subscriptions will maintain their original profile assignment until manual update.
+          </Typography>
         </Box>
       </Paper>
 

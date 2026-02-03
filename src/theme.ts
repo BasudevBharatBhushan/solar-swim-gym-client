@@ -82,7 +82,7 @@ export const theme = createTheme({
           backgroundColor: '#ffffff',
           color: colors.text.primary,
           boxShadow: `0px 1px 1px ${alpha(colors.primary.main, 0.03)}`,
-          borderBottom: 'none', // Removed border
+          borderBottom: 'none',
         },
       },
     },

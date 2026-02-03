@@ -9,6 +9,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import { serviceCatalog } from '../../services/serviceCatalog';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
+import { PageHeader } from '../../components/Common/PageHeader';
 
 // Types - Locally defined to ensure UI needs are met
 interface LocalService {
@@ -193,12 +194,22 @@ export const Services = () => {
     }
   };
 
+
+
   if (!currentLocationId) {
       return <Alert severity="warning" sx={{ m: 2 }}>Please select a location to manage services.</Alert>;
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
+    <Box sx={{ width: '100%' }}>
+      <PageHeader 
+        title="Service Management" 
+        description="Configure service offerings, types, and tiered pricing structures for this location."
+        breadcrumbs={[
+            { label: 'Settings', href: '/settings' },
+            { label: 'Services', active: true }
+        ]}
+      />
       <Grid container spacing={3}>
         {/* Left Panel - Services List */}
         <Grid size={{ xs: 12, md: 4, lg: 3 }}>
@@ -265,16 +276,16 @@ export const Services = () => {
                                     
                                     // ✅ highlighted light green row
                                     bgcolor: isSelected ? '#ecfdf5' : 'transparent',
-                                    borderLeft: isSelected ? '4px solid #10b981' : '4px solid transparent',
-
+                                    
                                     '&:hover': {
                                         bgcolor: isSelected ? '#d1fae5' : '#f8fafc'
                                     }
                                 }}
 
                             >
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: isSelected ? 'primary.main' : 'text.primary' }}>
+                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                         
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: isSelected ? '#0369a1' : 'text.primary' }}>
                                         {service.name}
                                     </Typography>
                                     <Chip 
@@ -471,7 +482,14 @@ export const Services = () => {
                                 <TableCell sx={{ fontWeight: 600, bgcolor: 'transparent', borderBottom: '1px solid', borderColor: '#e2e8f0', py: 1.5 }}>Age Group / Subscription Term</TableCell>
                                 {subscriptionTerms.map(term => (
                                     <TableCell key={term.id || term.subscription_term_id || ''} align="center" sx={{ fontWeight: 600, bgcolor: 'transparent', borderBottom: '1px solid', borderColor: '#e2e8f0' }}>
-                                        {term.name}
+                                        <Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+                                                {term.name}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', display: 'block' }}>
+                                                {term.payment_mode === 'RECURRING' ? 'Recurring' : 'Pay in Full'}
+                                            </Typography>
+                                        </Box>
                                     </TableCell>
                                 ))}
                             </TableRow>
@@ -481,8 +499,15 @@ export const Services = () => {
                                 const ageGroupId = ageGroup.age_group_id || ageGroup.id || '';
                                 return (
                                     <TableRow key={ageGroupId} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                                        <TableCell component="th" scope="row" sx={{ fontWeight: 500, py: 2 }}>
-                                            {ageGroup.name}
+                                        <TableCell component="th" scope="row" sx={{ py: 2 }}>
+                                            <Box>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
+                                                    {ageGroup.name}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                                                    {ageGroup.min_age} - {ageGroup.max_age} yrs
+                                                </Typography>
+                                            </Box>
                                         </TableCell>
                                         {subscriptionTerms.map(term => {
                                             const termId = term.subscription_term_id || term.id || '';

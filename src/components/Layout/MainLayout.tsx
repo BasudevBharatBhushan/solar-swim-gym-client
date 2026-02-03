@@ -1,11 +1,12 @@
 import { ReactNode, useEffect } from 'react';
-import { Box, AppBar, Toolbar, Typography, Button, CssBaseline, Select, MenuItem, FormControl } from '@mui/material';
+import { Box, Typography, Button, CssBaseline, Select, MenuItem, FormControl } from '@mui/material';
 import { Sidebar } from './Sidebar';
 import { useAuth, Location } from '../../context/AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import axios from 'axios';
 
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import LogoutIcon from '@mui/icons-material/Logout';
 
 const API_URL = 'http://localhost:3001/api/v1';
 
@@ -46,12 +47,11 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 'bold', letterSpacing: '0.5px' }}>
-            SOLAR SWIM <span style={{ fontWeight: 300 }}>ADMIN</span>
-          </Typography>
-
+      <Sidebar />
+      <Box component="main" sx={{ flexGrow: 1, p: 3, bgcolor: '#f1f5f9', minHeight: '100vh', position: 'relative'}}>
+        
+        {/* Top Right Controls (Location & Sign Out) */}
+        <Box sx={{ position: 'absolute', top: 24, right: 24, display: 'flex', alignItems: 'center', zIndex: 10 }}>
           {/* Location Selector for Super Admin */}
           {role === 'SUPER_ADMIN' && (
              <FormControl size="small" sx={{ minWidth: 260, mr: 2 }}>
@@ -81,6 +81,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   sx={{ 
                       bgcolor: 'background.paper',
                       borderRadius: 1,
+                      border: 'none',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                       '& .MuiSelect-select': { 
                           py: 0.75,
                           px: 1.5,
@@ -89,10 +91,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                           minHeight: '40px'
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'rgba(0,0,0,0.1)'
+                          border: 'none'
                       },
                       '&:hover .MuiOutlinedInput-notchedOutline': {
-                          borderColor: 'primary.main'
+                          border: 'none'
                       }
                   }}
                   MenuProps={{
@@ -154,14 +156,21 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
              </FormControl>
           )}
 
-          <Button color="primary" variant="outlined" onClick={handleLogout} sx={{ borderColor: 'divider' }}>
+          <Button 
+            onClick={handleLogout} 
+            sx={{ 
+                color: 'text.secondary',
+                fontWeight: 600,
+                textTransform: 'none',
+                '&:hover': {
+                    bgcolor: 'transparent',
+                    color: 'text.primary'
+                }
+            }}>
             Sign Out
           </Button>
-        </Toolbar>
-      </AppBar>
-      <Sidebar />
-      <Box component="main" sx={{ flexGrow: 1, p: 3, bgcolor: '#f1f5f9', minHeight: '100vh' }}>
-        <Toolbar /> {/* Spacer for AppBar */}
+        </Box>
+
         {children}
       </Box>
     </Box>
