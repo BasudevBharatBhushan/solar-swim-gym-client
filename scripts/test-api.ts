@@ -1,6 +1,16 @@
-// Polyfill localStorage for Node environment
+// Polyfill localStorage and sessionStorage for Node environment
 if (typeof localStorage === "undefined" || localStorage === null) {
   (global as any).localStorage = {
+    _data: {} as Record<string, string>,
+    setItem: function(id: string, val: string) { return this._data[id] = String(val); },
+    getItem: function(id: string) { return Object.prototype.hasOwnProperty.call(this._data, id) ? this._data[id] : null; },
+    removeItem: function(id: string) { return delete this._data[id]; },
+    clear: function() { return this._data = {}; }
+  };
+}
+
+if (typeof sessionStorage === "undefined" || sessionStorage === null) {
+  (global as any).sessionStorage = {
     _data: {} as Record<string, string>,
     setItem: function(id: string, val: string) { return this._data[id] = String(val); },
     getItem: function(id: string) { return Object.prototype.hasOwnProperty.call(this._data, id) ? this._data[id] : null; },
@@ -179,6 +189,31 @@ async function runTests() {
 
     const services = await serviceCatalog.getServices(locationId);
     console.log(`${colors.success}✔ Services fetched: ${services.length}${colors.reset}`);
+
+    // Update Service (Upsert)
+    if (serviceId && ageGroupId && termId) {
+        console.log(`${colors.info}Updating Service (Upsert)...${colors.reset}`);
+        const updatedService = await serviceCatalog.upsertService({
+            service_id: serviceId,
+            location_id: locationId,
+            name: `Test Swim Class Updated ${timestamp}`,
+            description: "Beginner class updated",
+            service_type: "class",
+            is_addon_only: false,
+            pricing_structure: [
+                {
+                    age_group_id: ageGroupId,
+                    terms: [
+                        {
+                            subscription_term_id: termId,
+                            price: 55.00 // Increased price
+                        }
+                    ]
+                }
+            ]
+        });
+        console.log(`${colors.success}✔ Updated Service: ${updatedService.name} (Price Updated)${colors.reset}`);
+    }
   } catch (error: any) {
     console.error(`${colors.error}✖ Service tests failed: ${error.message}${colors.reset}`);
   }

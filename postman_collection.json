@@ -24,6 +24,15 @@
 					"response": []
 				},
 				{
+					"name": "Get All Staff",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/auth/staff/all", "host": ["{{baseUrl}}"], "path": ["auth", "staff", "all"] }
+					},
+					"response": []
+				},
+				{
 					"name": "User Register (Complex)",
 					"request": {
 						"method": "POST",
@@ -133,7 +142,21 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Adult\",\n    \"min_age\": 18,\n    \"max_age\": 65\n}",
+							"raw": "{\n    \"name\": \"Adult\",\n    \"min_age\": 18.5,\n    \"max_age\": 65.5\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/config/age-groups", "host": ["{{baseUrl}}"], "path": ["config", "age-groups"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Update Age Group (Upsert)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"age_group_id\": \"{{lastAgeGroupId}}\",\n    \"name\": \"Adult Updated\",\n    \"min_age\": 19,\n    \"max_age\": 65\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": { "raw": "{{baseUrl}}/config/age-groups", "host": ["{{baseUrl}}"], "path": ["config", "age-groups"] }
@@ -150,13 +173,41 @@
 					"response": []
 				},
 				{
-					"name": "Create Subscription Term",
+					"name": "Create Subscription Term (Recurring)",
 					"request": {
 						"method": "POST",
 						"header": [],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Monthly\",\n    \"duration_months\": 1,\n    \"payment_mode\": \"RECURRING\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/config/subscription-terms", "host": ["{{baseUrl}}"], "path": ["config", "subscription-terms"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Create Subscription Term (Pay In Full)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Annual\",\n    \"duration_months\": 12,\n    \"payment_mode\": \"PAY_IN_FULL\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/config/subscription-terms", "host": ["{{baseUrl}}"], "path": ["config", "subscription-terms"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Update Subscription Term (Upsert)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"subscription_term_id\": \"{{lastTermId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Monthly Updated\",\n    \"duration_months\": 1,\n    \"payment_mode\": \"RECURRING\"\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": { "raw": "{{baseUrl}}/config/subscription-terms", "host": ["{{baseUrl}}"], "path": ["config", "subscription-terms"] }
@@ -185,6 +236,20 @@
 						"url": { "raw": "{{baseUrl}}/config/waiver-programs", "host": ["{{baseUrl}}"], "path": ["config", "waiver-programs"] }
 					},
 					"response": []
+				},
+				{
+					"name": "Update Waiver Program (Upsert)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"waiver_program_id\": \"{{lastWaiverId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Standard Liability Waiver Updated\",\n    \"description\": \"Updated details...\",\n    \"code\": \"SLW-001\",\n    \"requires_case_manager\": true\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/config/waiver-programs", "host": ["{{baseUrl}}"], "path": ["config", "waiver-programs"] }
+					},
+					"response": []
 				}
 			]
 		},
@@ -192,7 +257,7 @@
 			"name": "Pricing",
 			"item": [
 				{
-					"name": "Get Base Prices",
+					"name": "Get Base Pricing & Bundles",
 					"request": {
 						"method": "GET",
 						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
@@ -241,6 +306,20 @@
 						"url": { "raw": "{{baseUrl}}/services", "host": ["{{baseUrl}}"], "path": ["services"] }
 					},
 					"response": []
+				},
+				{
+					"name": "Update Service (Upsert)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_id\": \"{{lastServiceId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson Updated\",\n    \"description\": \"Updated description\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false,\n    \"pricing_structure\": [\n        {\n            \"age_group_id\": \"{{lastAgeGroupId}}\",\n            \"terms\": [\n                {\n                    \"subscription_term_id\": \"{{lastTermId}}\",\n                    \"price\": 55.00\n                }\n            ]\n        }\n    ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/services", "host": ["{{baseUrl}}"], "path": ["services"] }
+					},
+					"response": []
 				}
 			]
 		},
@@ -257,13 +336,27 @@
 					"response": []
 				},
 				{
-					"name": "Create Membership Program",
+					"name": "Create Membership (With Program Services)",
 					"request": {
 						"method": "POST",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Gold Access Plan\",\n    \"categories\": [\n        {\n            \"name\": \"Individual\",\n            \"fees\": [\n                {\n                    \"fee_type\": \"JOINING\",\n                    \"billing_cycle\": \"ONE_TIME\",\n                    \"amount\": 100.00\n                }\n            ],\n            \"rules\": [\n                {\n                    \"priority\": 1,\n                    \"result\": \"ALLOW\",\n                    \"message\": \"Adult Policy\",\n                    \"condition_json\": {\n                        \"minAdult\": 1,\n                        \"maxAdult\": 1\n                    }\n                }\n            ],\n            \"services\": [\n                {\n                   \"service_id\": \"{{lastServiceId}}\", \n                   \"is_included\": true,\n                   \"discount\": \"20%\",\n                   \"usage_limit\": \"10 visits\"\n                }\n            ]\n        }\n    ]\n}",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Gold Access Plan\",\n    \"services\": [\n        {\n           \"service_id\": \"{{lastServiceId}}\", \n           \"is_included\": true,\n           \"discount\": \"20%\",\n           \"usage_limit\": \"10 visits\"\n        }\n    ],\n    \"categories\": [\n        {\n            \"name\": \"Individual\",\n            \"fees\": [\n                {\n                    \"fee_type\": \"JOINING\",\n                    \"billing_cycle\": \"ONE_TIME\",\n                    \"amount\": 100.00\n                }\n            ],\n            \"rules\": [\n                {\n                    \"priority\": 1,\n                    \"result\": \"ALLOW\",\n                    \"message\": \"Adult Policy\",\n                    \"condition_json\": {\n                        \"minAdult\": 1,\n                        \"maxAdult\": 1\n                    }\n                }\n            ]\n        }\n    ]\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/memberships", "host": ["{{baseUrl}}"], "path": ["memberships"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Update Membership (Upsert)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"membership_program_id\": \"{{lastMembershipProgramId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Gold Access Plan Updated\",\n    \"services\": [\n        {\n           \"service_id\": \"{{lastServiceId}}\", \n           \"is_included\": true,\n           \"discount\": \"25%\",\n           \"usage_limit\": \"15 visits\"\n        }\n    ],\n    \"categories\": [\n        {\n            \"name\": \"Individual\",\n            \"fees\": [\n                {\n                    \"fee_type\": \"JOINING\",\n                    \"billing_cycle\": \"ONE_TIME\",\n                    \"amount\": 90.00\n                }\n            ],\n            \"rules\": [\n                {\n                    \"priority\": 1,\n                    \"result\": \"ALLOW\",\n                    \"message\": \"Adult Policy\",\n                    \"condition_json\": {\n                        \"minAdult\": 1,\n                        \"maxAdult\": 1\n                    }\n                }\n            ]\n        }\n    ]\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": { "raw": "{{baseUrl}}/memberships", "host": ["{{baseUrl}}"], "path": ["memberships"] }

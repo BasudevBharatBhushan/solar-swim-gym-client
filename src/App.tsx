@@ -1,40 +1,54 @@
-import { useState } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from '@mui/material/styles';
+import { theme } from './theme';
+import { AuthProvider } from './context/AuthContext';
+import { ConfigProvider } from './context/ConfigContext';
+import { Login } from './pages/Login';
+import { Settings } from './pages/Settings/Settings';
+import { AgeProfiles } from './pages/Settings/AgeProfiles';
+import { SubscriptionTerms } from './pages/Settings/SubscriptionTerms';
+import { Services } from './pages/Services/Services';
+import { MainLayout } from './components/Layout/MainLayout';
+import { Typography } from '@mui/material';
+
+// Placeholder Component
+const Placeholder = ({ title }: { title: string }) => (
+  <Typography variant="h4">{title} (Coming Soon)</Typography>
+);
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 text-white p-4">
-      <div className="flex gap-8 mb-8">
-        <a href="https://vite.dev" target="_blank" className="hover:scale-110 transition-transform">
-          <img src="/vite.svg" className="w-24 h-24" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank" className="hover:scale-110 transition-transform">
-          <img src="/src/assets/react.svg" className="w-24 h-24 animate-[spin_20s_linear_infinite]" alt="React logo" />
-        </a>
-      </div>
-      
-      <h1 className="text-5xl font-bold mb-8 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-        Vite + Tailwind CSS
-      </h1>
-      
-      <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 text-center">
-        <button 
-          onClick={() => setCount((count) => count + 1)}
-          className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold py-3 px-6 rounded-lg transition-all mb-4"
-        >
-          count is {count}
-        </button>
-        <p className="text-slate-400">
-          Edit <code className="bg-slate-900 px-2 py-1 rounded text-cyan-300">src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      
-      <p className="mt-8 text-slate-500 italic">
-        Click on the Vite and React logos to learn more
-      </p>
-    </div>
-  )
+    <ThemeProvider theme={theme}>
+      <AuthProvider>
+        <ConfigProvider>
+          <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            
+            {/* Protected Routes */}
+            <Route path="/" element={<MainLayout><Navigate to="/settings" replace /></MainLayout>} />
+            <Route path="/settings" element={<MainLayout><Settings /></MainLayout>} />
+            <Route path="/settings/age-profiles" element={<MainLayout><AgeProfiles /></MainLayout>} />
+            <Route path="/settings/subscription-terms" element={<MainLayout><SubscriptionTerms /></MainLayout>} />
+            
+            <Route path="/leads" element={<MainLayout><Placeholder title="Leads" /></MainLayout>} />
+            <Route path="/accounts" element={<MainLayout><Placeholder title="Accounts" /></MainLayout>} />
+            <Route path="/profiles" element={<MainLayout><Placeholder title="Profiles" /></MainLayout>} />
+            <Route path="/staff" element={<MainLayout><Placeholder title="Staff Management" /></MainLayout>} />
+            <Route path="/subscription" element={<MainLayout><Placeholder title="Subscription" /></MainLayout>} />
+            <Route path="/services" element={<MainLayout><Services /></MainLayout>} />
+            <Route path="/memberships" element={<MainLayout><Placeholder title="Memberships" /></MainLayout>} />
+            <Route path="/discounts" element={<MainLayout><Placeholder title="Discount Codes" /></MainLayout>} />
+            <Route path="/email-settings" element={<MainLayout><Placeholder title="Email Settings" /></MainLayout>} />
+
+             {/* Catch all */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </Router>
+      </ConfigProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
 }
 
-export default App
+export default App;
