@@ -4,7 +4,7 @@ import { theme } from './theme';
 import { AuthProvider } from './context/AuthContext';
 import { ConfigProvider } from './context/ConfigContext';
 import { Login } from './pages/Login';
-import { Settings } from './pages/Settings/Settings';
+
 import { AgeProfiles } from './pages/Settings/AgeProfiles';
 import { SubscriptionTerms } from './pages/Settings/SubscriptionTerms';
 import { Services } from './pages/Services/Services';
@@ -30,7 +30,7 @@ function App() {
             
             {/* Protected Routes */}
             <Route path="/" element={<MainLayout><Navigate to="/settings" replace /></MainLayout>} />
-            <Route path="/settings" element={<MainLayout><Settings /></MainLayout>} />
+            <Route path="/settings" element={<MainLayout><Placeholder title="Leads" /></MainLayout>} />
             <Route path="/settings/age-profiles" element={<MainLayout><AgeProfiles /></MainLayout>} />
             <Route path="/settings/subscription-terms" element={<MainLayout><SubscriptionTerms /></MainLayout>} />
             
