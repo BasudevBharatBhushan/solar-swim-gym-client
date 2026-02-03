@@ -17,7 +17,7 @@ import {
   Badge,
   Settings,
   CardMembership,
-  RoomService,
+  Pool,
   Loyalty,
   LocalOffer,
   Email,
@@ -54,14 +54,14 @@ const menuItems: MenuItem[] = [
     icon: <Settings />,
     children: [
       {
-        text: 'Subscription Setting',
+        text: 'Configuration',
         icon: <Tune />,
         children: [
-          { text: 'Age Group', icon: <DateRange />, path: '/settings/age-profiles' },
-          { text: 'Subscription', icon: <CardMembership />, path: '/settings/subscription-terms' },
+          { text: 'Age Profile', icon: <DateRange />, path: '/settings/age-profiles' },
+          { text: 'Subscription Term', icon: <CardMembership />, path: '/settings/subscription-terms' },
         ]
       },
-      { text: 'Service', icon: <RoomService />, path: '/services' },
+      { text: 'Services', icon: <Pool />, path: '/services' },
       { text: 'Membership', icon: <Loyalty />, path: '/memberships' },
       { text: 'Discount Codes', icon: <LocalOffer />, path: '/discounts' },
       { text: 'Email Settings', icon: <Email />, path: '/email-settings' },
@@ -110,6 +110,29 @@ export const Sidebar = () => {
             sx={{ 
                 pl: level * 2 + 2, // Indent based on level
                 minHeight: 48,
+                mb: 0.5,
+                borderLeft: '3px solid transparent', // Placeholder for alignment
+                '&.Mui-selected': {
+                  backgroundColor: 'rgba(59, 130, 246, 0.12)', // Blue tint
+                  borderLeft: '3px solid #3b82f6', // Active indicator
+                  color: '#3b82f6',
+                  '&:hover': {
+                    backgroundColor: 'rgba(59, 130, 246, 0.20)',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: '#3b82f6',
+                  },
+                  '& .MuiListItemText-primary': {
+                    color: '#3b82f6',
+                    fontWeight: 600,
+                  }
+                },
+                '&:hover': {
+                   backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                   '& .MuiListItemIcon-root': {
+                      color: '#fff',
+                   }
+                }
             }}
           >
             <ListItemIcon sx={{ minWidth: 40 }}>

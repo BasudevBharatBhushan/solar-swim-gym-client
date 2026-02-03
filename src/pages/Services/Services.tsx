@@ -58,13 +58,13 @@ export const Services = () => {
   const [isActive, setIsActive] = useState(true);
   const [pricingGrid, setPricingGrid] = useState<PricingGrid>({});
 
-  const fetchServices = async () => {
+  const fetchServices = async (forceSelectFirst = false) => {
     if (!currentLocationId) return;
     try {
        const res = await serviceCatalog.getServices(currentLocationId);
        setServices(res);
-       // Select first service by default if available and not creating
-       if (res.length > 0 && !selectedService && !isCreating) {
+       // Select first service by default if available and (forced OR nothing selected)
+       if (res.length > 0 && (forceSelectFirst || (!selectedService && !isCreating))) {
            handleServiceClick(res[0]);
        }
     } catch (err: any) {
@@ -75,7 +75,10 @@ export const Services = () => {
 
   useEffect(() => {
     if (currentLocationId) {
-        fetchServices();
+        // Clear selection when location changes to ensure we re-select from the new list
+        setSelectedService(null);
+        setIsCreating(false);
+        fetchServices(true); // Pass true to force selection of first item
     }
   }, [currentLocationId]);
 
@@ -244,20 +247,31 @@ export const Services = () => {
                 {/* List */}
                 <Box sx={{ overflowY: 'auto', flex: 1 }}>
                     {services.map((service) => {
-                         const isSelected = selectedService?.service_id === service.service_id || selectedService?.id === service.id;
+                         const serviceId = service.service_id || service.id;
+                         const selectedId = selectedService?.service_id || selectedService?.id;
+                         const isSelected = !isCreating && !!selectedId && selectedId === serviceId;
+
                          return (
                             <Box 
-                                key={service.service_id || service.id}
+                                key={serviceId || Math.random().toString()}
                                 onClick={() => handleServiceClick(service)}
-                                sx={{ 
-                                    p: 2, 
-                                    borderBottom: '1px solid', 
+                                sx={{
+                                    p: 2,
+                                    borderBottom: '1px solid',
                                     borderColor: 'divider',
                                     cursor: 'pointer',
-                                    bgcolor: isSelected ? '#eff6ff' : 'transparent', // Light blue bg for selected
                                     position: 'relative',
-                                    '&:hover': { bgcolor: '#f1f5f9' }
+                                    transition: 'all 0.2s',
+                                    
+                                    // ✅ highlighted light green row
+                                    bgcolor: isSelected ? '#ecfdf5' : 'transparent',
+                                    borderLeft: isSelected ? '4px solid #10b981' : '4px solid transparent',
+
+                                    '&:hover': {
+                                        bgcolor: isSelected ? '#d1fae5' : '#f8fafc'
+                                    }
                                 }}
+
                             >
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: isSelected ? 'primary.main' : 'text.primary' }}>
@@ -310,7 +324,7 @@ export const Services = () => {
                     bgcolor: 'background.paper'
                 }}
             >
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <Typography variant="h4" sx={{ fontWeight: 600 }}>
                     Service Detail
                 </Typography>
                 <Button 
@@ -425,9 +439,30 @@ export const Services = () => {
             >
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f8fafc' }}>
                         <PaymentIcon color="primary" sx={{ fontSize: 20 }} />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.75rem' }}>
-                        SERVICE FEE
-                        </Typography>
+               <Typography
+  variant="subtitle2"
+  sx={{
+    fontWeight: 700,
+    color: 'primary.main',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    fontSize: '0.75rem'
+  }}
+>
+  SERVICE FEE
+  <span
+    style={{
+      marginLeft: 8,
+      fontWeight: 500,
+      fontSize: '0.9rem',
+      color: '#64748b',
+      textTransform: 'none'
+    }}
+  >
+    (if Opted as Add On)
+  </span>
+</Typography>
+
                 </Box>
                 <TableContainer sx={{ maxHeight: 400 }}>
                     <Table size="small">

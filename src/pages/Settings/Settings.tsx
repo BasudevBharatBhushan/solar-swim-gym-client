@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Box, Tabs, Tab, Typography } from '@mui/material';
 import { AgeProfiles } from './AgeProfiles';
 import { SubscriptionTerms } from './SubscriptionTerms';
-import { ServiceManagement } from './ServiceManagement';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -46,7 +45,6 @@ export const Settings = () => {
         <Tabs value={value} onChange={handleChange} aria-label="settings tabs">
           <Tab label="Age Profile" />
           <Tab label="Subscription Terms" />
-          <Tab label="Service Management" />
         </Tabs>
       </Box>
       <CustomTabPanel value={value} index={0}>
@@ -54,9 +52,6 @@ export const Settings = () => {
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
         <SubscriptionTerms />
-      </CustomTabPanel>
-      <CustomTabPanel value={value} index={2}>
-        <ServiceManagement />
       </CustomTabPanel>
     </Box>
   );

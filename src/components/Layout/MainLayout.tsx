@@ -80,7 +80,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                   }}
                   sx={{ 
                       bgcolor: 'background.paper',
-                      borderRadius: 2,
+                      borderRadius: 1,
                       '& .MuiSelect-select': { 
                           py: 0.75,
                           px: 1.5,
@@ -99,7 +99,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                       PaperProps: {
                           sx: {
                               mt: 1,
-                              borderRadius: 2,
+                              borderRadius: 1,
                               boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
                               maxHeight: 400
                           }
