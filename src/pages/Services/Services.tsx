@@ -208,12 +208,14 @@ const PricingCell = memo(({
   ageGroupId, 
   termId, 
   value, 
-  onChange 
+  onChange,
+  isRecurring
 }: { 
   ageGroupId: string, 
   termId: string, 
   value: string | number, 
-  onChange: (ageGroupId: string, termId: string, value: string) => void 
+  onChange: (ageGroupId: string, termId: string, value: string) => void,
+  isRecurring?: boolean
 }) => (
   <TableCell align="center">
     <TextField
@@ -230,6 +232,11 @@ const PricingCell = memo(({
         }}
         InputProps={{
             startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.8rem', color: 'text.secondary' } }}>$</InputAdornment>,
+            endAdornment: isRecurring ? (
+                <InputAdornment position="end" sx={{ '& .MuiTypography-root': { fontSize: '0.7rem', color: 'text.secondary' } }}>
+                    / Month
+                </InputAdornment>
+            ) : null,
         }}
     />
   </TableCell>
@@ -268,6 +275,7 @@ const PricingRow = memo(({
             termId={termId}
             value={rowPricing?.[termId] || ''}
             onChange={onChange}
+            isRecurring={term.payment_mode === 'RECURRING'}
           />
         );
       })}

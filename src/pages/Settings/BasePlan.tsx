@@ -349,7 +349,14 @@ export const BasePlan = () => {
                                 <TableCell sx={{ fontWeight: 'bold' }}>Age Group</TableCell>
                                 {subscriptionTerms.map(term => (
                                     <TableCell key={term.subscription_term_id} sx={{ fontWeight: 'bold' }} align="center">
-                                        {term.name}
+                                        <Box>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>
+                                                {term.name}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', display: 'block', fontWeight: 500 }}>
+                                                {term.payment_mode === 'RECURRING' ? 'Recurring' : 'Pay in Full'}
+                                            </Typography>
+                                        </Box>
                                     </TableCell>
                                 ))}
                             </TableRow>
@@ -398,7 +405,12 @@ export const BasePlan = () => {
                                                     }}
                                                     sx={{ width: 100 }}
                                                     InputProps={{
-                                                        startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                                        startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.8rem', color: 'text.secondary' } }}>$</InputAdornment>,
+                                                        endAdornment: term.payment_mode === 'RECURRING' ? (
+                                                            <InputAdornment position="end" sx={{ '& .MuiTypography-root': { fontSize: '0.7rem', color: 'text.secondary' } }}>
+                                                                / Month
+                                                            </InputAdornment>
+                                                        ) : null
                                                     }}
                                                 />
                                             </TableCell>

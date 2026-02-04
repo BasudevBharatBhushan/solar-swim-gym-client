@@ -218,7 +218,14 @@ export const Sidebar = () => {
         },
       }}
     >
-      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+      <Box sx={{ 
+        flexGrow: 1, 
+        overflowY: 'auto',
+        scrollbarWidth: 'none', 
+        '&::-webkit-scrollbar': {
+          display: 'none',
+        }
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'center', p: 2, justifyContent: '', minHeight: 64 }}>
           <img 
             src={logo} 
