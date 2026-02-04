@@ -52,7 +52,7 @@ const menuItems: MenuItem[] = [
     text: 'Staff', 
     icon: <Badge />, 
     path: '/staff', 
-    roleVerified: (role: string | null) => role === 'SUPER_ADMIN' 
+    roleVerified: (role: string | null) => role === 'SUPERADMIN' 
   },
   {
     text: 'Settings',

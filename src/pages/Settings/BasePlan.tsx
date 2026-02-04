@@ -159,19 +159,13 @@ export const BasePlan = () => {
       };
 
       try {
-          const result = await basePriceService.upsert(payload);
-          // Update local state
-          setBasePrices(prev => {
-              // Also if we created a new one, remove potential dupes if logic fails, but filter by ID is safe
-              // If it was a create, existing ID was undefined.
-              // Logic check: if we just created, we need to match by keys to replace local "placeholder"? 
-              // Actually fetching again or selective update is better.
-              // Simple approach: remove the record matching keys, add result.
-              const filtered = prev.filter(p => !(p.name === row.planName && p.role === row.role && p.age_group_id === row.ageGroupId && p.subscription_term_id === termId));
-              return [...filtered, result];
-          });
+          await basePriceService.upsert(payload);
+          // Refresh data to ensure UI matches DB state and joined names are correct
+          await fetchData();
+          setSuccess("Price updated successfully.");
       } catch (e) {
           console.error("Save failed", e);
+          setError("Failed to save price.");
       }
   };
 
@@ -268,8 +262,9 @@ export const BasePlan = () => {
          setSaving(true);
          const payload = { ...createForm, location_id: currentLocationId, price: Number(createForm.price || 0) } as BasePrice;
          try {
-             const result = await basePriceService.upsert(payload);
-             setBasePrices(prev => [...prev, result]);
+             await basePriceService.upsert(payload);
+             // Refresh everything to ensure pivot logic catches new rows
+             await fetchData();
              setSuccess("Base plan row created successfully.");
              setOpenCreate(false);
              // Reset form for next time
@@ -315,8 +310,9 @@ export const BasePlan = () => {
 
         {loading ? <CircularProgress /> : Object.keys(rowsByPlan).map(planName => (
             <Paper key={planName} sx={{ mb: 4, overflow: 'hidden' }}>
-                 <Box sx={{ bgcolor: '#e3f2fd', p: 2, borderBottom: '1px solid #e0e0e0' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>{planName}</Typography>
+                 <Box sx={{ bgcolor: 'rgba(25, 118, 210, 0.04)', p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 800, color: '#1a237e', letterSpacing: -0.5 }}>{planName}</Typography>
+                    <Chip label="Plan Group" size="small" sx={{ fontWeight: 'bold', bgcolor: '#e3f2fd', color: '#1565c0' }} />
                 </Box>
                 <TableContainer>
                     <Table size="small">

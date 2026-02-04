@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo, useCallback } from 'react';
 import { 
   Box, Button, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, MenuItem, Alert, Snackbar, Grid, InputAdornment, Chip, Switch
@@ -10,6 +10,7 @@ import { serviceCatalog } from '../../services/serviceCatalog';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
+import { dropdownOptions } from '../../lib/dropdownOptions';
 
 // Types - Locally defined to ensure UI needs are met
 interface LocalService {
@@ -41,6 +42,241 @@ interface PricingGrid {
   };
 }
 
+// ----------------------------------------------------------------------
+// Optimized Sub-components
+// ----------------------------------------------------------------------
+
+const ServiceListItem = memo(({ 
+  service, 
+  isSelected, 
+  onClick 
+}: { 
+  service: LocalService, 
+  isSelected: boolean, 
+  onClick: (s: LocalService) => void 
+}) => {
+  return (
+    <Box 
+        onClick={() => onClick(service)}
+        sx={{
+            p: 2,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            cursor: 'pointer',
+            position: 'relative',
+            transition: 'all 0.2s',
+            bgcolor: isSelected ? '#ecfdf5' : 'transparent',
+            '&:hover': {
+                bgcolor: isSelected ? '#d1fae5' : '#f8fafc'
+            }
+        }}
+    >
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: isSelected ? '#0369a1' : 'text.primary' }}>
+                {service.name}
+            </Typography>
+            <Chip 
+                label={service.is_active !== false ? "ACTIVE" : "INACTIVE"} 
+                size="small" 
+                sx={{ 
+                    height: 20, 
+                    fontSize: '0.65rem', 
+                    fontWeight: 700,
+                    bgcolor: service.is_active !== false ? '#d1fae5' : '#fee2e2', 
+                    color: service.is_active !== false ? '#059669' : '#b91c1c',
+                    borderRadius: '4px'
+                }} 
+            />
+        </Box>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ 
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' 
+        }}>
+            {service.description || '.'}
+        </Typography>
+    </Box>
+  );
+});
+
+const ServiceBasicInfo = memo(({
+    name,
+    description,
+    type,
+    serviceType,
+    isActive,
+    onNameChange,
+    onDescriptionChange,
+    onTypeChange,
+    onServiceTypeChange,
+    onActiveChange
+}: {
+    name: string,
+    description: string,
+    type: string,
+    serviceType: string,
+    isActive: boolean,
+    onNameChange: (v: string) => void,
+    onDescriptionChange: (v: string) => void,
+    onTypeChange: (v: string) => void,
+    onServiceTypeChange: (v: string) => void,
+    onActiveChange: (v: boolean) => void
+}) => (
+    <Paper 
+        elevation={0} 
+        sx={{ 
+            p: 3, 
+            mb: 2, 
+            borderRadius: 1, 
+            border: '1px solid', 
+            borderColor: '#e2e8f0',
+            bgcolor: 'background.paper' 
+        }}
+    >
+        <Grid container spacing={3}>
+            <Grid size={{ xs: 12, md: 8 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                    SERVICE NAME
+                    </Typography>
+                    <TextField 
+                    fullWidth 
+                    value={name} 
+                    onChange={(e) => onNameChange(e.target.value)}
+                    placeholder="e.g. Swimming Class"
+                    />
+            </Grid>
+            <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pt: 3 }}>
+                <Typography variant="body2" sx={{ mr: 2, fontWeight: 500, color: 'text.secondary' }}>Active Status</Typography>
+                    <Switch 
+                    checked={isActive} 
+                    onChange={(e) => onActiveChange(e.target.checked)} 
+                    color="success" 
+                    />
+            </Grid>
+            
+            <Grid size={{ xs: 12 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                    DESCRIPTION
+                    </Typography>
+                    <TextField 
+                    fullWidth 
+                    multiline
+                    rows={3}
+                    value={description} 
+                    onChange={(e) => onDescriptionChange(e.target.value)}
+                    placeholder="Service description..."
+                    />
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                    TYPE
+                    </Typography>
+                    <TextField 
+                    fullWidth
+                    select
+                    value={type}
+                    onChange={(e) => onTypeChange(e.target.value)}
+                    >
+                        {dropdownOptions.serviceType.map((opt) => (
+                            <MenuItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                    SERVICE TYPE
+                    </Typography>
+                    <TextField 
+                    fullWidth
+                    select
+                    value={serviceType}
+                    onChange={(e) => onServiceTypeChange(e.target.value)}
+                    >
+                        {dropdownOptions.serviceCategory.map((opt) => (
+                            <MenuItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+            </Grid>
+        </Grid>
+    </Paper>
+));
+
+const PricingCell = memo(({ 
+  ageGroupId, 
+  termId, 
+  value, 
+  onChange 
+}: { 
+  ageGroupId: string, 
+  termId: string, 
+  value: string | number, 
+  onChange: (ageGroupId: string, termId: string, value: string) => void 
+}) => (
+  <TableCell align="center">
+    <TextField
+        size="small"
+        placeholder="0.00"
+        value={value}
+        onChange={(e) => onChange(ageGroupId, termId, e.target.value)}
+        sx={{ 
+            width: 120,
+            backgroundColor: 'white',
+            '& .MuiOutlinedInput-root': {
+                borderRadius: 1 
+            }
+        }}
+        InputProps={{
+            startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.8rem', color: 'text.secondary' } }}>$</InputAdornment>,
+        }}
+    />
+  </TableCell>
+));
+
+const PricingRow = memo(({ 
+  ageGroup, 
+  subscriptionTerms, 
+  rowPricing, 
+  onChange 
+}: { 
+  ageGroup: any, 
+  subscriptionTerms: any[], 
+  rowPricing: { [termId: string]: number | string }, 
+  onChange: (ageGroupId: string, termId: string, value: string) => void 
+}) => {
+  const ageGroupId = ageGroup.age_group_id || ageGroup.id || '';
+  return (
+    <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
+      <TableCell component="th" scope="row" sx={{ py: 2 }}>
+        <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
+                {ageGroup.name}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                {ageGroup.min_age} - {ageGroup.max_age} yrs
+            </Typography>
+        </Box>
+      </TableCell>
+      {subscriptionTerms.map(term => {
+        const termId = term.subscription_term_id || term.id || '';
+        return (
+          <PricingCell 
+            key={termId}
+            ageGroupId={ageGroupId}
+            termId={termId}
+            value={rowPricing?.[termId] || ''}
+            onChange={onChange}
+          />
+        );
+      })}
+    </TableRow>
+  );
+});
+
+// ----------------------------------------------------------------------
+
 export const Services = () => {
   const { currentLocationId } = useAuth();
   const { ageGroups, subscriptionTerms } = useConfig();
@@ -53,13 +289,12 @@ export const Services = () => {
   // Form state
   const [serviceName, setServiceName] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState('GROUP'); // "Type"
-  const [serviceType, setServiceType] = useState('TRAINING'); // "Service Type"
-
+  const [type, setType] = useState('GROUP'); // "Type" dropdown
+  const [serviceType, setServiceType] = useState('TRAINING'); // "Service Type" dropdown
   const [isActive, setIsActive] = useState(true);
   const [pricingGrid, setPricingGrid] = useState<PricingGrid>({});
 
-  const fetchServices = async (idToSelect?: string, forceSelectFirst = false) => {
+  const fetchServices = useCallback(async (idToSelect?: string, forceSelectFirst = false) => {
     if (!currentLocationId) return;
     try {
        const res = await serviceCatalog.getServices(currentLocationId);
@@ -74,7 +309,7 @@ export const Services = () => {
          }
        }
 
-       // Select first service by default if available and (forced OR nothing selected)
+       // Select first service by default if available and (forceSelectFirst OR nothing selected)
        if (res.length > 0 && (forceSelectFirst || (!selectedService && !isCreating))) {
            handleServiceClick(res[0]);
        }
@@ -82,40 +317,35 @@ export const Services = () => {
       console.error(err);
       setError("Failed to fetch services.");
     }
-  };
+  }, [currentLocationId, selectedService, isCreating]);
 
   useEffect(() => {
     if (currentLocationId) {
-        // Clear selection when location changes to ensure we re-select from the new list
+        // Clear selection when location changes
         setSelectedService(null);
         setIsCreating(false);
-        fetchServices(undefined, true); // Pass true to force selection of first item
+        fetchServices(undefined, true);
     }
   }, [currentLocationId]);
 
   // Convert API pricing_structure to grid format
   const apiToGrid = (pricing_structure: PricingStructure[]): PricingGrid => {
     const grid: PricingGrid = {};
-    
     pricing_structure.forEach(ageGroupPricing => {
       const ageGroupId = ageGroupPricing.age_group_id;
       grid[ageGroupId] = {};
-      
       ageGroupPricing.terms.forEach(term => {
         grid[ageGroupId][term.subscription_term_id] = term.price;
       });
     });
-    
     return grid;
   };
 
   // Convert grid format to API pricing_structure
   const gridToApi = (grid: PricingGrid): PricingStructure[] => {
     const pricingStructure: PricingStructure[] = [];
-    
     Object.keys(grid).forEach(ageGroupId => {
       const terms: PricingTerm[] = [];
-      
       Object.keys(grid[ageGroupId] || {}).forEach(termId => {
         const price = grid[ageGroupId][termId];
         if (price !== '' && price !== null && price !== undefined) {
@@ -125,7 +355,6 @@ export const Services = () => {
           });
         }
       });
-      
       if (terms.length > 0) {
         pricingStructure.push({
           age_group_id: ageGroupId,
@@ -133,21 +362,19 @@ export const Services = () => {
         });
       }
     });
-    
     return pricingStructure;
   };
 
-  const handleServiceClick = (service: LocalService) => {
+  const handleServiceClick = useCallback((service: LocalService) => {
     setSelectedService(service);
     setIsCreating(false);
     setServiceName(service.name);
     setDescription(service.description);
     setType(service.type || 'GROUP');
     setServiceType(service.service_type || 'TRAINING');
-    // setIsAddonOnly(service.is_addon_only || false); // Removed
-    setIsActive(service.is_active !== false); // Default true unless false
+    setIsActive(service.is_active !== false);
     setPricingGrid(apiToGrid(service.pricing_structure || []));
-  };
+  }, []);
 
   const handleAddNew = () => {
     setSelectedService(null);
@@ -156,12 +383,11 @@ export const Services = () => {
     setDescription('');
     setType('GROUP');
     setServiceType('TRAINING');
-    // setIsAddonOnly(false); // Removed
     setIsActive(true);
     setPricingGrid({});
   };
 
-  const handlePriceChange = (ageGroupId: string, termId: string, value: string) => {
+  const handlePriceChange = useCallback((ageGroupId: string, termId: string, value: string) => {
     setPricingGrid(prev => ({
       ...prev,
       [ageGroupId]: {
@@ -169,11 +395,10 @@ export const Services = () => {
         [termId]: value
       }
     }));
-  };
+  }, []);
 
   const handleSave = async () => {
     if (!currentLocationId) return;
-    
     if (!serviceName.trim()) {
       setError('Service name is required');
       return;
@@ -186,7 +411,6 @@ export const Services = () => {
         description: description,
         type: type,
         service_type: serviceType,
-        // is_addon_only: isAddonOnly,
         is_active: isActive,
         pricing_structure: gridToApi(pricingGrid)
       };
@@ -199,14 +423,11 @@ export const Services = () => {
       const savedServiceId = response?.service_id || response?.id;
       
       setSuccess(`Service ${selectedService ? 'updated' : 'created'} successfully!`);
-      // Update local list and select the saved service
       fetchServices(savedServiceId);
     } catch (err: any) {
       setError(err.message || "Failed to save service.");
     }
   };
-
-
 
   if (!currentLocationId) {
       return <Alert severity="warning" sx={{ m: 2 }}>Please select a location to manage services.</Alert>;
@@ -238,7 +459,6 @@ export const Services = () => {
                 flexDirection: 'column'
              }}
            >
-                {/* Green Header */}
                 <Box sx={{ 
                     bgcolor: '#10b981', 
                     p: 2, 
@@ -267,7 +487,6 @@ export const Services = () => {
                     </Button>
                 </Box>
                 
-                {/* List */}
                 <Box sx={{ overflowY: 'auto', flex: 1 }}>
                     {services.map((service) => {
                          const serviceId = service.service_id || service.id;
@@ -275,50 +494,12 @@ export const Services = () => {
                          const isSelected = !isCreating && !!selectedId && selectedId === serviceId;
 
                          return (
-                            <Box 
+                            <ServiceListItem 
                                 key={serviceId || Math.random().toString()}
-                                onClick={() => handleServiceClick(service)}
-                                sx={{
-                                    p: 2,
-                                    borderBottom: '1px solid',
-                                    borderColor: 'divider',
-                                    cursor: 'pointer',
-                                    position: 'relative',
-                                    transition: 'all 0.2s',
-                                    
-                                    // ✅ highlighted light green row
-                                    bgcolor: isSelected ? '#ecfdf5' : 'transparent',
-                                    
-                                    '&:hover': {
-                                        bgcolor: isSelected ? '#d1fae5' : '#f8fafc'
-                                    }
-                                }}
-
-                            >
-                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                         
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: isSelected ? '#0369a1' : 'text.primary' }}>
-                                        {service.name}
-                                    </Typography>
-                                    <Chip 
-                                        label={service.is_active !== false ? "ACTIVE" : "INACTIVE"} 
-                                        size="small" 
-                                        sx={{ 
-                                            height: 20, 
-                                            fontSize: '0.65rem', 
-                                            fontWeight: 700,
-                                            bgcolor: service.is_active !== false ? '#d1fae5' : '#fee2e2', 
-                                            color: service.is_active !== false ? '#059669' : '#b91c1c',
-                                            borderRadius: '4px'
-                                        }} 
-                                    />
-                                </Box>
-                                <Typography variant="caption" color="text.secondary" display="block" sx={{ 
-                                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' 
-                                }}>
-                                    {service.description || '.'}
-                                </Typography>
-                            </Box>
+                                service={service}
+                                isSelected={isSelected}
+                                onClick={handleServiceClick}
+                            />
                          );
                     })}
                      {services.length === 0 && (
@@ -332,7 +513,6 @@ export const Services = () => {
 
         {/* Right Panel - Edit Form */}
         <Grid size={{ xs: 12, md: 8, lg: 9 }}>
-            {/* 1. Header Box */}
             <Paper 
                 elevation={0} 
                 sx={{ 
@@ -368,88 +548,19 @@ export const Services = () => {
                 </Button>
             </Paper>
 
-            {/* 2. Details Box */}
-            <Paper 
-                elevation={0} 
-                sx={{ 
-                    p: 3, 
-                    mb: 2, 
-                    borderRadius: 1, 
-                    border: '1px solid', 
-                    borderColor: '#e2e8f0',
-                    bgcolor: 'background.paper' 
-                }}
-            >
-                <Grid container spacing={3}>
-                    <Grid size={{ xs: 12, md: 8 }}>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                            SERVICE NAME
-                            </Typography>
-                            <TextField 
-                            fullWidth 
-                            value={serviceName} 
-                            onChange={(e) => setServiceName(e.target.value)}
-                            placeholder="e.g. Swimming Class"
-                            />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', pt: 3 }}>
-                        <Typography variant="body2" sx={{ mr: 2, fontWeight: 500, color: 'text.secondary' }}>Active Status</Typography>
-                            <Switch 
-                            checked={isActive} 
-                            onChange={(e) => setIsActive(e.target.checked)} 
-                            color="success" 
-                            />
-                    </Grid>
-                    
-                    <Grid size={{ xs: 12 }}>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                            DESCRIPTION
-                            </Typography>
-                            <TextField 
-                            fullWidth 
-                            multiline
-                            rows={3}
-                            value={description} 
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Service description..."
-                            />
-                    </Grid>
+            <ServiceBasicInfo 
+                name={serviceName}
+                description={description}
+                type={type}
+                serviceType={serviceType}
+                isActive={isActive}
+                onNameChange={setServiceName}
+                onDescriptionChange={setDescription}
+                onTypeChange={setType}
+                onServiceTypeChange={setServiceType}
+                onActiveChange={setIsActive}
+            />
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                            TYPE
-                            </Typography>
-                            <TextField 
-                            fullWidth
-                            select
-                            value={type}
-                            onChange={(e) => setType(e.target.value)}
-                            >
-                                <MenuItem value="GROUP">Group</MenuItem>
-                                <MenuItem value="PRIVATE">Private</MenuItem>
-                            </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 6 }}>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, display: 'block', mb: 1, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                            SERVICE TYPE
-                            </Typography>
-                            <TextField 
-                            fullWidth
-                            select
-                            value={serviceType}
-                            onChange={(e) => setServiceType(e.target.value)}
-                            >
-                                <MenuItem value="TRAINING">Training</MenuItem>
-                                <MenuItem value="CLASS">Class</MenuItem>
-                                <MenuItem value="FACILITY">Facility</MenuItem>
-                            </TextField>
-                    </Grid>
-                    
-
-                </Grid>
-            </Paper>
-
-            {/* 3. Pricing Box */}
             <Paper 
                 elevation={0} 
                 sx={{ 
@@ -462,30 +573,21 @@ export const Services = () => {
             >
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#f8fafc' }}>
                         <PaymentIcon color="primary" sx={{ fontSize: 20 }} />
-               <Typography
-  variant="subtitle2"
-  sx={{
-    fontWeight: 700,
-    color: 'primary.main',
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    fontSize: '0.75rem'
-  }}
->
-  SERVICE FEE
-  <span
-    style={{
-      marginLeft: 8,
-      fontWeight: 500,
-      fontSize: '0.9rem',
-      color: '#64748b',
-      textTransform: 'none'
-    }}
-  >
-    (if Opted as Add On)
-  </span>
-</Typography>
-
+                        <Typography
+                            variant="subtitle2"
+                            sx={{
+                                fontWeight: 700,
+                                color: 'primary.main',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                fontSize: '0.75rem'
+                            }}
+                        >
+                            SERVICE FEE
+                            <span style={{ marginLeft: 8, fontWeight: 500, fontSize: '0.9rem', color: '#64748b', textTransform: 'none' }}>
+                                (if Opted as Add On)
+                            </span>
+                        </Typography>
                 </Box>
                 <TableContainer sx={{ maxHeight: 400 }}>
                     <Table size="small">
@@ -507,47 +609,15 @@ export const Services = () => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {ageGroups.map(ageGroup => {
-                                const ageGroupId = ageGroup.age_group_id || ageGroup.id || '';
-                                return (
-                                    <TableRow key={ageGroupId} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                                        <TableCell component="th" scope="row" sx={{ py: 2 }}>
-                                            <Box>
-                                                <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>
-                                                    {ageGroup.name}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                                                    {ageGroup.min_age} - {ageGroup.max_age} yrs
-                                                </Typography>
-                                            </Box>
-                                        </TableCell>
-                                        {subscriptionTerms.map(term => {
-                                            const termId = term.subscription_term_id || term.id || '';
-                                            const value = pricingGrid[ageGroupId]?.[termId] || '';
-                                            return (
-                                                <TableCell key={termId} align="center">
-                                                    <TextField
-                                                        size="small"
-                                                        placeholder="0.00"
-                                                        value={value}
-                                                        onChange={(e) => handlePriceChange(ageGroupId, termId, e.target.value)}
-                                                        sx={{ 
-                                                            width: 120,
-                                                            backgroundColor: 'white',
-                                                            '& .MuiOutlinedInput-root': {
-                                                                borderRadius: 1 
-                                                            }
-                                                        }}
-                                                        InputProps={{
-                                                            startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.8rem', color: 'text.secondary' } }}>$</InputAdornment>,
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                            );
-                                        })}
-                                    </TableRow>
-                                );
-                            })}
+                            {ageGroups.map(ageGroup => (
+                                <PricingRow 
+                                    key={ageGroup.age_group_id || ageGroup.id || ''}
+                                    ageGroup={ageGroup}
+                                    subscriptionTerms={subscriptionTerms}
+                                    rowPricing={pricingGrid[ageGroup.age_group_id || ageGroup.id || '']}
+                                    onChange={handlePriceChange}
+                                />
+                            ))}
                         </TableBody>
                     </Table>
                 </TableContainer>

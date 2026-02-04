@@ -4,8 +4,8 @@ export const dropdownOptions = {
     { value: 'PAY_IN_FULL', label: 'Pay in Full' },
   ],
   serviceType: [
-    { value: 'PRIVATE', label: 'Private' },
     { value: 'GROUP', label: 'Group' },
+    { value: 'PRIVATE', label: 'Private' },
   ],
   serviceCategory: [
     { value: 'SELF', label: 'Self' },

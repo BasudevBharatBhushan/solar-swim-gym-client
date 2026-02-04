@@ -20,7 +20,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
   useEffect(() => {
     // If SuperAdmin and locations are not loaded, fetch them
-    if (isAuthenticated && role === 'SUPER_ADMIN' && locations.length === 0) {
+    if (isAuthenticated && role === 'SUPERADMIN' && locations.length === 0) {
       axios.get(`${API_URL}/locations`, {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -61,7 +61,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           zIndex: 10 
         }}>
           {/* Location Selector for Super Admin */}
-          {role === 'SUPER_ADMIN' && (
+          {role === 'SUPERADMIN' && (
              <FormControl size="small" sx={{ minWidth: 200 }}>
                 <Select
                   value={currentLocationId || ''}

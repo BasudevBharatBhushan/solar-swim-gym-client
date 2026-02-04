@@ -67,23 +67,20 @@ export const AgeProfiles = () => {
 
   const handleSave = async () => {
     try {
-      const payload = {
+      const payload: any = {
         name: currentProfile.name,
         min_age: parseFloat(currentProfile.min_age),
         max_age: parseFloat(currentProfile.max_age)
       };
 
-      if (currentProfile.id) {
-        await axios.put(`${API_URL}/config/age-groups/${currentProfile.id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setSuccess('Profile updated successfully');
-      } else {
-        await axios.post(`${API_URL}/config/age-groups`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setSuccess('Profile created successfully');
+      if (currentProfile.age_group_id) {
+        payload.age_group_id = currentProfile.age_group_id;
       }
+
+      await axios.post(`${API_URL}/config/age-groups`, payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSuccess(currentProfile.age_group_id ? 'Profile updated successfully' : 'Profile created successfully');
       
       handleCloseDialog();
       fetchData();
@@ -143,7 +140,7 @@ export const AgeProfiles = () => {
           </TableHead>
           <TableBody>
             {data.map((row) => (
-              <TableRow key={row.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+              <TableRow key={row.age_group_id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                 <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
                   {row.name}
                 </TableCell>
@@ -153,7 +150,7 @@ export const AgeProfiles = () => {
                   <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ mr: 1, color: 'text.secondary' }}>
                     <EditOutlined fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(row.id)} sx={{ color: 'text.secondary' }}>
+                  <IconButton size="small" onClick={() => handleDelete(row.age_group_id)} sx={{ color: 'text.secondary' }}>
                     <DeleteOutline fontSize="small" />
                   </IconButton>
                 </TableCell>
@@ -182,13 +179,22 @@ export const AgeProfiles = () => {
       </Paper>
 
       {/* Add/Edit Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{currentProfile.id ? 'Edit Profile' : 'Add New Profile'}</DialogTitle>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="sm" 
+        fullWidth
+        aria-labelledby="age-profile-dialog-title"
+      >
+        <DialogTitle id="age-profile-dialog-title">
+          {currentProfile.age_group_id ? 'Edit Profile' : 'Add New Profile'}
+        </DialogTitle>
         <DialogContent dividers>
             <Stack spacing={3} sx={{ mt: 1 }}>
                 <TextField 
                     label="Profile Name" 
                     fullWidth 
+                    autoFocus
                     value={currentProfile.name || ''}
                     onChange={(e) => setCurrentProfile({...currentProfile, name: e.target.value})}
                 />
