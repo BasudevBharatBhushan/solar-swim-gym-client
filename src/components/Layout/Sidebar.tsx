@@ -28,6 +28,8 @@ import {
   DateRange,
   Tune,
   MonetizationOn,
+  Description,
+  CreditCard,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -70,9 +72,10 @@ const menuItems: MenuItem[] = [
       { text: 'Base Plan', icon: <MonetizationOn />, path: '/settings/base-plan' },
 
       { text: 'Membership', icon: <Loyalty />, path: '/memberships' },
-
+      { text: 'Waiver Program', icon: <Description />, path: '/waiver-program' },
       { text: 'Discount Codes', icon: <LocalOffer />, path: '/discounts' },
       { text: 'Email Settings', icon: <Email />, path: '/email-settings' },
+      { text: 'Billing', icon: <CreditCard />, path: '/billing' },
     ]
   }
 ];

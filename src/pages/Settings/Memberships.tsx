@@ -407,7 +407,7 @@ export const Memberships = () => {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {[...activeProgram.categories, ...(editingCategoryId === 'new' && editForm ? [editForm] : [])].map((cat, idx) => {
+                                        {[...activeProgram.categories, ...(editingCategoryId === 'new' && editForm && !saving ? [editForm] : [])].map((cat, idx) => {
                                             const isEditing = editingCategoryId === (cat.category_id || 'new');
                                             // Make sure we use data from editForm if editing, else cat
                                             const data = isEditing && editForm ? editForm : cat;
@@ -686,7 +686,12 @@ export const Memberships = () => {
                                       <TableCell>Service Name</TableCell>
                                       <TableCell>Included?</TableCell>
                                       <TableCell>Usage Limit</TableCell>
-                                      <TableCell>Discount</TableCell>
+                                      <TableCell sx={{ fontWeight: 'bold' }}>
+                                    Discount
+                                    <Typography variant="caption" display="block" sx={{ fontWeight: 'normal', color: 'text.secondary', fontSize: '0.75rem' }}>
+                                        (Add % for percentage, otherwise fixed amount)
+                                    </Typography>
+                                </TableCell>
                                       <TableCell align="right">Actions</TableCell>
                                   </TableRow>
                               </TableHead>

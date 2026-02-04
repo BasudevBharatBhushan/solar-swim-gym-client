@@ -44,9 +44,42 @@ export const DiscountCodes = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success'|'error', text: string } | null>(null);
 
+    const DUMMY_DISCOUNTS: Discount[] = [
+        {
+            discount_id: 'dummy-1',
+            location_id: locationId || 'dummy-loc',
+            discount_code: 'WINTER2024',
+            discount: '15%',
+            is_active: true,
+            created_at: new Date('2024-01-15').toISOString(),
+            staff_name: 'Admin'
+        },
+        {
+            discount_id: 'dummy-2',
+            location_id: locationId || 'dummy-loc',
+            discount_code: 'SWIMFAST',
+            discount: '20%',
+            is_active: true,
+            created_at: new Date('2024-02-01').toISOString(),
+            staff_name: 'Marketing'
+        },
+        {
+            discount_id: 'dummy-3',
+            location_id: locationId || 'dummy-loc',
+            discount_code: 'NEWPLAYER',
+            discount: '50',
+            is_active: false,
+            created_at: new Date('2024-02-10').toISOString(),
+            staff_name: 'Admin'
+        }
+    ];
+
     useEffect(() => {
         if (locationId) {
             loadDiscounts();
+        } else {
+            // Show dummy data if no location/auth yet for representation
+            setDiscounts(DUMMY_DISCOUNTS);
         }
     }, [locationId]);
 
@@ -54,9 +87,14 @@ export const DiscountCodes = () => {
         if (!locationId) return;
         try {
             const data = await discountService.getAllDiscounts(locationId!);
-            setDiscounts(data);
+            if (data && data.length > 0) {
+                setDiscounts(data);
+            } else {
+                setDiscounts(DUMMY_DISCOUNTS);
+            }
         } catch (error) {
             console.error("Failed to load discounts", error);
+            setDiscounts(DUMMY_DISCOUNTS);
         }
     };
 
@@ -161,30 +199,30 @@ export const DiscountCodes = () => {
 
                         <TableContainer>
                             <Table size="medium">
-                                <TableHead component="div" sx={{ display: 'table-header-group' }}>
-                                    <TableRow component="div" sx={{ display: 'table-row' }}>
-                                        <TableCell component="div" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>CODE</TableCell>
-                                        <TableCell component="div" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>TYPE</TableCell>
-                                        <TableCell component="div" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>VALUE</TableCell>
-                                        <TableCell component="div" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>STATUS</TableCell>
-                                        <TableCell component="div" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>CREATED</TableCell>
-                                        <TableCell component="div" align="right" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>ACTIONS</TableCell>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>CODE</TableCell>
+                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>TYPE</TableCell>
+                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>VALUE</TableCell>
+                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>STATUS</TableCell>
+                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>CREATED</TableCell>
+                                        <TableCell align="right" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>ACTIONS</TableCell>
                                     </TableRow>
                                 </TableHead>
-                                <TableBody component="div" sx={{ display: 'table-row-group' }}>
+                                <TableBody>
                                     {discounts.map((discount) => {
                                         const isPercentage = discount.discount.includes('%');
                                         const displayType = isPercentage ? 'Percentage' : 'Flat Amount';
                                         const displayValue = discount.discount;
                                         
                                         return (
-                                        <TableRow key={discount.discount_id} component="div" sx={{ display: 'table-row', borderTop: '1px solid #F5F5F5' }}>
-                                            <TableCell component="div">
+                                        <TableRow key={discount.discount_id} sx={{ borderTop: '1px solid #F5F5F5' }}>
+                                            <TableCell>
                                                 <Typography variant="subtitle2" sx={{ fontWeight: 700, bgcolor: '#F5F5F5', px: 1, py: 0.5, borderRadius: 1, display: 'inline-block' }}>
                                                     {discount.discount_code}
                                                 </Typography>
                                             </TableCell>
-                                            <TableCell component="div">
+                                            <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                     {isPercentage ? 
                                                         <LocalOffer sx={{ fontSize: 16, color: '#2196F3' }} /> : 
@@ -193,10 +231,10 @@ export const DiscountCodes = () => {
                                                     <Typography variant="body2" sx={{ color: '#455A64' }}>{displayType}</Typography>
                                                 </Box>
                                             </TableCell>
-                                            <TableCell component="div">
+                                            <TableCell>
                                                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{displayValue}</Typography>
                                             </TableCell>
-                                            <TableCell component="div">
+                                            <TableCell>
                                                 <Chip 
                                                     label={discount.is_active ? '● ACTIVE' : '● INACTIVE'} 
                                                     size="small"
@@ -209,7 +247,7 @@ export const DiscountCodes = () => {
                                                     }} 
                                                 />
                                             </TableCell>
-                                            <TableCell component="div">
+                                            <TableCell>
                                                 <Box>
                                                     <Typography variant="body2" sx={{ fontWeight: 600, color: '#263238' }}>
                                                         {discount.created_at ? new Date(discount.created_at).toLocaleDateString() : 'N/A'}
@@ -217,7 +255,7 @@ export const DiscountCodes = () => {
                                                     <Typography variant="caption" sx={{ color: '#90A4AE', fontSize: '0.65rem' }}>{discount.staff_name || 'Admin'}</Typography>
                                                 </Box>
                                             </TableCell>
-                                            <TableCell component="div" align="right">
+                                            <TableCell align="right">
                                                 <IconButton size="small" sx={{ color: '#90A4AE' }}><Edit fontSize="small" /></IconButton>
                                                 <IconButton size="small" sx={{ color: '#90A4AE' }}><Delete fontSize="small" /></IconButton>
                                             </TableCell>

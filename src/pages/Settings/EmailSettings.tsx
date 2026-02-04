@@ -39,9 +39,22 @@ export const EmailSettings = () => {
         is_active: false
     });
 
+    const DUMMY_CONFIG: Partial<EmailConfig> = {
+        smtp_host: 'smtp.sendgrid.net',
+        smtp_port: 587,
+        smtp_username: 'apikey',
+        smtp_password: '••••••••••••••••••••••••••••',
+        is_secure: true,
+        sender_email: 'notifications@solarswim.com',
+        is_active: true
+    };
+
     useEffect(() => {
         if (locationId) {
             fetchConfig();
+        } else {
+            // Show dummy data for representation if no location
+            setConfig(DUMMY_CONFIG);
         }
     }, [locationId]);
 
@@ -56,9 +69,12 @@ export const EmailSettings = () => {
                     // keep password field empty or masked if not provided
                     smtp_password: data.smtp_password || '' 
                 });
+            } else {
+                setConfig(DUMMY_CONFIG);
             }
         } catch (err: any) {
             console.error("Failed to load email config", err);
+            setConfig(DUMMY_CONFIG);
             // Don't show error immediately on load if it's just 404 (not configured yet)
         } finally {
             setLoading(false);

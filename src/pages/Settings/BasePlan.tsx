@@ -109,10 +109,10 @@ export const BasePlan = () => {
       uniqueRowsMap.set(getRowId(key), key);
   });
   
-  // Sort rows? Maybe by Plan Name, then Role, then Age.
+  // Sort rows: Primary roles first overall, then by Plan Name and Age.
   const uniqueRows = Array.from(uniqueRowsMap.values()).sort((a, b) => {
+      if (a.role !== b.role) return a.role === 'PRIMARY' ? -1 : 1;
       if (a.planName !== b.planName) return a.planName.localeCompare(b.planName);
-      if (a.role !== b.role) return a.role.localeCompare(b.role);
       // Sort age by min_age if possible, else name
       const agA = ageGroups.find(g => g.age_group_id === a.ageGroupId);
       const agB = ageGroups.find(g => g.age_group_id === b.ageGroupId);
@@ -125,6 +125,9 @@ export const BasePlan = () => {
       if (!rowsByPlan[row.planName]) rowsByPlan[row.planName] = [];
       rowsByPlan[row.planName].push(row);
   });
+
+  // Ordered list of plan names to preserve sorting
+  const orderedPlanNames = Array.from(new Set(uniqueRows.map(r => r.planName)));
 
   // Helper to find existing price for a cell
   const getPrice = (row: RowKey, termId: string) => {
@@ -141,32 +144,56 @@ export const BasePlan = () => {
 
 
   const handlePriceSave = async (row: RowKey, termId: string, val: number) => {
-      if (!currentLocationId) return;
-      
-      const existing = getPrice(row, termId);
-      
-      // If value is 0 or empty, maybe delete? Assuming upsert handles it.
-      
-      const payload: BasePrice = {
-          base_price_id: existing?.base_price_id,
-          location_id: currentLocationId,
-          name: row.planName,
-          role: row.role,
-          age_group_id: row.ageGroupId,
-          subscription_term_id: termId,
-          price: val,
-          is_active: true // Default active when adding
-      };
+    if (!currentLocationId) return;
 
-      try {
-          await basePriceService.upsert(payload);
-          // Refresh data to ensure UI matches DB state and joined names are correct
-          await fetchData();
-          setSuccess("Price updated successfully.");
-      } catch (e) {
-          console.error("Save failed", e);
-          setError("Failed to save price.");
+    const existing = getPrice(row, termId);
+
+    const payload: BasePrice = {
+      base_price_id: existing?.base_price_id,
+      location_id: currentLocationId,
+      name: row.planName,
+      role: row.role,
+      age_group_id: row.ageGroupId,
+      subscription_term_id: termId,
+      price: val,
+      is_active: true
+    };
+
+    // Optimistic Update
+    setBasePrices(prev => {
+      const exists = prev.find(p =>
+        p.name === payload.name &&
+        p.role === payload.role &&
+        p.age_group_id === payload.age_group_id &&
+        p.subscription_term_id === payload.subscription_term_id
+      );
+
+      if (exists) {
+        return prev.map(p =>
+          (p.name === payload.name && p.role === payload.role && p.age_group_id === payload.age_group_id && p.subscription_term_id === payload.subscription_term_id)
+            ? { ...p, price: val }
+            : p
+        );
+      } else {
+        return [...prev, payload];
       }
+    });
+
+    try {
+      const result = await basePriceService.upsert(payload);
+      // If it was a new record, update it with the ID from response
+      if (!existing?.base_price_id && result.base_price_id) {
+        setBasePrices(prev => prev.map(p =>
+          (p.name === payload.name && p.role === payload.role && p.age_group_id === payload.age_group_id && p.subscription_term_id === payload.subscription_term_id)
+            ? result : p
+        ));
+      }
+      setSuccess("Price updated successfully.");
+    } catch (e) {
+      console.error("Save failed", e);
+      setError("Failed to save price.");
+      // On error, we could refetch to revert, but usually better to let user retry
+    }
   };
 
 
@@ -308,7 +335,7 @@ export const BasePlan = () => {
             </Button>
         </Box>
 
-        {loading ? <CircularProgress /> : Object.keys(rowsByPlan).map(planName => (
+        {loading ? <CircularProgress /> : orderedPlanNames.map(planName => (
             <Paper key={planName} sx={{ mb: 4, overflow: 'hidden' }}>
                  <Box sx={{ bgcolor: 'rgba(25, 118, 210, 0.04)', p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Typography variant="h5" sx={{ fontWeight: 800, color: '#1a237e', letterSpacing: -0.5 }}>{planName}</Typography>
@@ -482,9 +509,11 @@ export const BasePlan = () => {
                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                      <TextField 
                         label="Plan Name"
+                        placeholder="Enter Plan Name"
                         fullWidth
                         value={createForm.name || ''}
                         onChange={e => setCreateForm({...createForm, name: e.target.value})}
+                        InputLabelProps={{ shrink: true }}
                     />
                      <FormControl fullWidth>
                         <InputLabel>Role</InputLabel>
