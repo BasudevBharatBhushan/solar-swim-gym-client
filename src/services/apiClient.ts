@@ -1,6 +1,6 @@
 const getBaseUrl = () => {
   if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
   }
   return 'http://localhost:3001/api/v1';
 };

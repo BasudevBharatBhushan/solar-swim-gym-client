@@ -8,7 +8,7 @@ import axios from 'axios';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import LogoutIcon from '@mui/icons-material/Logout';
 
-const API_URL = 'http://localhost:3001/api/v1';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
 
 interface MainLayoutProps {
   children: ReactNode;

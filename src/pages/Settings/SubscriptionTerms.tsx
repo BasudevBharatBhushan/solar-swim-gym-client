@@ -29,7 +29,7 @@ import { useConfig } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { dropdownOptions } from '../../lib/dropdownOptions';
 
-const API_URL = 'http://localhost:3001/api/v1';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
 
 export const SubscriptionTerms = () => {
   const [data, setData] = useState<any[]>([]);
@@ -38,9 +38,9 @@ export const SubscriptionTerms = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [currentTerm, setCurrentTerm] = useState<any>({});
   
-  const { token, currentLocationId, locations } = useAuth();
+  const { token, currentLocationId } = useAuth();
   const { refreshSubscriptionTerms } = useConfig();
-  const currentLocation = locations.find(l => l.location_id === currentLocationId);
+  // const currentLocation = locations.find(l => l.location_id === currentLocationId);
 
   const fetchData = async () => {
     if (!currentLocationId) return;
