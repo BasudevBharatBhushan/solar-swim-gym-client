@@ -9,6 +9,8 @@ import {
   Collapse,
   Box,
   Typography,
+  Avatar,
+  Divider,
 } from '@mui/material';
 import {
   PeopleAlt,
@@ -78,7 +80,7 @@ const menuItems: MenuItem[] = [
 export const Sidebar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { role } = useAuth();
+  const { role, userParams } = useAuth();
   
   // State to track open/closed collapse items
   // Using a map key approach: "Settings", "Settings-Subscription Setting"
@@ -103,6 +105,43 @@ export const Sidebar = () => {
 
     return (
       <React.Fragment key={item.text}>
+        {/* Add section labels */}
+        {level === 0 && item.text === 'Leads' && (
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              px: 3, 
+              pt: 3, 
+              pb: 1, 
+              display: 'block', 
+              color: 'rgba(248, 250, 252, 0.4)', 
+              fontWeight: 700, 
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              fontSize: '0.65rem'
+            }}
+          >
+            Main Menu
+          </Typography>
+        )}
+        {level === 0 && item.text === 'Settings' && (
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              px: 3, 
+              pt: 3, 
+              pb: 1, 
+              display: 'block', 
+              color: 'rgba(248, 250, 252, 0.4)', 
+              fontWeight: 700, 
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              fontSize: '0.65rem'
+            }}
+          >
+            System
+          </Typography>
+        )}
         <ListItem disablePadding sx={{ display: 'block' }}>
           <ListItemButton
             selected={isSelected && !hasChildren} // Only highlight leaf nodes or handle parents differently
@@ -166,49 +205,136 @@ export const Sidebar = () => {
       sx={{
         width: drawerWidth,
         flexShrink: 0,
-        [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+        [`& .MuiDrawer-paper`]: { 
+          width: drawerWidth, 
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          backgroundColor: '#0f172a', // Slightly darker than the theme for better contrast if needed, or stick to theme
+          borderRight: '1px solid rgba(255, 255, 255, 0.05)'
+        },
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', p: 2, justifyContent: '', minHeight: 64 }}>
-        <img 
-          src={logo} 
-          alt="Solar Swim Gym" 
-          style={{ height: '50px', marginRight: '10px' }} 
-        />
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <Typography 
-            variant="h6" 
-            component="div" 
+      <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', p: 2, justifyContent: '', minHeight: 64 }}>
+          <img 
+            src={logo} 
+            alt="Solar Swim Gym" 
+            style={{ height: '50px', marginRight: '10px' }} 
+          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ 
+                fontWeight: 600, 
+                color: 'white', 
+                fontSize: '1rem', 
+                lineHeight: 0.9,
+                letterSpacing: '-0.5px',
+                textTransform: 'none'
+              }}
+            >
+              Solar Swim
+            </Typography>
+            <Typography 
+              variant="h6" 
+              component="div" 
+              sx={{ 
+                fontWeight: 600, 
+                color: 'white', 
+                fontSize: '1rem', 
+                lineHeight: 1.2,
+                letterSpacing: '-0.5px',
+                textTransform: 'none'
+              }}
+            >
+              & Gym
+            </Typography>
+          </Box>
+        </Box>
+        <List>
+          {menuItems.map((item) => renderMenuItem(item))}
+        </List>
+      </Box>
+
+      {/* Admin Profile Section */}
+      <Box sx={{ p: 2, mt: 'auto' }}>
+        <Divider sx={{ mb: 2, borderColor: 'rgba(255, 255, 255, 0.05)' }} />
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 1.5, 
+          p: 1.5, 
+          borderRadius: 2,
+          bgcolor: 'rgba(255, 255, 255, 0.04)',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            bgcolor: 'rgba(255, 255, 255, 0.08)',
+          }
+        }}>
+          <Avatar 
             sx={{ 
-              fontWeight: 600, 
-              color: 'white', 
-              fontSize: '1rem', 
-              lineHeight: 0.9,
-              letterSpacing: '-0.5px',
-              textTransform: 'none'
+              width: 38, 
+              height: 38, 
+              bgcolor: '#3b82f6',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
             }}
           >
-            Solar Swim
-          </Typography>
-          <Typography 
-            variant="h6" 
-            component="div" 
-            sx={{ 
-              fontWeight: 600, 
-              color: 'white', 
-              fontSize: '1rem', 
-              lineHeight: 1.2,
-              letterSpacing: '-0.5px',
-              textTransform: 'none'
-            }}
-          >
-            & Gym
-          </Typography>
+            {userParams?.first_name ? 
+              `${userParams.first_name[0]}${userParams.last_name?.[0] || ''}` : 
+              (role?.includes('ADMIN') ? 'AD' : 'U')}
+          </Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: '#f8fafc', 
+                fontWeight: 600,
+                fontSize: '0.875rem',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              {userParams?.first_name ? `${userParams.first_name} ${userParams.last_name || ''}` : 'Admin User'}
+            </Typography>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: 'rgba(248, 250, 252, 0.5)', 
+                fontSize: '0.75rem',
+                display: 'block',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}
+            >
+              {userParams?.email || 'admin@solarswim.com'}
+            </Typography>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: '#3b82f6', 
+                fontSize: '0.7rem', 
+                fontWeight: 700, 
+                textTransform: 'uppercase',
+                mt: 0.25,
+                display: 'inline-block',
+                px: 0.75,
+                py: 0.1,
+                borderRadius: 1,
+                bgcolor: 'rgba(59, 130, 246, 0.1)'
+              }}
+            >
+              {role?.replace('_', ' ')}
+            </Typography>
+          </Box>
         </Box>
       </Box>
-      <List>
-        {menuItems.map((item) => renderMenuItem(item))}
-      </List>
     </Drawer>
   );
 };

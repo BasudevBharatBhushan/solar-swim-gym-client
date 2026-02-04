@@ -10,6 +10,8 @@ import { SubscriptionTerms } from './pages/Settings/SubscriptionTerms';
 import { Services } from './pages/Services/Services';
 import { BasePlan } from './pages/Settings/BasePlan';
 import { Memberships } from './pages/Settings/Memberships';
+import { DiscountCodes } from './pages/Settings/DiscountCodes';
+import { EmailSettings } from './pages/Settings/EmailSettings';
 import { MainLayout } from './components/Layout/MainLayout';
 import { Typography } from '@mui/material';
 
@@ -44,8 +46,8 @@ function App() {
             <Route path="/subscription" element={<MainLayout><Placeholder title="Subscription" /></MainLayout>} />
             <Route path="/services" element={<MainLayout><Services /></MainLayout>} />
             <Route path="/memberships"  element={<MainLayout><Memberships /></MainLayout>} />
-            <Route path="/discounts" element={<MainLayout><Placeholder title="Discount Codes" /></MainLayout>} />
-            <Route path="/email-settings" element={<MainLayout><Placeholder title="Email Settings" /></MainLayout>} />
+            <Route path="/discounts" element={<MainLayout><DiscountCodes /></MainLayout>} />
+            <Route path="/email-settings" element={<MainLayout><EmailSettings /></MainLayout>} />
             {/* <Route path="/settings/memberships" element={<MainLayout><Memberships /></MainLayout>} /> */}
 
              {/* Catch all */}
