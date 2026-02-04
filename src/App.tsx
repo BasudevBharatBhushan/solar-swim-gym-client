@@ -8,6 +8,8 @@ import { Login } from './pages/Login';
 import { AgeProfiles } from './pages/Settings/AgeProfiles';
 import { SubscriptionTerms } from './pages/Settings/SubscriptionTerms';
 import { Services } from './pages/Services/Services';
+import { BasePlan } from './pages/Settings/BasePlan';
+import { Memberships } from './pages/Settings/Memberships';
 import { MainLayout } from './components/Layout/MainLayout';
 import { Typography } from '@mui/material';
 
@@ -33,6 +35,7 @@ function App() {
             <Route path="/settings" element={<MainLayout><Placeholder title="Leads" /></MainLayout>} />
             <Route path="/settings/age-profiles" element={<MainLayout><AgeProfiles /></MainLayout>} />
             <Route path="/settings/subscription-terms" element={<MainLayout><SubscriptionTerms /></MainLayout>} />
+            <Route path="/settings/base-plan" element={<MainLayout><BasePlan /></MainLayout>} />
             
             <Route path="/leads" element={<MainLayout><Placeholder title="Leads" /></MainLayout>} />
             <Route path="/accounts" element={<MainLayout><Placeholder title="Accounts" /></MainLayout>} />
@@ -40,9 +43,10 @@ function App() {
             <Route path="/staff" element={<MainLayout><Placeholder title="Staff Management" /></MainLayout>} />
             <Route path="/subscription" element={<MainLayout><Placeholder title="Subscription" /></MainLayout>} />
             <Route path="/services" element={<MainLayout><Services /></MainLayout>} />
-            <Route path="/memberships" element={<MainLayout><Placeholder title="Memberships" /></MainLayout>} />
+            <Route path="/memberships"  element={<MainLayout><Memberships /></MainLayout>} />
             <Route path="/discounts" element={<MainLayout><Placeholder title="Discount Codes" /></MainLayout>} />
             <Route path="/email-settings" element={<MainLayout><Placeholder title="Email Settings" /></MainLayout>} />
+            {/* <Route path="/settings/memberships" element={<MainLayout><Memberships /></MainLayout>} /> */}
 
              {/* Catch all */}
             <Route path="*" element={<Navigate to="/login" replace />} />

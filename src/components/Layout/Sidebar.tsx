@@ -6,7 +6,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Toolbar,
   Collapse,
   Box,
   Typography,
@@ -26,6 +25,7 @@ import {
   ExpandMore,
   DateRange,
   Tune,
+  MonetizationOn,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -65,7 +65,10 @@ const menuItems: MenuItem[] = [
         ]
       },
       { text: 'Services', icon: <Pool />, path: '/services' },
+      { text: 'Base Plan', icon: <MonetizationOn />, path: '/settings/base-plan' },
+
       { text: 'Membership', icon: <Loyalty />, path: '/memberships' },
+
       { text: 'Discount Codes', icon: <LocalOffer />, path: '/discounts' },
       { text: 'Email Settings', icon: <Email />, path: '/email-settings' },
     ]

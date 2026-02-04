@@ -257,7 +257,7 @@
 			"name": "Pricing",
 			"item": [
 				{
-					"name": "Get Base Pricing & Bundles",
+					"name": "Get Base Plan",
 					"request": {
 						"method": "GET",
 						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
@@ -266,16 +266,72 @@
 					"response": []
 				},
 				{
-					"name": "Create Base Price",
+					"name": "Upsert Base Plan",
 					"request": {
 						"method": "POST",
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Standard Monthly Fee\",\n    \"role\": \"PRIMARY\",\n    \"age_group_id\": \"{{lastAgeGroupId}}\",\n    \"subscription_term_id\": \"{{lastTermId}}\",\n    \"price\": 29.99\n}",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"prices\": [\n        {\n            \"name\": \"Standard Monthly Fee\",\n            \"role\": \"PRIMARY\",\n            \"age_group_id\": \"{{lastAgeGroupId}}\",\n            \"subscription_term_id\": \"{{lastTermId}}\",\n            \"price\": 29.99\n        }\n    ],\n    \"membership_services\": [\n        {\n            \"service_id\": \"{{lastServiceId}}\",\n            \"is_included\": true,\n            \"usage_limit\": \"Unlimited\"\n        }\n    ]\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": { "raw": "{{baseUrl}}/base-prices", "host": ["{{baseUrl}}"], "path": ["base-prices"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Membership Services",
+			"item": [
+				{
+					"name": "Get Base Plan Membership Services",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "x-location-id",
+								"value": "{{lastLocationId}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/membership-services/base-plan",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"membership-services",
+								"base-plan"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upsert Membership Service",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "[\n    {\n        \"service_id\": \"{{lastServiceId}}\",\n        \"membership_program_id\": null,\n        \"is_included\": true,\n        \"is_part_of_base_plan\": true,\n        \"usage_limit\": \"5 sessions\"\n    }\n]",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{baseUrl}}/membership-services/upsert",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"membership-services",
+								"upsert"
+							]
+						}
 					},
 					"response": []
 				}
@@ -569,6 +625,7 @@
 					"    if (jsonData.waiver_program_id) pm.environment.set(\"lastWaiverId\", jsonData.waiver_program_id);",
 					"    if (jsonData.service_id) pm.environment.set(\"lastServiceId\", jsonData.service_id);",
 					"    if (jsonData.base_price_id) pm.environment.set(\"lastBasePriceId\", jsonData.base_price_id);",
+					"    if (jsonData.prices && jsonData.prices.length > 0) pm.environment.set(\"lastBasePriceId\", jsonData.prices[0].base_price_id);",
 					"    if (jsonData.membership_program_id) pm.environment.set(\"lastMembershipProgramId\", jsonData.membership_program_id);",
 					"    if (jsonData.account_id) pm.environment.set(\"lastAccountId\", jsonData.account_id);",
 					"    if (jsonData.profile_id) pm.environment.set(\"lastProfileId\", jsonData.profile_id);",

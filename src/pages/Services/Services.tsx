@@ -59,11 +59,21 @@ export const Services = () => {
   const [isActive, setIsActive] = useState(true);
   const [pricingGrid, setPricingGrid] = useState<PricingGrid>({});
 
-  const fetchServices = async (forceSelectFirst = false) => {
+  const fetchServices = async (idToSelect?: string, forceSelectFirst = false) => {
     if (!currentLocationId) return;
     try {
        const res = await serviceCatalog.getServices(currentLocationId);
        setServices(res);
+
+       // If an ID is provided, try to find and select it
+       if (idToSelect) {
+         const serviceToSelect = res.find((s: any) => (s.service_id || s.id) === idToSelect);
+         if (serviceToSelect) {
+           handleServiceClick(serviceToSelect);
+           return;
+         }
+       }
+
        // Select first service by default if available and (forced OR nothing selected)
        if (res.length > 0 && (forceSelectFirst || (!selectedService && !isCreating))) {
            handleServiceClick(res[0]);
@@ -79,7 +89,7 @@ export const Services = () => {
         // Clear selection when location changes to ensure we re-select from the new list
         setSelectedService(null);
         setIsCreating(false);
-        fetchServices(true); // Pass true to force selection of first item
+        fetchServices(undefined, true); // Pass true to force selection of first item
     }
   }, [currentLocationId]);
 
@@ -185,10 +195,12 @@ export const Services = () => {
         payload.service_id = selectedService.service_id || selectedService.id;
       }
 
-      await serviceCatalog.upsertService(payload);
+      const response = await serviceCatalog.upsertService(payload);
+      const savedServiceId = response?.service_id || response?.id;
+      
       setSuccess(`Service ${selectedService ? 'updated' : 'created'} successfully!`);
-      // Update local list
-      fetchServices();
+      // Update local list and select the saved service
+      fetchServices(savedServiceId);
     } catch (err: any) {
       setError(err.message || "Failed to save service.");
     }
@@ -289,14 +301,14 @@ export const Services = () => {
                                         {service.name}
                                     </Typography>
                                     <Chip 
-                                        label="ACTIVE" 
+                                        label={service.is_active !== false ? "ACTIVE" : "INACTIVE"} 
                                         size="small" 
                                         sx={{ 
                                             height: 20, 
                                             fontSize: '0.65rem', 
                                             fontWeight: 700,
-                                            bgcolor: '#d1fae5', 
-                                            color: '#059669',
+                                            bgcolor: service.is_active !== false ? '#d1fae5' : '#fee2e2', 
+                                            color: service.is_active !== false ? '#059669' : '#b91c1c',
                                             borderRadius: '4px'
                                         }} 
                                     />
