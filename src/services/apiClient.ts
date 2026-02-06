@@ -104,4 +104,32 @@ export const apiClient = {
   delete: (endpoint: string, options: RequestInit = {}) => {
     return request(endpoint, { method: 'DELETE', ...options });
   },
+
+  upload: async (endpoint: string, formData: FormData, options: RequestInit = {}) => {
+    const token = getToken();
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+        let errorMessage = 'Upload failed';
+        try {
+            const errorBody = await response.json();
+            errorMessage = errorBody.message || errorBody.error || errorMessage;
+        } catch {
+            errorMessage = response.statusText;
+        }
+        throw new Error(errorMessage);
+    }
+    return response.json();
+  }
 };

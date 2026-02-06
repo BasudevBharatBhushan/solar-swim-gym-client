@@ -143,6 +143,41 @@ The catalog of available offerings.
 
 **RLS Policy**: Filter by `location_id`.
 
+### **Table: `service_pack`**
+Bundles of classes or time-based access linked to a service.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `service_pack_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
+| `service_id` | `UUID` | Parent service. | **FK** -> `service`, `NOT NULL` |
+| `name` | `TEXT` | Pack name (e.g., "10 Class Pack"). | `NOT NULL` |
+| `description` | `TEXT` | Details. | |
+| `classes` | `INT` | Number of classes included. | |
+| `duration_days` | `INT` | Validity in days. | |
+| `duration_months` | `INT` | Validity in months. | |
+| `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
+| `updated_at` | `TIMESTAMP` | Record update timestamp. | Default: `NOW()` |
+
+### **Table: `email_smtp_config`**
+Configuration for sending emails via SMTP per location.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `config_id` | `UUID` | Unique configuration ID. | **PK**, Default: `gen_random_uuid()` |
+| `location_id` | `UUID` | Location scope. | **FK** -> `location`, `UNIQUE`, `NOT NULL` |
+| `smtp_host` | `TEXT` | SMTP Server Host (e.g., smtp.gmail.com). | |
+| `smtp_port` | `INTEGER` | SMTP Port (e.g., 587). | |
+| `sender_email` | `TEXT` | From email address. | |
+| `sender_name` | `TEXT` | From name. | |
+| `smtp_username` | `TEXT` | Username for authentication. | |
+| `smtp_password` | `TEXT` | Password for authentication. | |
+| `is_secure` | `BOOLEAN` | Use TLS/SSL. | Default: `TRUE` |
+| `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
+| `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
+| `updated_at` | `TIMESTAMP` | Record update timestamp. | Default: `NOW()` |
+
+**RLS Policy**: Filter by `location_id`. Only accessible by authorized staff.
+
 ### **Table: `base_price`**
 Standard pricing for core services.
 
@@ -160,15 +195,16 @@ Standard pricing for core services.
 **RLS Policy**: Filter by `location_id`.
 
 ### **Table: `service_price`**
-Pricing for add-on services.
+Pricing for service packs.
 
 | Field Name | Type | Description | Key / Constraint |
 | :--- | :--- | :--- | :--- |
 | `service_price_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
-| `service_id` | `UUID` | The service being priced. | **FK** -> `service`, `NOT NULL` |
+| `service_pack_id` | `UUID` | The pack being priced. | **FK** -> `service_pack`, `NOT NULL` |
+| `service_id` | `UUID` | Legacy reference (Nullable). | **FK** -> `service` |
 | `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
 | `age_group_id` | `UUID` | Age group modifier. | **FK** -> `age_group`, `NOT NULL` |
-| `subscription_term_id`| `UUID` | Billing term modifier. | **FK** -> `subscription_term`, `NOT NULL` |
+| `subscription_term_id`| `UUID` | Billing term modifier (Optional). | **FK** -> `subscription_term` |
 | `price` | `DECIMAL` | The cost amount. | `NOT NULL`, Default: `0.00` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 
@@ -257,8 +293,7 @@ Services bundled into a membership.
 | Field Name | Type | Description | Key / Constraint |
 | :--- | :--- | :--- | :--- |
 | `membership_service_id`| `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
-| `membership_program_id`| `UUID` | Parent program. | **FK** -> `membership_program`, `NOT NULL` |
-| `category_id` | `UUID` | Specific category override. | **FK** -> `membership_program_category` |
+| `membership_program_id`| `UUID` | Parent program (NULL for Base Plan). | **FK** -> `membership_program` |
 | `service_id` | `UUID` | The included service. | **FK** -> `service`, `NOT NULL` |
 | `is_included` | `BOOLEAN` | Whether it is free/included. | Default: `TRUE` |
 | `usage_limit` | `TEXT` | Cap on usage (e.g., "10 visits"). | |
@@ -311,6 +346,7 @@ Active recurring contract for a service/membership.
 | `account_id` | `UUID` | Owner account. | **FK** -> `account`, `NOT NULL` |
 | `location_id` | `UUID` | Location context. | **FK** -> `location`, `NOT NULL` |
 | `invoice_id` | `UUID` | Related invoice. | **FK** -> `invoice` |
+| `session_id` | `UUID` | Linked session (Optional). | **FK** -> `session` |
 | `subscription_type` | `ENUM` | `BASE`, `MEMBERSHIP_FEE`, `ADDON_SERVICE` | `NOT NULL`, Default: `BASE` |
 | `reference_id` | `UUID` | Polymorphic FK to price table. | `NOT NULL` |
 | `subscription_term_id` | `UUID` | Billing term FK. | **FK** -> `subscription_term` |
@@ -323,40 +359,23 @@ Active recurring contract for a service/membership.
 
 **RLS Policy**: Filter by `location_id`.
 
+### **Table: `session`**
+Time-bound sessions for class scheduling or terms.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `session_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
+| `name` | `TEXT` | Session Name (e.g., "Summer 2026"). | `NOT NULL` |
+| `start_date` | `DATE` | Start date. | `NOT NULL`|
+| `expiry_date` | `DATE` | End date. | `NOT NULL`|
+| `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
+| `updated_at` | `TIMESTAMP` | Record update timestamp. | Default: `NOW()` |
+
+**RLS Policy**: Public read or implementation specific.
+
 ### **Table: `subscription_coverage`**
 Links specific profiles to a subscription.
-
-| Field Name | Type | Description | Key / Constraint |
-| :--- | :--- | :--- | :--- |
-| `subscription_coverage_id`| `UUID`| Unique ID. | **PK**, Default: `gen_random_uuid()` |
-| `subscription_id` | `UUID` | Parent subscription. | **FK** -> `subscription`, `NOT NULL` |
-| `profile_id` | `UUID` | Beneficiary profile. | **FK** -> `profile`, `NOT NULL` |
-| `role` | `ENUM` | `PRIMARY`, `ADD_ON` | |
-| `exempt` | `BOOLEAN` | If true, cost is waived/covered. | Default: `FALSE` |
-| `exempt_reason` | `TEXT` | Reason for exemption. | |
-
-**RLS Policy**: Filter by `location_id` (via Subscription).
-
----
-
-## **8. Reference Tables**
-
-### **Table: `waiver_program`**
-External funding programs (e.g., RCBE).
-
-| Field Name | Type | Description | Key / Constraint |
-| :--- | :--- | :--- | :--- |
-| `waiver_program_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
-| `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
-| `name` | `TEXT` | Program Name. | `NOT NULL` |
-| `description` | `TEXT` | Details. | |
-| `code` | `TEXT` | Program Code (Implicitly required for matching).| |
-| `requires_case_manager`| `BOOLEAN` | If true, enforces extra profile fields.| Default: `FALSE` |
-| `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
-| `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
-
-**RLS Policy**: Filter by `location_id`.
-
+... (rest of the file as is until next match) ...
 ### **Table: `age_group`**
 Global age classifications.
 
@@ -364,11 +383,13 @@ Global age classifications.
 | :--- | :--- | :--- | :--- |
 | `age_group_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
 | `name` | `TEXT` | e.g., "Adult", "Child". | `NOT NULL` |
-| `min_age` | `INT` | Lower bound (inclusive). | `NOT NULL` |
-| `max_age` | `INT` | Upper bound (inclusive). | `NOT NULL` |
+| `min_age` | `DECIMAL` | Lower bound (inclusive). | `NOT NULL` |
+| `max_age` | `DECIMAL` | Upper bound (inclusive). | `NOT NULL` |
+| `accept_guardian_information`| `BOOLEAN` | If true, prompts for guardian details.| Default: `FALSE` |
 
 ### **Table: `subscription_term`**
 Billing duration definitions.
+...
 
 | Field Name | Type | Description | Key / Constraint |
 | :--- | :--- | :--- | :--- |
@@ -376,7 +397,7 @@ Billing duration definitions.
 | `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
 | `name` | `TEXT` | e.g., "Monthly". | `NOT NULL` |
 | `duration_months` | `INT` | Length in months. | Default: `1`, `NOT NULL` |
-| `payment_mode` | `ENUM` | `PIF`, `RECURRING` | Default: `RECURRING`, `NOT NULL` |
+| `payment_mode` | `ENUM` | `PAY_IN_FULL`, `RECURRING` | Default: `RECURRING`, `NOT NULL` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 
 **RLS Policy**: Filter by `location_id`.

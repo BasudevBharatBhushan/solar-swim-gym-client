@@ -7,13 +7,23 @@ export const crmService = {
     return apiClient.get('/leads', {}, options);
   },
 
-  searchLeads: async (query: string, status?: string, locationId?: string) => {
-    const params: Record<string, string> = {};
-    if (query) params.q = query;
-    if (status) params.status = status;
+  searchLeads: async (params: { 
+    q?: string, 
+    from?: number, 
+    size?: number, 
+    sort?: string, 
+    order?: 'asc' | 'desc', 
+    locationId?: string 
+  }) => {
+    const queryParams: Record<string, string> = {};
+    if (params.q) queryParams.q = params.q;
+    if (params.from !== undefined) queryParams.from = params.from.toString();
+    if (params.size !== undefined) queryParams.size = params.size.toString();
+    if (params.sort) queryParams.sort = params.sort;
+    if (params.order) queryParams.order = params.order;
     
-    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get('/leads/search', params, options);
+    const options = params.locationId ? { headers: { 'x-location-id': params.locationId } } : {};
+    return apiClient.get('/leads/search', queryParams, options);
   },
 
   upsertLead: async (leadData: any) => {

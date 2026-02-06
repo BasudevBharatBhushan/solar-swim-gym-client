@@ -127,6 +127,29 @@
 			"name": "Configuration",
 			"item": [
 				{
+					"name": "Get Email Config",
+					"request": {
+						"method": "GET",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"url": { "raw": "{{baseUrl}}/email-config", "host": ["{{baseUrl}}"], "path": ["email-config"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Upsert Email Config",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "x-location-id", "value": "{{lastLocationId}}", "type": "text" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"smtp_host\": \"smtp.gmail.com\",\n    \"smtp_port\": 587,\n    \"sender_email\": \"admin@solar.com\",\n    \"sender_name\": \"Solar Swim Gym\",\n    \"smtp_username\": \"apikey\",\n    \"smtp_password\": \"securepassword\",\n    \"is_secure\": true,\n    \"is_active\": true\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/email-config", "host": ["{{baseUrl}}"], "path": ["email-config"] }
+					},
+					"response": []
+				},
+				{
 					"name": "Get Age Groups",
 					"request": {
 						"method": "GET",
@@ -356,7 +379,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson\",\n    \"description\": \"Group swimming lesson for beginners\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false,\n    \"pricing_structure\": [\n        {\n            \"age_group_id\": \"{{lastAgeGroupId}}\",\n            \"terms\": [\n                {\n                    \"subscription_term_id\": \"{{lastTermId}}\",\n                    \"price\": 50.00\n                }\n            ]\n        }\n    ]\n}",
+							"raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson\",\n    \"description\": \"Group swimming lesson for beginners\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": { "raw": "{{baseUrl}}/services", "host": ["{{baseUrl}}"], "path": ["services"] }
@@ -370,10 +393,56 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"service_id\": \"{{lastServiceId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson Updated\",\n    \"description\": \"Updated description\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false,\n    \"pricing_structure\": [\n        {\n            \"age_group_id\": \"{{lastAgeGroupId}}\",\n            \"terms\": [\n                {\n                    \"subscription_term_id\": \"{{lastTermId}}\",\n                    \"price\": 55.00\n                }\n            ]\n        }\n    ]\n}",
+							"raw": "{\n    \"service_id\": \"{{lastServiceId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson Updated\",\n    \"description\": \"Updated description\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false\n}",
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": { "raw": "{{baseUrl}}/services", "host": ["{{baseUrl}}"], "path": ["services"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Packs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/services/{{lastServiceId}}/service-packs", "host": ["{{baseUrl}}"], "path": ["services", "{{lastServiceId}}", "service-packs"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Pack Prices",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/service-packs/{{servicePackId}}/prices", "host": ["{{baseUrl}}"], "path": ["service-packs", "{{servicePackId}}", "prices"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Upsert Service Pack",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_id\": \"{{lastServiceId}}\",\n    \"name\": \"10 Class Pack\",\n    \"description\": \"Standard 10 classes\",\n    \"classes\": 10,\n    \"duration_months\": 3\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/service-packs/upsert", "host": ["{{baseUrl}}"], "path": ["service-packs", "upsert"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Upsert Service Price",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_pack_id\": \"{{lastServicePackId}}\",\n    \"age_group_id\": \"{{lastAgeGroupId}}\",\n    \"price\": 150.00\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/service-packs/prices/upsert", "host": ["{{baseUrl}}"], "path": ["service-packs", "prices", "upsert"] }
 					},
 					"response": []
 				}
@@ -560,6 +629,34 @@
 							"options": { "raw": { "language": "json" } }
 						},
 						"url": { "raw": "{{baseUrl}}/accounts/upsert", "host": ["{{baseUrl}}"], "path": ["accounts", "upsert"] }
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Sessions",
+			"item": [
+				{
+					"name": "Get Sessions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/sessions", "host": ["{{baseUrl}}"], "path": ["sessions"] }
+					},
+					"response": []
+				},
+				{
+					"name": "Upsert Session",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Summer 2026\",\n    \"start_date\": \"2026-06-01\",\n    \"expiry_date\": \"2026-08-31\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/sessions/upsert", "host": ["{{baseUrl}}"], "path": ["sessions", "upsert"] }
 					},
 					"response": []
 				}

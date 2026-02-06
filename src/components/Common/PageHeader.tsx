@@ -5,10 +5,11 @@ interface PageHeaderProps {
   title: string;
   description?: string;
   action?: ReactNode;
+  children?: ReactNode;
   breadcrumbs?: { label: string; href?: string; active?: boolean }[];
 }
 
-export const PageHeader = ({ title, description, action, breadcrumbs }: PageHeaderProps) => {
+export const PageHeader = ({ title, description, action, breadcrumbs, children }: PageHeaderProps) => {
   return (
     <Box sx={{ mb: 4 }}>
       {breadcrumbs && (
@@ -40,9 +41,10 @@ export const PageHeader = ({ title, description, action, breadcrumbs }: PageHead
             </Typography>
           )}
         </Box>
-        {action && (
-          <Box sx={{ mt: 1 }}>
+        {(action || children) && (
+          <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
             {action}
+            {children}
           </Box>
         )}
       </Box>

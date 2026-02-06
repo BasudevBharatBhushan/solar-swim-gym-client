@@ -13,6 +13,7 @@ import { Memberships } from './pages/Settings/Memberships';
 import { DiscountCodes } from './pages/Settings/DiscountCodes';
 import { EmailSettings } from './pages/Settings/EmailSettings';
 import { MainLayout } from './components/Layout/MainLayout';
+import { Leads } from './pages/Leads/Leads';
 import { Typography } from '@mui/material';
 
 import { LayoutProvider } from './context/LayoutContext';
@@ -39,7 +40,7 @@ function App() {
             <Route path="/settings/subscription-terms" element={<MainLayout><SubscriptionTerms /></MainLayout>} />
             <Route path="/settings/base-plan" element={<MainLayout><BasePlan /></MainLayout>} />
             
-            <Route path="/leads" element={<MainLayout><Placeholder title="Leads" /></MainLayout>} />
+            <Route path="/leads" element={<MainLayout><Leads /></MainLayout>} />
             <Route path="/accounts" element={<MainLayout><Placeholder title="Accounts" /></MainLayout>} />
             <Route path="/profiles" element={<MainLayout><Placeholder title="Profiles" /></MainLayout>} />
             <Route path="/staff" element={<MainLayout><Placeholder title="Staff Management" /></MainLayout>} />
