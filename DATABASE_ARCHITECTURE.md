@@ -140,6 +140,7 @@ The catalog of available offerings.
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 | `type` | `TEXT` | e.g., "Private", "Group". | |
 | `service_type` | `TEXT` | e.g., "SELF", "TRAINING". | |
+| `image_url` | `TEXT` | Public URL of the uploaded image. | |
 
 **RLS Policy**: Filter by `location_id`.
 
@@ -293,7 +294,8 @@ Services bundled into a membership.
 | Field Name | Type | Description | Key / Constraint |
 | :--- | :--- | :--- | :--- |
 | `membership_service_id`| `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
-| `membership_program_id`| `UUID` | Parent program (NULL for Base Plan). | **FK** -> `membership_program` |
+| `membership_program_id`| `UUID` | Parent category (NULL for Base Plan). | **FK** -> `membership_program_category` |
+| `base_price_id`| `UUID` | Parent base price (NULL for Program). | **FK** -> `base_price` |
 | `service_id` | `UUID` | The included service. | **FK** -> `service`, `NOT NULL` |
 | `is_included` | `BOOLEAN` | Whether it is free/included. | Default: `TRUE` |
 | `usage_limit` | `TEXT` | Cap on usage (e.g., "10 visits"). | |

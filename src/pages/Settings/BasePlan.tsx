@@ -54,12 +54,11 @@ export const BasePlan = () => {
   
   // Data State
   const [basePrices, setBasePrices] = useState<BasePrice[]>([]);
-  const [bundledServices, setBundledServices] = useState<MembershipService[]>([]);
   const [availableServices, setAvailableServices] = useState<any[]>([]); // For dropdown
 
   const [openCreate, setOpenCreate] = useState(false);
-  const [openAddService, setOpenAddService] = useState(false);
-  const [newServiceId, setNewServiceId] = useState('');
+  const [manageServicesId, setManageServicesId] = useState<string | null>(null);
+  
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -77,11 +76,7 @@ export const BasePlan = () => {
       const data = await basePriceService.getAll(currentLocationId);
       setBasePrices(data.prices);
       
-      // Use new dedicated endpoint for bundled services
-      const bundledData = await membershipService.getBasePlanServices(currentLocationId);
-      setBundledServices(bundledData);
-
-      // Fetch all services for the dropdown to add new bundled services
+      // Fetch all services for the dropdown to see available services (for the modal)
       const allServices = await serviceCatalog.getServices(currentLocationId);
       setAvailableServices(allServices);
 
@@ -140,9 +135,6 @@ export const BasePlan = () => {
   };
 
   // --- Handlers ---
-
-
-
   const handlePriceSave = async (row: RowKey, termId: string, val: number) => {
     if (!currentLocationId) return;
 
@@ -192,92 +184,10 @@ export const BasePlan = () => {
     } catch (e) {
       console.error("Save failed", e);
       setError("Failed to save price.");
-      // On error, we could refetch to revert, but usually better to let user retry
     }
   };
 
 
-  const handleRoleUpdate = async (row: RowKey, newRole: 'PRIMARY' | 'ADD_ON') => {
-      if (!currentLocationId) return;
-      if (row.role === newRole) return;
-
-      // Find all prices that belong to this logical "row"
-      const matchingPrices = basePrices.filter(p => 
-          p.name === row.planName && 
-          p.role === row.role && 
-          p.age_group_id === row.ageGroupId
-      );
-
-      // Optimistic Update
-      const oldPrices = [...basePrices];
-      setBasePrices(prev => prev.map(p => {
-          if (p.name === row.planName && p.role === row.role && p.age_group_id === row.ageGroupId) {
-              return { ...p, role: newRole };
-          }
-          return p;
-      }));
-
-      try {
-          // Update each record in the background
-          const promises = matchingPrices.map(p => {
-              const { age_group_name, term_name, ...cleanPrice } = p;
-              const payload: BasePrice = {
-                  ...cleanPrice,
-                  role: newRole
-              };
-              return basePriceService.upsert(payload);
-          });
-
-          await Promise.all(promises);
-          setSuccess(`Role updated to ${newRole === 'PRIMARY' ? 'Primary' : 'AddOn'}`);
-      } catch (e) {
-          console.error("Failed to update role", e);
-          setError("Failed to update role. Reverting...");
-          setBasePrices(oldPrices); // Revert on failure
-      }
-  };
-
-
-  const handleBundledServiceUpdate = async (service: MembershipService, updates: Partial<MembershipService>) => {
-      if (!currentLocationId) return;
-      
-      const updated = { ...service, ...updates };
-
-      // Optimistic Update
-      setBundledServices(prev => prev.map(s => s.membership_service_id === service.membership_service_id ? updated : s));
-
-      try {
-          // Use the new upsert endpoint which handles stripping IDs and setting base plan flag
-          await membershipService.upsertMembershipServices([updated]);
-      } catch (e) {
-          console.error("Bundled service update failed", e);
-          // Revert?
-      }
-  };
-
-    const handleAddBundledService = async () => {
-        if (!currentLocationId || !newServiceId) return;
-
-        const newService: MembershipService = {
-            service_id: newServiceId,
-            is_included: true,
-            usage_limit: 'Unlimited',
-            is_part_of_base_plan: true,
-            is_active: true,
-            membership_program_id: null
-        };
-
-        try {
-            await membershipService.upsertMembershipServices([newService]);
-            // Refresh list
-            const updatedList = await membershipService.getBasePlanServices(currentLocationId);
-            setBundledServices(updatedList);
-            setOpenAddService(false);
-            setNewServiceId('');
-        } catch (e) {
-            console.error("Failed to add service", e);
-        }
-    };
 
     // --- Creation ---
     const handleCreate = async () => {
@@ -290,11 +200,9 @@ export const BasePlan = () => {
          const payload = { ...createForm, location_id: currentLocationId, price: Number(createForm.price || 0) } as BasePrice;
          try {
              await basePriceService.upsert(payload);
-             // Refresh everything to ensure pivot logic catches new rows
              await fetchData();
              setSuccess("Base plan row created successfully.");
              setOpenCreate(false);
-             // Reset form for next time
              setCreateForm({
                 role: 'PRIMARY',
                 is_active: true
@@ -316,7 +224,7 @@ export const BasePlan = () => {
       <Box sx={{ p: 3 }}>
                 <PageHeader 
                   title="Base Plan Pricing" 
-                  description="Configure base plan pricing for different age groups and subscription terms."
+                  description="Configure base plan pricing and included services for different age groups and terms."
                   breadcrumbs={[
                       { label: 'Settings', href: '/settings' },
                       { label: 'Base Plan Pricing', active: true }
@@ -341,57 +249,71 @@ export const BasePlan = () => {
                     <Typography variant="h5" sx={{ fontWeight: 800, color: '#1a237e', letterSpacing: -0.5 }}>{planName}</Typography>
                     <Chip label="Plan Group" size="small" sx={{ fontWeight: 'bold', bgcolor: '#e3f2fd', color: '#1565c0' }} />
                 </Box>
-                <TableContainer>
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                                <TableCell sx={{ fontWeight: 'bold' }}>Role</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold' }}>Age Group</TableCell>
-                                {subscriptionTerms.map(term => (
-                                    <TableCell key={term.subscription_term_id} sx={{ fontWeight: 'bold' }} align="center">
-                                        <Box>
-                                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', lineHeight: 1.2 }}>
-                                                {term.name}
-                                            </Typography>
-                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem', display: 'block', fontWeight: 500 }}>
-                                                {term.payment_mode === 'RECURRING' ? 'Recurring' : 'Pay in Full'}
-                                            </Typography>
-                                        </Box>
-                                    </TableCell>
-                                ))}
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {rowsByPlan[planName].map(row => (
-                                <TableRow key={getRowId(row)}>
-                                    <TableCell>
-                                        <Select
-                                            size="small"
-                                            value={row.role}
-                                            onChange={(e) => handleRoleUpdate(row, e.target.value as 'PRIMARY' | 'ADD_ON')}
+                
+                <Box sx={{ p: 0 }}>
+                    {/* Unique Profiles in this Plan Name */}
+                    {Array.from(new Set(rowsByPlan[planName].map(r => `${r.role}||${r.ageGroupId}`))).map(profileKey => {
+                        const [role, ageGroupId] = profileKey.split('||');
+                        const profileRows = rowsByPlan[planName].filter(r => r.role === role && r.ageGroupId === ageGroupId);
+                        // All rows in this profile are actually the SAME logical profile (just different terms)
+                        // So we pick the first one to represent the metadata
+                        const profileMeta = profileRows[0];
+                        
+                        // Find ANY base_price_id for this profile to manage services
+                        const profilePrice = basePrices.find(p => 
+                             p.name === planName && 
+                             p.role === role && 
+                             p.age_group_id === ageGroupId
+                        );
+                        
+                        return (
+                            <Box key={profileKey} sx={{ borderBottom: '1px solid #f0f0f0', p: 2 }}>
+                                {/* Profile Header */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#455a64' }}>
+                                            {role === 'PRIMARY' ? 'Primary' : 'Add-On'} • {ageGroups.find(g => g.age_group_id === ageGroupId)?.name}
+                                        </Typography>
+                                        <Chip 
+                                            label={role} 
+                                            size="small" 
                                             sx={{ 
-                                                minWidth: 100,
-                                                bgcolor: row.role === 'PRIMARY' ? 'rgba(33, 150, 243, 0.08)' : 'rgba(156, 39, 176, 0.08)',
-                                                color: row.role === 'PRIMARY' ? '#1976d2' : '#9c27b0',
-                                                fontWeight: 'bold',
-                                                '& .MuiOutlinedInput-notchedOutline': {
-                                                    borderColor: row.role === 'PRIMARY' ? 'rgba(25, 118, 210, 0.3)' : 'rgba(156, 39, 176, 0.3)',
-                                                },
-                                                '& .MuiSelect-select': {
-                                                    py: 0.5,
-                                                    fontSize: '0.875rem'
-                                                }
-                                            }}
-                                        >
-                                            <MenuItem value="PRIMARY" sx={{ color: '#1976d2', fontWeight: 'bold' }}>Primary</MenuItem>
-                                            <MenuItem value="ADD_ON" sx={{ color: '#9c27b0', fontWeight: 'bold' }}>AddOn</MenuItem>
-                                        </Select>
-                                    </TableCell>
-                                    <TableCell>{ageGroups.find(g => g.age_group_id === row.ageGroupId)?.name}</TableCell>
+                                                fontSize: '0.65rem', fontWeight: 800, height: 20,
+                                                bgcolor: role === 'PRIMARY' ? '#e3f2fd' : '#f3e5f5',
+                                                color: role === 'PRIMARY' ? '#1565c0' : '#7b1fa2'
+                                            }} 
+                                        />
+                                    </Box>
+                                    
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<Add />}
+                                        onClick={() => {
+                                             if (profilePrice?.base_price_id) {
+                                                 setManageServicesId(profilePrice.base_price_id);
+                                             } else {
+                                                 // Edge case: No price saved yet for this profile? 
+                                                 // Ideally we should warn or create a dummy one.
+                                                 setError("Please save at least one price for this profile before adding services.");
+                                             }
+                                        }}
+                                        disabled={!profilePrice?.base_price_id}
+                                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                                    >
+                                        Included Services
+                                    </Button>
+                                </Box>
+
+                                {/* Terms Grid */}
+                                <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                     {subscriptionTerms.map(term => {
-                                        const priceObj = getPrice(row, term.subscription_term_id);
+                                        const priceObj = getPrice(profileMeta, term.subscription_term_id);
                                         return (
-                                            <TableCell key={term.subscription_term_id} align="center">
+                                           <Box key={term.subscription_term_id} sx={{ minWidth: 150 }}>
+                                                <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#78909c', fontWeight: 700, fontSize: '0.7rem' }}>
+                                                    {term.name.toUpperCase()}
+                                                </Typography>
                                                 <TextField 
                                                     size="small"
                                                     type="number"
@@ -400,119 +322,25 @@ export const BasePlan = () => {
                                                     onBlur={(e) => {
                                                         const val = parseFloat(e.target.value);
                                                         if (!isNaN(val) && val !== priceObj?.price) {
-                                                            handlePriceSave(row, term.subscription_term_id, val);
+                                                            handlePriceSave(profileMeta, term.subscription_term_id, val);
                                                         }
                                                     }}
-                                                    sx={{ width: 100 }}
+                                                    sx={{ width: '100%' }}
                                                     InputProps={{
-                                                        startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.8rem', color: 'text.secondary' } }}>$</InputAdornment>,
-                                                        endAdornment: term.payment_mode === 'RECURRING' ? (
-                                                            <InputAdornment position="end" sx={{ '& .MuiTypography-root': { fontSize: '0.7rem', color: 'text.secondary' } }}>
-                                                                / Month
-                                                            </InputAdornment>
-                                                        ) : null
+                                                        startAdornment: <InputAdornment position="start"><Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>$</Typography></InputAdornment>,
+                                                        endAdornment: term.payment_mode === 'RECURRING' && <Typography variant="caption" sx={{ color: '#bdbdbd', fontSize: '0.7rem' }}>/mo</Typography>
                                                     }}
                                                 />
-                                            </TableCell>
-                                        )
+                                           </Box>
+                                        );
                                     })}
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                </Box>
+                            </Box>
+                        );
+                    })}
+                </Box>
             </Paper>
         ))}
-
-        {/* --- Bundled Services --- */}
-        <Box sx={{ mt: 6 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Base Plan Bundled Services</Typography>
-                
-                <Button 
-                    variant="outlined" 
-                    startIcon={<Add />} 
-                    onClick={() => setOpenAddService(true)}
-                    sx={{ 
-                        borderColor: '#e0e0e0',
-                        color: 'text.primary',
-                        '&:hover': {
-                            borderColor: '#bdbdbd',
-                            bgcolor: 'rgba(0,0,0,0.04)'
-                        }
-                    }}
-                >
-                    Add Service
-                </Button>
-            </Box>
-            <Paper>
-                 <TableContainer>
-                    <Table>
-                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                            <TableRow>
-                                <TableCell sx={{ fontWeight: 'bold' }}>Service Name</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold' }}>Included?</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold' }}>Usage Limit</TableCell>
-                                <TableCell sx={{ fontWeight: 'bold' }}>
-                                    Discount
-                                    <Typography variant="caption" display="block" sx={{ fontWeight: 'normal', color: 'text.secondary', fontSize: '0.75rem' }}>
-                                        (Add % for percentage, otherwise fixed amount)
-                                    </Typography>
-                                </TableCell>
-                            </TableRow>
-                        </TableHead>
-                         <TableBody>
-                            {bundledServices.map(bs => {
-                                const serviceName = bs.service_name || availableServices.find(s => s.service_id === bs.service_id)?.name || 'Unknown Service';
-                                return (
-                                    <TableRow key={bs.membership_service_id}>
-                                        <TableCell>{serviceName}</TableCell>
-                                        <TableCell>
-                                            <FormControlLabel 
-                                                control={
-                                                    <Checkbox 
-                                                        checked={bs.is_included} 
-                                                        onChange={(e) => handleBundledServiceUpdate(bs, { is_included: e.target.checked })}
-                                                    />
-                                                } 
-                                                label={bs.is_included ? "Free / Included" : "Payable"}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <TextField 
-                                                size="small"
-                                                value={bs.usage_limit || ''}
-                                                placeholder="Unlimited"
-                                                onChange={(e) => handleBundledServiceUpdate(bs, { usage_limit: e.target.value })}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                             {/* If included, show 'Free' or disabled discount? user says 'if is included that flag it as free' */}
-                                             {bs.is_included ? (
-                                                  <Chip label="FREE" color="success" size="small" />
-                                             ) : (
-                                                  <TextField 
-                                                    size="small"
-                                                    value={bs.discount || ''}
-                                                    placeholder="e.g. 10%"
-                                                    onChange={(e) => handleBundledServiceUpdate(bs, { discount: e.target.value })}
-                                                />
-                                             )}
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                            {/* Dummy Add Row if needed, but user said 'Add' controls */}
-                            {bundledServices.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={4} align="center">No bundled services found.</TableCell>
-                                </TableRow>
-                            )}
-                         </TableBody>
-                    </Table>
-                </TableContainer>
-            </Paper>
-        </Box>
         
         {/* Create Dialog */}
         <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
@@ -583,33 +411,13 @@ export const BasePlan = () => {
                 </Button>
             </DialogActions>
         </Dialog>
-        {/* Add Bundled Service Dialog */}
-        <Dialog open={openAddService} onClose={() => setOpenAddService(false)}>
-            <DialogTitle>Add Bundled Service</DialogTitle>
-            <DialogContent>
-                <FormControl fullWidth sx={{ mt: 2, minWidth: 300 }}>
-                    <InputLabel>Select Service</InputLabel>
-                    <Select
-                        value={newServiceId}
-                        label="Select Service"
-                        onChange={(e) => setNewServiceId(e.target.value)}
-                    >
-                        {availableServices
-                            .filter(s => !bundledServices.find(bs => bs.service_id === s.service_id))
-                            .map(s => (
-                                <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>
-                            ))
-                        }
-                    </Select>
-                </FormControl>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={() => setOpenAddService(false)}>Cancel</Button>
-                <Button variant="contained" onClick={handleAddBundledService} disabled={!newServiceId}>
-                    Add
-                </Button>
-            </DialogActions>
-        </Dialog>
+
+        {/* Services Manager Modal */}
+        <ServicesManagerDialog 
+            basePriceId={manageServicesId}
+            onClose={() => setManageServicesId(null)}
+            availableServices={availableServices}
+        />
 
         <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
             <Alert severity="error" onClose={() => setError(null)} variant="filled">{error}</Alert>
@@ -619,4 +427,125 @@ export const BasePlan = () => {
         </Snackbar>
     </Box>
   );
+};
+
+// --- Sub-components ---
+
+const ServicesManagerDialog = ({ basePriceId, onClose, availableServices }: { basePriceId: string | null, onClose: () => void, availableServices: any[] }) => {
+    const [services, setServices] = useState<MembershipService[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [newServiceId, setNewServiceId] = useState('');
+
+    useEffect(() => {
+        if(basePriceId) {
+            setLoading(true);
+            membershipService.getServices(basePriceId)
+                .then(setServices)
+                .catch(e => console.error(e))
+                .finally(() => setLoading(false));
+        } else {
+            setServices([]);
+        }
+    }, [basePriceId]);
+
+    const handleAdd = async () => {
+        if (!newServiceId || !basePriceId) return;
+        const newSvc: MembershipService = {
+            service_id: newServiceId,
+            membership_program_id: basePriceId, // Use basePriceId as owner
+            is_included: true,
+            usage_limit: 'Unlimited',
+            is_active: true
+        };
+        try {
+            await membershipService.upsertServices([newSvc]);
+            const updated = await membershipService.getServices(basePriceId);
+            setServices(updated);
+            setNewServiceId('');
+        } catch(e) { console.error(e); }
+    };
+
+    const handleUpdate = async (svc: MembershipService, updates: Partial<MembershipService>) => {
+        const updated = { ...svc, ...updates };
+        setServices(prev => prev.map(s => s.membership_service_id === svc.membership_service_id ? updated : s));
+        try {
+             await membershipService.upsertServices([updated]);
+        } catch(e) { console.error(e); }
+    };
+
+    return (
+        <Dialog open={!!basePriceId} onClose={onClose} maxWidth="md" fullWidth>
+            <DialogTitle>Included Services</DialogTitle>
+            <DialogContent>
+                {loading ? <CircularProgress /> : (
+                    <Box sx={{ mt: 2 }}>
+                        {/* Add Bar */}
+                        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Add Service</InputLabel>
+                                <Select
+                                    value={newServiceId}
+                                    label="Add Service"
+                                    onChange={e => setNewServiceId(e.target.value)}
+                                >
+                                     {availableServices
+                                        .filter(s => !services.find(msg => msg.service_id === s.service_id && msg.is_active !== false))
+                                        .map(s => <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>)
+                                    }
+                                </Select>
+                            </FormControl>
+                            <Button variant="contained" onClick={handleAdd} disabled={!newServiceId}>Add</Button>
+                        </Box>
+                        
+                        <TableContainer component={Paper} variant="outlined">
+                            <Table size="small">
+                                <TableHead sx={{ bgcolor: '#fafafa' }}>
+                                    <TableRow>
+                                        <TableCell>Service</TableCell>
+                                        <TableCell>Included?</TableCell>
+                                        <TableCell>Limit</TableCell>
+                                        <TableCell>Discount</TableCell>
+                                        <TableCell>Action</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {services.filter(s => s.is_active !== false).map(s => {
+                                        const serviceName = s.service_name || availableServices.find(as => as.service_id === s.service_id)?.name || 'Unknown';
+                                        return (
+                                            <TableRow key={s.membership_service_id || s.service_id}>
+                                                <TableCell>{serviceName}</TableCell>
+                                                <TableCell>
+                                                    <FormControlLabel 
+                                                        control={<Checkbox checked={s.is_included} onChange={e => handleUpdate(s, { is_included: e.target.checked })} />}
+                                                        label={s.is_included ? "Free" : "Paid"}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <TextField size="small" value={s.usage_limit || ''} onChange={e => handleUpdate(s, { usage_limit: e.target.value })} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    {!s.is_included && (
+                                                        <TextField size="small" value={s.discount || ''} onChange={e => handleUpdate(s, { discount: e.target.value })} placeholder="e.g 10%" />
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button size="small" color="error" onClick={() => handleUpdate(s, { is_active: false })}>Remove</Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                    {services.filter(s => s.is_active !== false).length === 0 && (
+                                        <TableRow><TableCell colSpan={5} align="center">No services configured.</TableCell></TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Box>
+                )}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose}>Done</Button>
+            </DialogActions>
+        </Dialog>
+    );
 };

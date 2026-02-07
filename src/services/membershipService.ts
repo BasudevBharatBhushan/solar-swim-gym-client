@@ -37,12 +37,13 @@ export interface MembershipCategory {
 export interface MembershipService {
   membership_service_id?: string;
   service_id: string;
-  membership_program_id?: string | null;
+  membership_program_id?: string | null; // Used as the generic owner ID in payload
+  base_price_id?: string | null; // Returned from backend if attached to Base Price
   location_id?: string; 
   is_included: boolean;
   usage_limit: string; // "Unlimited" or number/text
   discount?: string;
-  is_part_of_base_plan: boolean;
+  is_part_of_base_plan?: boolean; // May be deprecated in favor of base_price_id check
   is_active?: boolean;
   service_name?: string; // From join
 }
@@ -65,32 +66,42 @@ export const membershipService = {
   },
 
   // Create or Update Membership Program
-  // Note: The POST /memberships usually handles creation. If we need update, we might need a specific endpoint or PUT.
-  // The context says "Creation & update use POST /api/v1/memberships". So we assume it handles upsert or we send ID.
   saveMembershipProgram: async (programData: MembershipProgram): Promise<MembershipProgram> => {
      return apiClient.post('/memberships', programData);
   },
 
-  // Get Membership Services for Base Plan
-  getBasePlanServices: async (locationId: string): Promise<MembershipService[]> => {
-    const options = { headers: { 'x-location-id': locationId } };
-    const response = await apiClient.get('/membership-services/base-plan', {}, options);
-    return response || [];
+  // --- Unified Service Management ---
+
+  // Fetch Services by Owner (Category OR Base Price)
+  getServices: async (ownerId: string): Promise<MembershipService[]> => {
+    // Route: GET /api/membership-services/:ownerId
+    return apiClient.get(`/membership-services/${ownerId}`);
   },
 
-  // Upsert Membership Services
-  upsertMembershipServices: async (services: MembershipService[]): Promise<any> => {
+  // Upsert Services (Generic)
+  // Payload: { service_id, membership_program_id: ownerId, ... }
+  // The backend maps 'membership_program_id' to the correct column based on the ownerId type.
+  upsertServices: async (services: MembershipService[]): Promise<any> => {
     const payload = services.map(s => {
+        // We clean up the object to match the expected payload
         const { membership_service_id, service_name, ...rest } = s;
         return {
             ...rest,
-            // If it's an update, existing ID should be passed?
-            // The user context said: "If membership_service_id is provided -> update; else create."
-            // So we DO want to keep it if it exists. 
-            membership_service_id: membership_service_id, 
-            membership_program_id: s.membership_program_id || null
+            membership_service_id, // include if updating
+            // Important: The frontend should ensure 'membership_program_id' is set to the ownerId (Category ID or Base Price ID)
         };
     });
     return apiClient.post('/membership-services/upsert', payload);
+  },
+
+  // Deprecated: Use getServices(basePlanId) instead
+  getBasePlanServices: async (_locationId: string): Promise<MembershipService[]> => {
+      console.warn("getBasePlanServices is deprecated. Use getServices(ownerId) instead.");
+      return [];
+  },
+
+  // Deprecated alias: Use upsertServices
+  upsertMembershipServices: async (services: MembershipService[]): Promise<any> => {
+      return membershipService.upsertServices(services);
   }
 };

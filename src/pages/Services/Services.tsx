@@ -540,7 +540,7 @@ export const Services = () => {
                 duration_days: packDurationDays || null,
                 duration_months: packDurationMonths || null
             };
-            const packRes = await serviceCatalog.upsertServicePack(packPayload);
+            await serviceCatalog.upsertServicePack(packPayload);
             
             setSuccess('Pack metadata saved');
             setIsPackModalOpen(false);

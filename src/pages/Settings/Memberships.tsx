@@ -64,6 +64,10 @@ export const Memberships = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<MembershipCategory | null>(null);
+  
+  // Service Management State
+  const [categoryServices, setCategoryServices] = useState<IMembershipService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
 
   // Computed: Active Program
   const activeProgram = programs.find(p => p.membership_program_id === selectedProgramId);
@@ -112,12 +116,27 @@ export const Memberships = () => {
     }
   }, [selectedProgramId, activeProgram]);
 
+  // Fetch Services when Category Changes
+  useEffect(() => {
+    if (selectedCategoryId) {
+        setServicesLoading(true);
+        membershipService.getServices(selectedCategoryId)
+            .then(setCategoryServices)
+            .catch(e => console.error("Failed to load category services", e))
+            .finally(() => setServicesLoading(false));
+    } else {
+        setCategoryServices([]);
+    }
+  }, [selectedCategoryId]);
+
 
   // --- Handlers ---
 
   const handleProgramChange = (progId: string) => {
       setSelectedProgramId(progId);
   };
+   
+  // ... (create program, edit category, etc logic remains same until bundle services) ...
 
   const handleCreateProgram = async () => {
       if(!currentLocationId || !createName) return;
@@ -286,25 +305,23 @@ export const Memberships = () => {
        saveProgramChange({ ...activeProgram, categories: newCats });
   };
   
-  // -- Bundled Services --
+  // -- Bundled Services (Category Level) --
   const handleAddService = async () => {
-      if(!newServiceId || !activeProgram) return;
+      if(!newServiceId || !selectedCategoryId) return;
       
       const newService: IMembershipService = {
           service_id: newServiceId,
-          membership_program_id: activeProgram.membership_program_id,
+          membership_program_id: selectedCategoryId, // Used as owner
           is_included: true,
           usage_limit: 'Unlimited', 
           is_part_of_base_plan: false,
           is_active: true
       };
       
-      // We can use the upsert endpoint for services specifically, OR save the whole program.
-      // Context says: "Upsert Membership Services via POST /api/v1/membership-services/upsert"
-      // Let's use that for granular updates as it might differ from Program Save.
       try {
-          await membershipService.upsertMembershipServices([newService]);
-          await fetchData(true); // Silent refresh to get proper IDs
+          await membershipService.upsertServices([newService]);
+          const updated = await membershipService.getServices(selectedCategoryId);
+          setCategoryServices(updated);
           setOpenAddService(false);
           setNewServiceId('');
       } catch(e) {
@@ -314,18 +331,15 @@ export const Memberships = () => {
 
   const updateService = async (service: IMembershipService, updates: Partial<IMembershipService>) => {
        const updated = { ...service, ...updates };
-       // Optimistic? No, list is inside program.
-       // Update program state locally
-       if(activeProgram) {
-            const newServices = activeProgram.services.map(s => s.membership_service_id === service.membership_service_id ? updated : s);
-            setPrograms(prev => prev.map(p => p.membership_program_id === activeProgram.membership_program_id ? { ...p, services: newServices } : p));
-       }
+       
+       // Optimistic update
+       setCategoryServices(prev => prev.map(s => s.membership_service_id === service.membership_service_id ? updated : s));
        
        try {
-           await membershipService.upsertMembershipServices([updated]);
+           await membershipService.upsertServices([updated]);
        } catch (e) {
            setError("Failed to update service.");
-           fetchData();
+           // Revert?
        }
   };
 
@@ -527,227 +541,218 @@ export const Memberships = () => {
                         </Paper>
                     </Grid>
 
-                    {/* Right: Rules Panel */}
+                    {/* Right: Rules & Services Panel */}
                     <Grid size={{ xs: 12, md: 4 }}>
-                         <Paper sx={{ p: 0, height: '100%', borderRadius: 1, overflow: 'hidden' }}>
-                            <Box sx={{ p: 2, borderBottom: '1px solid #f0f0f0' }}>
+                         <Paper sx={{ p: 0, height: '100%', borderRadius: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <Box sx={{ p: 2, borderBottom: '1px solid #f0f0f0', bgcolor: '#fafafa' }}>
                                 <Typography variant="button" sx={{ fontWeight: 700, color: '#37474f', fontSize: '0.875rem' }}>
-                                    ELIGIBILITY RULES
+                                    CONFIGURATION
                                 </Typography>
                                 {activeCategory && (
                                     <Typography variant="caption" display="block" sx={{ color: '#90a4ae', mt: 0.5 }}>
-                                        Configuration for: <span style={{ color: '#1976d2', fontWeight: 600 }}>{activeCategory.name}</span>
+                                        For: <span style={{ color: '#1976d2', fontWeight: 600 }}>{activeCategory.name}</span>
                                     </Typography>
                                 )}
                             </Box>
                             
                             {activeCategory ? (
-                                <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    
-                                    {/* Assume 1st rule is the main one for now */}
-                                    {activeCategory.rules.length > 0 && (
-                                        <>
-                                            {/* Child Members */}
-                                            <Box>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                                                    <Box sx={{ bgcolor: '#e3f2fd', p: 0.5, borderRadius: '50%', display: 'flex' }}>
-                                                        <ChildCare sx={{ fontSize: 18, color: '#1976d2' }} />
+                                <Box sx={{ p: 0, flex: 1, overflowY: 'auto' }}>
+                                    {/* --- RULES SECTION --- */}
+                                    <Box sx={{ p: 2.5, borderBottom: '1px solid #eee' }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 2, color: '#546e7a' }}>ELIGIBILITY RULES</Typography>
+                                        
+                                        {/* Assume 1st rule is the main one for now */}
+                                        {activeCategory.rules.length > 0 && (
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                                {/* Child Members */}
+                                                <Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                                        <Box sx={{ bgcolor: '#e3f2fd', p: 0.5, borderRadius: '50%', display: 'flex' }}>
+                                                            <ChildCare sx={{ fontSize: 18, color: '#1976d2' }} />
+                                                        </Box>
+                                                        <Typography sx={{ fontWeight: 700, color: '#455a64', fontSize: '0.9rem' }}>Child Members</Typography>
                                                     </Box>
-                                                    <Typography sx={{ fontWeight: 700, color: '#455a64', fontSize: '0.9rem' }}>Child Members</Typography>
+                                                    <Grid container spacing={2}>
+                                                        <Grid size={{ xs: 6 }}>
+                                                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MIN COUNT</Typography>
+                                                            <TextField 
+                                                                size="small" type="number" fullWidth
+                                                                value={activeCategory.rules[0].condition_json?.minChild ?? ''}
+                                                                onChange={(e) => updateRule(
+                                                                    activeProgram.categories.indexOf(activeCategory), 
+                                                                    0, 'minChild', e.target.value
+                                                                )}
+                                                                inputProps={{ style: { fontSize: '0.9rem' } }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid size={{ xs: 6 }}>
+                                                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MAX COUNT</Typography>
+                                                            <TextField 
+                                                                size="small" type="number" fullWidth
+                                                                placeholder="No limit"
+                                                                value={activeCategory.rules[0].condition_json?.maxChild ?? ''}
+                                                                onChange={(e) => updateRule(
+                                                                    activeProgram.categories.indexOf(activeCategory), 
+                                                                    0, 'maxChild', e.target.value
+                                                                )}
+                                                                inputProps={{ style: { fontSize: '0.9rem' } }}
+                                                            />
+                                                        </Grid>
+                                                    </Grid>
                                                 </Box>
-                                                <Grid container spacing={2}>
-                                                    <Grid size={{ xs: 6 }}>
-                                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MIN COUNT</Typography>
-                                                        <TextField 
-                                                            size="small" type="number" fullWidth
-                                                            value={activeCategory.rules[0].condition_json?.minChild ?? ''}
-                                                            onChange={(e) => updateRule(
-                                                                activeProgram.categories.indexOf(activeCategory), 
-                                                                0, 'minChild', e.target.value
-                                                            )}
-                                                            inputProps={{ style: { fontSize: '0.9rem' } }}
-                                                        />
-                                                    </Grid>
-                                                    <Grid size={{ xs: 6 }}>
-                                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MAX COUNT</Typography>
-                                                        <TextField 
-                                                            size="small" type="number" fullWidth
-                                                            placeholder="No limit"
-                                                            value={activeCategory.rules[0].condition_json?.maxChild ?? ''}
-                                                            onChange={(e) => updateRule(
-                                                                activeProgram.categories.indexOf(activeCategory), 
-                                                                0, 'maxChild', e.target.value
-                                                            )}
-                                                            inputProps={{ style: { fontSize: '0.9rem' } }}
-                                                        />
-                                                    </Grid>
-                                                </Grid>
-                                            </Box>
 
-                                            {/* Adult Members */}
-                                            <Box>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                                                    <Box sx={{ bgcolor: '#e3f2fd', p: 0.5, borderRadius: '50%', display: 'flex' }}>
-                                                        <Person sx={{ fontSize: 18, color: '#1976d2' }} />
+                                                {/* Adult Members */}
+                                                <Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                                        <Box sx={{ bgcolor: '#e3f2fd', p: 0.5, borderRadius: '50%', display: 'flex' }}>
+                                                            <Person sx={{ fontSize: 18, color: '#1976d2' }} />
+                                                        </Box>
+                                                        <Typography sx={{ fontWeight: 700, color: '#455a64', fontSize: '0.9rem' }}>Adult Members</Typography>
                                                     </Box>
-                                                    <Typography sx={{ fontWeight: 700, color: '#455a64', fontSize: '0.9rem' }}>Adult Members</Typography>
+                                                    <Grid container spacing={2}>
+                                                        <Grid size={{ xs: 6 }}>
+                                                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MIN COUNT</Typography>
+                                                            <TextField 
+                                                                size="small" type="number" fullWidth
+                                                                value={activeCategory.rules[0].condition_json?.minAdult ?? ''}
+                                                                onChange={(e) => updateRule(
+                                                                    activeProgram.categories.indexOf(activeCategory), 
+                                                                    0, 'minAdult', e.target.value
+                                                                )}
+                                                                inputProps={{ style: { fontSize: '0.9rem' } }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid size={{ xs: 6 }}>
+                                                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MAX COUNT</Typography>
+                                                            <TextField 
+                                                                size="small" type="number" fullWidth
+                                                                placeholder="No limit"
+                                                                value={activeCategory.rules[0].condition_json?.maxAdult ?? ''}
+                                                                onChange={(e) => updateRule(
+                                                                    activeProgram.categories.indexOf(activeCategory), 
+                                                                    0, 'maxAdult', e.target.value
+                                                                )}
+                                                                inputProps={{ style: { fontSize: '0.9rem' } }}
+                                                            />
+                                                        </Grid>
+                                                    </Grid>
                                                 </Box>
-                                                <Grid container spacing={2}>
-                                                    <Grid size={{ xs: 6 }}>
-                                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MIN COUNT</Typography>
-                                                        <TextField 
-                                                            size="small" type="number" fullWidth
-                                                            value={activeCategory.rules[0].condition_json?.minAdult ?? ''}
-                                                            onChange={(e) => updateRule(
-                                                                activeProgram.categories.indexOf(activeCategory), 
-                                                                0, 'minAdult', e.target.value
-                                                            )}
-                                                            inputProps={{ style: { fontSize: '0.9rem' } }}
-                                                        />
-                                                    </Grid>
-                                                    <Grid size={{ xs: 6 }}>
-                                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MAX COUNT</Typography>
-                                                        <TextField 
-                                                            size="small" type="number" fullWidth
-                                                            placeholder="No limit"
-                                                            value={activeCategory.rules[0].condition_json?.maxAdult ?? ''}
-                                                            onChange={(e) => updateRule(
-                                                                activeProgram.categories.indexOf(activeCategory), 
-                                                                0, 'maxAdult', e.target.value
-                                                            )}
-                                                            inputProps={{ style: { fontSize: '0.9rem' } }}
-                                                        />
-                                                    </Grid>
-                                                </Grid>
-                                            </Box>
 
-                                            {/* Senior Members */}
-                                            <Box>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                                                    <Box sx={{ bgcolor: '#e3f2fd', p: 0.5, borderRadius: '50%', display: 'flex' }}>
-                                                        <Elderly sx={{ fontSize: 18, color: '#1976d2' }} />
+                                                {/* Senior Members */}
+                                                <Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                                        <Box sx={{ bgcolor: '#e3f2fd', p: 0.5, borderRadius: '50%', display: 'flex' }}>
+                                                            <Elderly sx={{ fontSize: 18, color: '#1976d2' }} />
+                                                        </Box>
+                                                        <Typography sx={{ fontWeight: 700, color: '#455a64', fontSize: '0.9rem' }}>Senior Members</Typography>
                                                     </Box>
-                                                    <Typography sx={{ fontWeight: 700, color: '#455a64', fontSize: '0.9rem' }}>Senior Members</Typography>
+                                                    <Grid container spacing={2}>
+                                                        <Grid size={{ xs: 6 }}>
+                                                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MIN COUNT</Typography>
+                                                            <TextField 
+                                                                size="small" type="number" fullWidth
+                                                                value={activeCategory.rules[0].condition_json?.minSenior ?? ''}
+                                                                onChange={(e) => updateRule(
+                                                                    activeProgram.categories.indexOf(activeCategory), 
+                                                                    0, 'minSenior', e.target.value
+                                                                )}
+                                                                inputProps={{ style: { fontSize: '0.9rem' } }}
+                                                            />
+                                                        </Grid>
+                                                        <Grid size={{ xs: 6 }}>
+                                                            <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MAX COUNT</Typography>
+                                                            <TextField 
+                                                                size="small" type="number" fullWidth
+                                                                placeholder="No limit"
+                                                                value={activeCategory.rules[0].condition_json?.maxSenior ?? ''}
+                                                                onChange={(e) => updateRule(
+                                                                    activeProgram.categories.indexOf(activeCategory), 
+                                                                    0, 'maxSenior', e.target.value
+                                                                )}
+                                                                inputProps={{ style: { fontSize: '0.9rem' } }}
+                                                            />
+                                                        </Grid>
+                                                    </Grid>
                                                 </Box>
-                                                <Grid container spacing={2}>
-                                                    <Grid size={{ xs: 6 }}>
-                                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MIN COUNT</Typography>
-                                                        <TextField 
-                                                            size="small" type="number" fullWidth
-                                                            value={activeCategory.rules[0].condition_json?.minSenior ?? ''}
-                                                            onChange={(e) => updateRule(
-                                                                activeProgram.categories.indexOf(activeCategory), 
-                                                                0, 'minSenior', e.target.value
-                                                            )}
-                                                            inputProps={{ style: { fontSize: '0.9rem' } }}
-                                                        />
-                                                    </Grid>
-                                                    <Grid size={{ xs: 6 }}>
-                                                        <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, color: '#90a4ae', textTransform: 'uppercase', mb: 0.5 }}>MAX COUNT</Typography>
-                                                        <TextField 
-                                                            size="small" type="number" fullWidth
-                                                            placeholder="No limit"
-                                                            value={activeCategory.rules[0].condition_json?.maxSenior ?? ''}
-                                                            onChange={(e) => updateRule(
-                                                                activeProgram.categories.indexOf(activeCategory), 
-                                                                0, 'maxSenior', e.target.value
-                                                            )}
-                                                            inputProps={{ style: { fontSize: '0.9rem' } }}
-                                                        />
-                                                    </Grid>
-                                                </Grid>
                                             </Box>
-                                        </>
-                                    )}
-                                    
+                                        )}
+                                    </Box>
+
+                                    {/* --- INCLUDED SERVICES SECTION --- */}
+                                    <Box sx={{ p: 2.5 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#546e7a' }}>INCLUDED SERVICES</Typography>
+                                            <Button size="small" startIcon={<Add />} onClick={() => setOpenAddService(true)}>Add</Button>
+                                        </Box>
+                                        
+                                        {servicesLoading ? <CircularProgress size={20} /> : (
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                {categoryServices.filter(s => s.is_active !== false).map(s => {
+                                                    const serviceName = s.service_name || availableServices.find(as => as.service_id === s.service_id)?.name || 'Unknown';
+                                                    return (
+                                                        <Paper key={s.membership_service_id || s.service_id} variant="outlined" sx={{ p: 1.5 }}>
+                                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>{serviceName}</Typography>
+                                                                <IconButton size="small" color="error" onClick={() => updateService(s, { is_active: false })}>
+                                                                    <Close fontSize="small" />
+                                                                </IconButton>
+                                                            </Box>
+                                                            <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                                <FormControlLabel 
+                                                                    control={
+                                                                        <Checkbox 
+                                                                            size="small"
+                                                                            checked={s.is_included} 
+                                                                            onChange={(e) => updateService(s, { is_included: e.target.checked })}
+                                                                            sx={{ p: 0.5 }}
+                                                                        />
+                                                                    }
+                                                                    label={<Typography variant="caption">Free / Included</Typography>}
+                                                                    sx={{ m: 0 }}
+                                                                />
+                                                                <TextField 
+                                                                    size="small" 
+                                                                    label="Usage Limit" 
+                                                                    value={s.usage_limit || ''} 
+                                                                    onChange={(e) => updateService(s, { usage_limit: e.target.value })}
+                                                                    InputLabelProps={{ shrink: true }}
+                                                                    sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.5 } }}
+                                                                />
+                                                                {!s.is_included && (
+                                                                     <TextField 
+                                                                        size="small" 
+                                                                        label="Discount"
+                                                                        placeholder="e.g 10%"
+                                                                        value={s.discount || ''} 
+                                                                        onChange={(e) => updateService(s, { discount: e.target.value })}
+                                                                        InputLabelProps={{ shrink: true }}
+                                                                        sx={{ '& .MuiInputBase-input': { fontSize: '0.8rem', py: 0.5 } }}
+                                                                    />
+                                                                )}
+                                                            </Box>
+                                                        </Paper>
+                                                    );
+                                                })}
+                                                {categoryServices.filter(s => s.is_active !== false).length === 0 && (
+                                                    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                                        No services configured for this category.
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                        )}
+                                    </Box>
+
                                 </Box>
                             ) : (
                                 <Box sx={{ p: 4, textAlign: 'center' }}>
                                     <Typography variant="body2" color="text.secondary">
-                                        Select a category to configure rules.
+                                        Select a category to configure rules and services.
                                     </Typography>
                                 </Box>
                             )}
                          </Paper>
                     </Grid>
                 </Grid>
-
-                 {/* Bundled Services */}
-                 <Box sx={{ mt: 4 }}>
-                    <Paper sx={{ overflow: 'hidden' }}>
-                      <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', bgcolor: '#f5f5f5', borderBottom: '1px solid #e0e0e0' }}>
-                           <Typography variant="subtitle1" fontWeight="bold">Bundled Services (Included in {activeProgram.name})</Typography>
-                           <Button size="small" startIcon={<Add />} onClick={() => setOpenAddService(true)}>Add Service</Button>
-                      </Box>
-                      <TableContainer>
-                          <Table>
-                              <TableHead>
-                                  <TableRow>
-                                      <TableCell>Service Name</TableCell>
-                                      <TableCell>Included?</TableCell>
-                                      <TableCell>Usage Limit</TableCell>
-                                      <TableCell sx={{ fontWeight: 'bold' }}>
-                                    Discount
-                                    <Typography variant="caption" display="block" sx={{ fontWeight: 'normal', color: 'text.secondary', fontSize: '0.75rem' }}>
-                                        (Add % for percentage, otherwise fixed amount)
-                                    </Typography>
-                                </TableCell>
-                                      <TableCell align="right">Actions</TableCell>
-                                  </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                   {activeProgram.services.map(bs => {
-                                       const serviceName = bs.service_name || availableServices.find(s => s.service_id === bs.service_id)?.name || 'Unknown Service';
-                                       return (
-                                           <TableRow key={bs.membership_service_id}>
-                                               <TableCell>{serviceName}</TableCell>
-                                               <TableCell>
-                                                    <FormControlLabel 
-                                                        control={
-                                                            <Checkbox 
-                                                                checked={bs.is_included} 
-                                                                onChange={(e) => updateService(bs, { is_included: e.target.checked })}
-                                                            />
-                                                        } 
-                                                        label={bs.is_included ? "Free" : "Payable"}
-                                                    />
-                                               </TableCell>
-                                               <TableCell>
-                                                    <TextField 
-                                                        size="small"
-                                                        value={bs.usage_limit || ''}
-                                                        placeholder="Unlimited"
-                                                        onChange={(e) => updateService(bs, { usage_limit: e.target.value })}
-                                                    />
-                                               </TableCell>
-                                               <TableCell>
-                                                     {bs.is_included ? (
-                                                        <Chip label="FREE" color="success" size="small" />
-                                                     ) : (
-                                                        <TextField 
-                                                            size="small"
-                                                            value={bs.discount || ''}
-                                                            placeholder="e.g. 10%"
-                                                            onChange={(e) => updateService(bs, { discount: e.target.value })}
-                                                        />
-                                                     )}
-                                               </TableCell>
-                                               <TableCell align="right">
-                                                   <Button color="error" size="small" onClick={() => updateService(bs, { is_active: false })}>Remove</Button>
-                                               </TableCell>
-                                           </TableRow>
-                                       )
-                                   })}
-                                   {activeProgram.services.length === 0 && (
-                                       <TableRow>
-                                           <TableCell colSpan={5} align="center">No bundled services added.</TableCell>
-                                       </TableRow>
-                                   )}
-                              </TableBody>
-                          </Table>
-                      </TableContainer>
-                    </Paper>
-                 </Box>
             </>
         )}
 
@@ -772,9 +777,9 @@ export const Memberships = () => {
             </DialogActions>
         </Dialog>
 
-         {/* Add Service Dialog */}
+         {/* Add Service Dialog (Now reused for Categories) */}
          <Dialog open={openAddService} onClose={() => setOpenAddService(false)}>
-            <DialogTitle>Add Bundled Service</DialogTitle>
+            <DialogTitle>Add Category Service</DialogTitle>
             <DialogContent>
                 <FormControl fullWidth sx={{ mt: 2, minWidth: 300 }}>
                     <InputLabel>Select Service</InputLabel>
@@ -785,7 +790,7 @@ export const Memberships = () => {
                     >
                          {availableServices
                             // Filter out already added services
-                            .filter(s => activeProgram ? !activeProgram.services.find(bs => bs.service_id === s.service_id && bs.is_active !== false) : true)
+                            .filter(s => !categoryServices.find(cs => cs.service_id === s.service_id && cs.is_active !== false))
                             .map(s => (
                                 <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>
                             ))
@@ -794,7 +799,7 @@ export const Memberships = () => {
                 </FormControl>
             </DialogContent>
              <DialogActions>
-                <Button onClick={() => setOpenAddService(false)}>Cancel</Button>
+                 <Button onClick={() => setOpenAddService(false)}>Cancel</Button>
                 <Button onClick={handleAddService} variant="contained" disabled={!newServiceId}>Add</Button>
             </DialogActions>
         </Dialog>
