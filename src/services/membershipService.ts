@@ -85,11 +85,14 @@ export const membershipService = {
     const payload = services.map(s => {
         // We clean up the object to match the expected payload
         const { membership_service_id, service_name, ...rest } = s;
-        return {
-            ...rest,
-            membership_service_id, // include if updating
-            // Important: The frontend should ensure 'membership_program_id' is set to the ownerId (Category ID or Base Price ID)
-        };
+        
+        // Only include ID if it's truthy (update), else exclude key completely for insert
+        const cleanObj: any = { ...rest };
+        if (membership_service_id) {
+            cleanObj.membership_service_id = membership_service_id;
+        }
+        
+        return cleanObj;
     });
     return apiClient.post('/membership-services/upsert', payload);
   },

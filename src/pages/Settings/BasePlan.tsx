@@ -1,87 +1,93 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
   Paper,
   Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
+  Grid,
+  List,
+  ListItemButton,
+  ListItemText,
+  ListSubheader,
+  Divider,
   TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
+  InputAdornment,
+  CircularProgress,
+  IconButton,
+  Chip,
+  FormControlLabel,
+  Checkbox,
+  Snackbar,
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  InputAdornment,
-  CircularProgress,
-  FormControlLabel,
-  Checkbox,
-  Snackbar,
-  Alert
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Stack
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { Add, Edit, Save, Delete } from '@mui/icons-material';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { basePriceService, BasePrice } from '../../services/basePriceService';
-import { serviceCatalog } from '../../services/serviceCatalog';
+import { serviceCatalog, Service } from '../../services/serviceCatalog';
 import { membershipService, MembershipService } from '../../services/membershipService';
 import { PageHeader } from '../../components/Common/PageHeader';
 
-
 // --- Types ---
-interface RowKey {
+interface ProfileKey {
   planName: string;
   role: 'PRIMARY' | 'ADD_ON';
   ageGroupId: string;
 }
 
-// Helper to generate unique key for a row
-const getRowId = (key: RowKey) => `${key.planName}-${key.role}-${key.ageGroupId}`;
-
 export const BasePlan = () => {
   const { currentLocationId } = useAuth();
   const { ageGroups, subscriptionTerms } = useConfig();
   
-  const [loading, setLoading] = useState(false);
-  
-  // Data State
+  // -- Data State --
   const [basePrices, setBasePrices] = useState<BasePrice[]>([]);
-  const [availableServices, setAvailableServices] = useState<any[]>([]); // For dropdown
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const [openCreate, setOpenCreate] = useState(false);
-  const [manageServicesId, setManageServicesId] = useState<string | null>(null);
+  // -- UI State --
+  const [selectedProfile, setSelectedProfile] = useState<ProfileKey | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
-  const [saving, setSaving] = useState(false);
+  // -- Edit State --
+  const [editedPrices, setEditedPrices] = useState<Record<string, number>>({}); // termId -> price
+  const [editedServices, setEditedServices] = useState<MembershipService[]>([]);
+  const [bundledServicesLoading, setBundledServicesLoading] = useState(false);
+
+  // -- Feedback --
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // -- Create Dialog State --
+  const [openCreate, setOpenCreate] = useState(false);
   const [createForm, setCreateForm] = useState<Partial<BasePrice>>({
     role: 'PRIMARY',
     is_active: true
   });
 
-  // Fetch Data
+  // --- 1. Fetch Data ---
   const fetchData = async () => {
     if (!currentLocationId) return;
     setLoading(true);
     try {
-      const data = await basePriceService.getAll(currentLocationId);
-      setBasePrices(data.prices);
-      
-      // Fetch all services for the dropdown to see available services (for the modal)
-      const allServices = await serviceCatalog.getServices(currentLocationId);
-      setAvailableServices(allServices);
-
-    } catch (error) {
-      console.error("Failed to fetch data", error);
+      const [pricesData, servicesData] = await Promise.all([
+        basePriceService.getAll(currentLocationId),
+        serviceCatalog.getServices(currentLocationId)
+      ]);
+      setBasePrices(pricesData.prices);
+      setAllServices(servicesData);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load data.");
     } finally {
       setLoading(false);
     }
@@ -91,269 +97,713 @@ export const BasePlan = () => {
     fetchData();
   }, [currentLocationId]);
 
+  const ageGroupsWithProfiles = useMemo(() => {
+    const groups: Record<string, ProfileKey[]> = {};
+    
+    // Identify unique profiles
+    const uniqueKeys = new Set<string>();
+    const profiles: ProfileKey[] = [];
 
-  // --- Pivot Logic ---
-  // Group by Plan Name first (to make sections usually, or just rows)
-  // User asked: "Show rows grouped by Program / Plan name."
-  // And "display all the subscription term in same row".
+    basePrices.forEach(p => {
+      const keyStr = `${p.name}-${p.role}-${p.age_group_id}`;
+      if (!uniqueKeys.has(keyStr)) {
+        uniqueKeys.add(keyStr);
+        profiles.push({
+          planName: p.name,
+          role: p.role as 'PRIMARY' | 'ADD_ON',
+          ageGroupId: p.age_group_id
+        });
+      }
+    });
+
+    // Sort: PRIMARY first, then by Name
+    profiles.sort((a, b) => {
+        if (a.role !== b.role) return a.role === 'PRIMARY' ? -1 : 1;
+        return a.planName.localeCompare(b.planName);
+    });
+
+    // Group by Age Group ID
+    profiles.forEach(p => {
+        if (!groups[p.ageGroupId]) groups[p.ageGroupId] = [];
+        groups[p.ageGroupId].push(p);
+    });
+
+    // Sort the groups: "Adult" first, then by min_age
+    return Object.entries(groups).sort(([idA], [idB]) => {
+        const agA = ageGroups.find(g => g.age_group_id === idA);
+        const agB = ageGroups.find(g => g.age_group_id === idB);
+        
+        const isAdultA = agA?.name.toLowerCase().includes('adult');
+        const isAdultB = agB?.name.toLowerCase().includes('adult');
+        
+        if (isAdultA && !isAdultB) return -1;
+        if (!isAdultA && isAdultB) return 1;
+        
+        return (agA?.min_age || 0) - (agB?.min_age || 0);
+    }).map(([id, profiles]) => ({ ageGroupId: id, profiles }));
+  }, [basePrices, ageGroups]);
+
+  // --- 3. Selection Logic ---
+  // Select first profile on load
+  useEffect(() => {
+    if (ageGroupsWithProfiles.length > 0 && !selectedProfile) {
+        // Select first profile of first group
+        if (ageGroupsWithProfiles[0].profiles.length > 0) {
+            setSelectedProfile(ageGroupsWithProfiles[0].profiles[0]);
+        }
+    }
+  }, [ageGroupsWithProfiles, selectedProfile]);
+
+  // When selection changes, reset edit mode and load bundled services
+  useEffect(() => {
+    if (selectedProfile) {
+        setIsEditing(false);
+        setEditedPrices({});
+        loadBundledServices(selectedProfile);
+    }
+  }, [selectedProfile]);
+
+  const loadBundledServices = async (profile: ProfileKey) => {
+      // Find a representative base_price_id for this profile
+      // We assume services are attached to the 'profile', meaning any term's ID *should* work if backend links them,
+      // or we pick one to be the 'master'. Existing logic used *any* ID found.
+      const priceRecord = basePrices.find(p => 
+          p.name === profile.planName && 
+          p.role === profile.role && 
+          p.age_group_id === profile.ageGroupId
+      );
+
+      if (priceRecord?.base_price_id) {
+          setBundledServicesLoading(true);
+          try {
+              const services = await membershipService.getServices(priceRecord.base_price_id);
+              setEditedServices(services);
+          } catch (e) {
+              console.error(e);
+          } finally {
+              setBundledServicesLoading(false);
+          }
+      } else {
+          setEditedServices([]);
+      }
+  };
+
+  // --- 4. Helpers ---
+  const getAgeGroupName = (id: string) => ageGroups.find(g => g.age_group_id === id)?.name || 'Unknown';
   
-  // 1. Identification of Unique Rows: (Plan, Role, AgeGroup)
-  const uniqueRowsMap = new Map<string, RowKey>();
-  basePrices.forEach(p => {
-      const key: RowKey = { planName: p.name, role: p.role, ageGroupId: p.age_group_id };
-      uniqueRowsMap.set(getRowId(key), key);
-  });
-  
-  // Sort rows: Primary roles first overall, then by Plan Name and Age.
-  const uniqueRows = Array.from(uniqueRowsMap.values()).sort((a, b) => {
-      if (a.role !== b.role) return a.role === 'PRIMARY' ? -1 : 1;
-      if (a.planName !== b.planName) return a.planName.localeCompare(b.planName);
-      // Sort age by min_age if possible, else name
-      const agA = ageGroups.find(g => g.age_group_id === a.ageGroupId);
-      const agB = ageGroups.find(g => g.age_group_id === b.ageGroupId);
-      return (agA?.min_age || 0) - (agB?.min_age || 0);
-  });
-
-  // Group rows for display by Plan Name (Plan Header)
-  const rowsByPlan: Record<string, RowKey[]> = {};
-  uniqueRows.forEach(row => {
-      if (!rowsByPlan[row.planName]) rowsByPlan[row.planName] = [];
-      rowsByPlan[row.planName].push(row);
-  });
-
-  // Ordered list of plan names to preserve sorting
-  const orderedPlanNames = Array.from(new Set(uniqueRows.map(r => r.planName)));
-
-  // Helper to find existing price for a cell
-  const getPrice = (row: RowKey, termId: string) => {
+  const getExistingPrice = (profile: ProfileKey, termId: string) => {
       return basePrices.find(p => 
-          p.name === row.planName && 
-          p.role === row.role && 
-          p.age_group_id === row.ageGroupId && 
+          p.name === profile.planName && 
+          p.role === profile.role && 
+          p.age_group_id === profile.ageGroupId && 
           p.subscription_term_id === termId
       );
   };
 
-  // --- Handlers ---
-  const handlePriceSave = async (row: RowKey, termId: string, val: number) => {
-    if (!currentLocationId) return;
+  // --- 5. Handlers ---
+  
+  const handleStartEdit = () => {
+    if (!selectedProfile) return;
+    
+    // Initialize edited prices from current state
+    const prices: Record<string, number> = {};
+    subscriptionTerms.forEach(t => {
+        const existing = getExistingPrice(selectedProfile, t.subscription_term_id);
+        if (existing) prices[t.subscription_term_id] = existing.price;
+    });
+    setEditedPrices(prices);
+    setIsEditing(true);
+  };
 
-    const existing = getPrice(row, termId);
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedPrices({});
+    // Re-load services to reset changes
+    if (selectedProfile) loadBundledServices(selectedProfile);
+  };
 
-    const payload: BasePrice = {
-      base_price_id: existing?.base_price_id,
-      location_id: currentLocationId,
-      name: row.planName,
-      role: row.role,
-      age_group_id: row.ageGroupId,
-      subscription_term_id: termId,
-      price: val,
-      is_active: true
+  const handleSaveChanges = async () => {
+      if (!selectedProfile || !currentLocationId) return;
+      setIsSaving(true);
+      
+      try {
+        // 1. Save Prices (Bulk Upsert)
+        const pricesPayload: BasePrice[] = [];
+        for (const [termId, price] of Object.entries(editedPrices)) {
+            const existing = getExistingPrice(selectedProfile, termId);
+            
+             // Explicitly verify ID matches expected plan if found
+            if (existing && existing.name !== selectedProfile.planName) {
+                console.error("CRITICAL MISMATCH: Found price ID for wrong plan!", existing, selectedProfile);
+                continue; 
+            }
+            
+            // Only add to payload if changed or new
+            if (existing && existing.price === price) continue;
+            
+            pricesPayload.push({
+                base_price_id: existing?.base_price_id,
+                location_id: currentLocationId,
+                name: selectedProfile.planName, // CRITICAL: Backend needs this for uniqueness
+                role: selectedProfile.role,     // CRITICAL: Backend needs this for uniqueness
+                age_group_id: selectedProfile.ageGroupId,
+                subscription_term_id: termId,
+                price: isNaN(price) ? 0 : price,
+                is_active: true
+            });
+        }
+
+        if (pricesPayload.length > 0) {
+            console.log("Saving Bulk Price Payload:", pricesPayload);
+            // Send as { location_id, prices: [...] }
+            await basePriceService.upsert({
+                location_id: currentLocationId,
+                prices: pricesPayload
+            });
+        }
+
+        // 2. Save Services
+        // We need a base_price_id to attach services to.
+        // If we just created prices, we might need to wait, but usually there's at least one existing.
+        // Refresh base prices to get new IDs if any
+        const refreshedPrices = await basePriceService.getAll(currentLocationId);
+        setBasePrices(refreshedPrices.prices);
+        
+        // Find owner ID from refreshed data
+        const ownerId = refreshedPrices.prices.find(p => 
+            p.name === selectedProfile.planName && 
+            p.role === selectedProfile.role && 
+            p.age_group_id === selectedProfile.ageGroupId &&
+            p.base_price_id // Ensure it has an ID
+        )?.base_price_id;
+
+        if (ownerId && editedServices.length > 0) {
+            // Ensure all services have the correct ownerId
+            const servicesPayload = editedServices.map(s => ({
+                ...s,
+                membership_program_id: ownerId
+            }));
+            await membershipService.upsertServices(servicesPayload);
+        }
+
+        // Final Refresh
+        await fetchData(); // Full refresh
+        // Services refresh
+        if (selectedProfile) loadBundledServices(selectedProfile);
+
+        setSuccess("Changes saved successfully.");
+        setIsEditing(false);
+
+      } catch (e) {
+          console.error(e);
+          setError("Failed to save changes.");
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
+  const handleCreateProfile = async () => {
+    if(!createForm.name || !createForm.age_group_id || !createForm.subscription_term_id || !currentLocationId) return;
+    
+    setIsSaving(true);
+    const priceValue = Number(createForm.price || 0);
+    
+    // Construct bulk payload for creation as well
+    const payload = {
+        location_id: currentLocationId,
+        prices: [{
+            ...createForm,
+            location_id: currentLocationId, // Ensure location_id is in the object
+            price: priceValue,
+            name: createForm.name!,     // Assert non-null as per check above
+            role: createForm.role!      // Assert non-null as per check above
+        } as BasePrice]
     };
 
-    // Optimistic Update
-    setBasePrices(prev => {
-      const exists = prev.find(p =>
-        p.name === payload.name &&
-        p.role === payload.role &&
-        p.age_group_id === payload.age_group_id &&
-        p.subscription_term_id === payload.subscription_term_id
-      );
-
-      if (exists) {
-        return prev.map(p =>
-          (p.name === payload.name && p.role === payload.role && p.age_group_id === payload.age_group_id && p.subscription_term_id === payload.subscription_term_id)
-            ? { ...p, price: val }
-            : p
-        );
-      } else {
-        return [...prev, payload];
-      }
-    });
-
     try {
-      const result = await basePriceService.upsert(payload);
-      // If it was a new record, update it with the ID from response
-      if (!existing?.base_price_id && result.base_price_id) {
-        setBasePrices(prev => prev.map(p =>
-          (p.name === payload.name && p.role === payload.role && p.age_group_id === payload.age_group_id && p.subscription_term_id === payload.subscription_term_id)
-            ? result : p
-        ));
-      }
-      setSuccess("Price updated successfully.");
+        await basePriceService.upsert(payload);
+        await fetchData();
+        setSuccess("Base Plan created.");
+        setOpenCreate(false);
+        setCreateForm({ role: 'PRIMARY', is_active: true });
     } catch (e) {
-      console.error("Save failed", e);
-      setError("Failed to save price.");
+        console.error("Create failed:", e);
+        setError("Failed to create Base Plan.");
+    } finally {
+        setIsSaving(false);
     }
   };
 
 
+  // --- Render ---
 
-    // --- Creation ---
-    const handleCreate = async () => {
-         if(!createForm.name || !createForm.age_group_id || !createForm.subscription_term_id || !currentLocationId) {
-             setError("Please fill in all required fields.");
-             return;
-         }
-
-         setSaving(true);
-         const payload = { ...createForm, location_id: currentLocationId, price: Number(createForm.price || 0) } as BasePrice;
-         try {
-             await basePriceService.upsert(payload);
-             await fetchData();
-             setSuccess("Base plan row created successfully.");
-             setOpenCreate(false);
-             setCreateForm({
-                role: 'PRIMARY',
-                is_active: true
-             });
-         } catch(e: any) {
-             console.error("Create failed", e);
-             setError(e.message || "Failed to create base plan row.");
-         } finally {
-             setSaving(false);
-         }
-    };
-
-
-  if (!currentLocationId) {
-      return <Alert severity="warning" sx={{ m: 2 }}>Please select a location to manage base plan pricing.</Alert>;
-  }
+  if (!currentLocationId) return <Alert severity="warning">Please select a location.</Alert>;
 
   return (
-      <Box sx={{ p: 3 }}>
-                <PageHeader 
-                  title="Base Plan Pricing" 
-                  description="Configure base plan pricing and included services for different age groups and terms."
-                  breadcrumbs={[
-                      { label: 'Settings', href: '/settings' },
-                      { label: 'Base Plan Pricing', active: true }
-                  ]}
-                />
-         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
-            <Button 
-                variant="contained" 
-                startIcon={<Add />} 
-                onClick={() => {
-                    setCreateForm({ role: 'PRIMARY', is_active: true });
-                    setOpenCreate(true);
-                }}
-            >
-                Add Base Plan
-            </Button>
-        </Box>
+    <Box sx={{ p: 3, height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
+        <PageHeader 
+            title="Base Plans & Pricing" 
+            description="Manage base plans, pricing matrices, and bundled services."
+            breadcrumbs={[
+                { label: 'Settings', href: '/settings' },
+                { label: 'Base Plans & Pricing', active: true }
+            ]}
+            action={
+                <Button 
+                    variant="contained" 
+                    startIcon={<Add />} 
+                    onClick={() => setOpenCreate(true)}
+                    sx={{ 
+                        borderRadius: 2, 
+                        textTransform: 'none', 
+                        fontWeight: 700,
+                        px: 3,
+                        bgcolor: '#4182f9',
+                        '&:hover': { bgcolor: '#3a75e0' }
+                    }}
+                >
+                    New Base Plan
+                </Button>
+            }
+        />
+        
+        <Grid container spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+            {/* Left Column: Plan List */}
+            <Grid size={{ xs: 12, md: 3 }} sx={{ height: '100%' }}>
+                <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
+                    <Box sx={{ p: 2, bgcolor: '#fff', borderBottom: '1px solid #f0f4f8' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>
+                            BASE PLANS
+                        </Typography>
+                    </Box>
+                    <List sx={{ flex: 1, overflowY: 'auto', p: 0 }}>
+                        {loading && <Box sx={{ p: 2, textAlign: 'center' }}><CircularProgress size={24} /></Box>}
+                        
+                        {ageGroupsWithProfiles.map(group => (
+                            <Box key={group.ageGroupId}>
+                                <ListSubheader sx={{ bgcolor: '#fff', fontWeight: 700, color: '#1e293b', lineHeight: '48px', fontSize: '0.875rem' }}>
+                                    {getAgeGroupName(group.ageGroupId)}
+                                </ListSubheader>
+                                {group.profiles.map(profile => {
+                                    const isSelected = selectedProfile?.planName === profile.planName && 
+                                                     selectedProfile?.role === profile.role && 
+                                                     selectedProfile?.ageGroupId === profile.ageGroupId;
+                                    return (
+                                        <ListItemButton 
+                                            key={`${profile.role}-${profile.ageGroupId}-${profile.planName}`}
+                                            selected={isSelected}
+                                            onClick={() => setSelectedProfile(profile)}
+                                            sx={{ 
+                                                pl: 2,
+                                                py: 1.5,
+                                                position: 'relative',
+                                                '&.Mui-selected': {
+                                                    bgcolor: '#f1f5f9',
+                                                    '&:hover': { bgcolor: '#e2e8f0' }
+                                                },
+                                                borderLeft: isSelected ? '4px solid #4f46e5' : '4px solid transparent'
+                                            }}
+                                        >
+                                            <ListItemText 
+                                                primary={profile.planName}
+                                                secondary={profile.role === 'PRIMARY' ? 'Primary Member' : 'Add-on Member'}
+                                                sx={{
+                                                    m: 0,
+                                                    '& .MuiListItemText-primary': { 
+                                                        color: isSelected ? '#1e293b' : '#334155',
+                                                        fontWeight: isSelected ? 800 : 600,
+                                                        fontSize: '0.925rem'
+                                                    },
+                                                    '& .MuiListItemText-secondary': {
+                                                        color: '#64748b',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 500
+                                                    }
+                                                }}
+                                            />
+                                        </ListItemButton>
+                                    );
+                                })}
+                            </Box>
+                        ))}
+                        {ageGroupsWithProfiles.length === 0 && !loading && (
+                             <Box sx={{ p: 3, textAlign: 'center' }}>
+                                 <Typography variant="caption" color="text.secondary">No plans found.</Typography>
+                             </Box>
+                        )}
+                    </List>
+                </Paper>
+            </Grid>
 
-        {loading ? <CircularProgress /> : orderedPlanNames.map(planName => (
-            <Paper key={planName} sx={{ mb: 4, overflow: 'hidden' }}>
-                 <Box sx={{ bgcolor: 'rgba(25, 118, 210, 0.04)', p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 800, color: '#1a237e', letterSpacing: -0.5 }}>{planName}</Typography>
-                    <Chip label="Plan Group" size="small" sx={{ fontWeight: 'bold', bgcolor: '#e3f2fd', color: '#1565c0' }} />
-                </Box>
-                
-                <Box sx={{ p: 0 }}>
-                    {/* Unique Profiles in this Plan Name */}
-                    {Array.from(new Set(rowsByPlan[planName].map(r => `${r.role}||${r.ageGroupId}`))).map(profileKey => {
-                        const [role, ageGroupId] = profileKey.split('||');
-                        const profileRows = rowsByPlan[planName].filter(r => r.role === role && r.ageGroupId === ageGroupId);
-                        // All rows in this profile are actually the SAME logical profile (just different terms)
-                        // So we pick the first one to represent the metadata
-                        const profileMeta = profileRows[0];
-                        
-                        // Find ANY base_price_id for this profile to manage services
-                        const profilePrice = basePrices.find(p => 
-                             p.name === planName && 
-                             p.role === role && 
-                             p.age_group_id === ageGroupId
-                        );
-                        
-                        return (
-                            <Box key={profileKey} sx={{ borderBottom: '1px solid #f0f0f0', p: 2 }}>
-                                {/* Profile Header */}
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#455a64' }}>
-                                            {role === 'PRIMARY' ? 'Primary' : 'Add-On'} • {ageGroups.find(g => g.age_group_id === ageGroupId)?.name}
+            {/* Right Column: Details & Editing */}
+            <Grid size={{ xs: 12, md: 9 }} sx={{ height: '100%' }}>
+                <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
+                    {selectedProfile ? (
+                        <>
+                             {/* Header Section */}
+                             <Box sx={{ p: 4, borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                 <Box>
+                                     <Typography variant="caption" sx={{ textTransform: 'uppercase', color: '#64748b', fontWeight: 800, letterSpacing: '0.05em' }}>
+                                         {getAgeGroupName(selectedProfile.ageGroupId)}
+                                     </Typography>
+                                     <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
+                                        <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e293b', textTransform: 'uppercase' }}>
+                                            {selectedProfile.planName} 
                                         </Typography>
                                         <Chip 
-                                            label={role} 
+                                            label={selectedProfile.role} 
                                             size="small" 
                                             sx={{ 
-                                                fontSize: '0.65rem', fontWeight: 800, height: 20,
-                                                bgcolor: role === 'PRIMARY' ? '#e3f2fd' : '#f3e5f5',
-                                                color: role === 'PRIMARY' ? '#1565c0' : '#7b1fa2'
+                                                bgcolor: '#f1f5f9', 
+                                                color: '#475569', 
+                                                fontWeight: 800, 
+                                                borderRadius: '6px',
+                                                fontSize: '0.7rem',
+                                                height: 24
                                             }} 
                                         />
-                                    </Box>
-                                    
-                                    <Button
-                                        variant="outlined"
-                                        size="small"
-                                        startIcon={<Add />}
-                                        onClick={() => {
-                                             if (profilePrice?.base_price_id) {
-                                                 setManageServicesId(profilePrice.base_price_id);
-                                             } else {
-                                                 // Edge case: No price saved yet for this profile? 
-                                                 // Ideally we should warn or create a dummy one.
-                                                 setError("Please save at least one price for this profile before adding services.");
-                                             }
-                                        }}
-                                        disabled={!profilePrice?.base_price_id}
-                                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                                     </Stack>
+                                 </Box>
+                                 <Box>
+                                    {!isEditing && (
+                                        <Button 
+                                            variant="outlined" 
+                                            startIcon={<Edit />} 
+                                            onClick={handleStartEdit}
+                                            sx={{ 
+                                                borderRadius: 2, 
+                                                textTransform: 'none', 
+                                                fontWeight: 700,
+                                                px: 3,
+                                                color: '#1e293b',
+                                                borderColor: '#e2e8f0'
+                                            }}
+                                        >
+                                            Edit Plan
+                                        </Button>
+                                    )}
+                                 </Box>
+                             </Box>
+
+                             {/* Content Scrollable */}
+                             <Box sx={{ flex: 1, overflowY: 'auto', p: 4 }}>
+                                 
+                                 {/* Section 1: Pricing Configuration */}
+                                 <Box sx={{ mb: 6 }}>
+                                     <Typography variant="caption" sx={{ fontWeight: 800, mb: 3, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
+                                         PRICING CONFIGURATION
+                                     </Typography>
+                                     <Grid container spacing={3}>
+                                         {subscriptionTerms.map(term => {
+                                             const existingPrice = getExistingPrice(selectedProfile, term.subscription_term_id);
+                                             const priceValue = isEditing 
+                                                 ? (editedPrices[term.subscription_term_id] ?? (existingPrice?.price || ''))
+                                                 : existingPrice?.price;
+
+                                             return (
+                                                 <Grid size={{ xs: 12, sm: 4 }} key={term.subscription_term_id}>
+                                                     {isEditing ? (
+                                                         <TextField 
+                                                            label={term.name}
+                                                            type="number"
+                                                            fullWidth
+                                                            variant="filled"
+                                                            value={priceValue}
+                                                            onChange={(e) => {
+                                                                const val = e.target.value;
+                                                                // Allow empty string to clear field, otherwise parse
+                                                                const numVal = val === '' ? 0 : parseFloat(val);
+                                                                setEditedPrices(prev => ({ ...prev, [term.subscription_term_id]: numVal }));
+                                                            }}
+                                                            InputProps={{
+                                                                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                                                disableUnderline: true,
+                                                                sx: { borderRadius: 2, bgcolor: '#f8fafc' }
+                                                            }}
+                                                         />
+                                                     ) : (
+                                                         <Paper elevation={0} sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3 }}>
+                                                             <Typography variant="caption" display="block" color="#64748b" fontWeight={700} sx={{ mb: 1 }}>
+                                                                 {term.name}
+                                                             </Typography>
+                                                             <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                                                 {priceValue !== undefined ? `$${priceValue}` : '-'}
+                                                             </Typography>
+                                                         </Paper>
+                                                     )}
+                                                 </Grid>
+                                             );
+                                         })}
+                                     </Grid>
+                                 </Box>
+
+                                 {/* Section 2: Bundled Services */}
+                                 <Box>
+                                     <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 2, display: 'block' }}>
+                                         BUNDLED SERVICES
+                                     </Typography>
+
+                                     {bundledServicesLoading ? <CircularProgress size={24} /> : (
+                                         <Box>
+                                             {isEditing && (
+                                                 <FormControl size="small" sx={{ mb: 3, width: 300 }}>
+                                                     <InputLabel>Add Service</InputLabel>
+                                                     <Select
+                                                        label="Add Service"
+                                                        value=""
+                                                        onChange={(e) => {
+                                                            const svcId = e.target.value;
+                                                            setEditedServices(prev => [
+                                                                ...prev,
+                                                                {
+                                                                    service_id: svcId as string,
+                                                                    is_included: true,
+                                                                    usage_limit: 'Unlimited',
+                                                                    is_active: true
+                                                                }
+                                                            ]);
+                                                        }}
+                                                     >
+                                                         {allServices
+                                                            .filter(s => !editedServices.find(es => es.service_id === s.service_id && es.is_active !== false))
+                                                            .map(s => <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>)
+                                                         }
+                                                     </Select>
+                                                 </FormControl>
+                                             )}
+
+                                             <Stack spacing={2}>
+                                                 {editedServices.filter(s => s.is_active !== false).map((svc, idx) => {
+                                                     const serviceRef = allServices.find(as => as.service_id === svc.service_id);
+                                                     const name = svc.service_name || serviceRef?.name || 'Unknown Service';
+                                                     const description = serviceRef?.description || '';
+                                                     const itemKey = svc.membership_service_id || (svc.service_id + idx);
+                                                     
+                                                     const isFree = svc.is_included;
+
+                                                     return (
+                                                         <Paper key={itemKey} elevation={0} sx={{ 
+                                                             p: 3, 
+                                                             display: 'flex', 
+                                                             flexDirection: 'column',
+                                                             gap: 2,
+                                                             bgcolor: '#fff', 
+                                                             border: '1px solid #e2e8f0', 
+                                                             borderRadius: 3 
+                                                         }}>
+                                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                 <Box>
+                                                                     <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0f172a' }}>{name}</Typography>
+                                                                     {description && (
+                                                                         <Typography variant="caption" sx={{ color: '#64748b', mt: 0.5, display: 'block', maxWidth: 500 }}>
+                                                                             {description}
+                                                                         </Typography>
+                                                                     )}
+                                                                 </Box>
+                                                                 
+                                                                 {/* View Mode Tags */}
+                                                                 {!isEditing && (
+                                                                     <Stack direction="row" spacing={1} alignItems="center">
+                                                                         {isFree ? (
+                                                                             <Chip 
+                                                                                label="INCLUDED" 
+                                                                                size="small" 
+                                                                                sx={{ 
+                                                                                    bgcolor: '#10b981', 
+                                                                                    color: 'white', 
+                                                                                    fontWeight: 800, 
+                                                                                    fontSize: '0.65rem', 
+                                                                                    height: 24,
+                                                                                    borderRadius: '6px'
+                                                                                }} 
+                                                                             />
+                                                                         ) : (
+                                                                             svc.discount ? (
+                                                                                <Chip 
+                                                                                    label={`${svc.discount} OFF`} 
+                                                                                    size="small" 
+                                                                                    sx={{ 
+                                                                                        bgcolor: '#f59e0b', 
+                                                                                        color: 'white', 
+                                                                                        fontWeight: 800, 
+                                                                                        fontSize: '0.65rem', 
+                                                                                        height: 24,
+                                                                                        borderRadius: '6px'
+                                                                                    }} 
+                                                                                />
+                                                                             ) : null
+                                                                         )}
+                                                                         
+                                                                         <Box sx={{ bgcolor: '#f1f5f9', px: 1.5, py: 0.5, borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, fontSize: '0.7rem' }}>
+                                                                                Limit: <Box component="span" sx={{ color: '#1e293b' }}>{svc.usage_limit || 'Unlimited'}</Box>
+                                                                            </Typography>
+                                                                         </Box>
+                                                                     </Stack>
+                                                                 )}
+                                                             </Box>
+                                                             
+                                                             {/* Edit Mode Controls */}
+                                                             {isEditing && (
+                                                                 <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                                                                    
+                                                                    {/* Is Included / Free */}
+                                                                    <FormControlLabel 
+                                                                        control={
+                                                                            <Checkbox 
+                                                                                checked={svc.is_included}
+                                                                                onChange={(e) => {
+                                                                                    const copy = [...editedServices];
+                                                                                    // If checking included, clear discount
+                                                                                    const newDiscount = e.target.checked ? '' : svc.discount;
+                                                                                    copy[editedServices.indexOf(svc)] = { ...svc, is_included: e.target.checked, discount: newDiscount };
+                                                                                    setEditedServices(copy);
+                                                                                }}
+                                                                                sx={{ '&.Mui-checked': { color: '#0f172a' } }}
+                                                                            />
+                                                                        }
+                                                                        label={
+                                                                            <Box>
+                                                                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a' }}>Included (Free)</Typography>
+                                                                                <Typography variant="caption" sx={{ color: '#64748b' }}>Full 100% discount</Typography>
+                                                                            </Box>
+                                                                        }
+                                                                    />
+
+                                                                    <Divider orientation="vertical" flexItem variant="middle" />
+
+                                                                    {/* Usage Limit */}
+                                                                    <Box>
+                                                                        <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#64748b', fontWeight: 600 }}>Usage Limit</Typography>
+                                                                        <TextField 
+                                                                            hiddenLabel
+                                                                            variant="outlined"
+                                                                            size="small"
+                                                                            placeholder="Unlimited"
+                                                                            value={svc.usage_limit || ''}
+                                                                            onChange={(e) => {
+                                                                                const copy = [...editedServices];
+                                                                                copy[editedServices.indexOf(svc)] = { ...svc, usage_limit: e.target.value };
+                                                                                setEditedServices(copy);
+                                                                            }}
+                                                                            sx={{ width: 140, bgcolor: 'white' }}
+                                                                        />
+                                                                    </Box>
+
+                                                                    {/* Discount - Only if NOT included */}
+                                                                    {!svc.is_included && (
+                                                                        <>
+                                                                            <Divider orientation="vertical" flexItem variant="middle" />
+                                                                            <Box>
+                                                                                <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#64748b', fontWeight: 600 }}>Discount (Optional)</Typography>
+                                                                                <TextField 
+                                                                                    hiddenLabel
+                                                                                    variant="outlined"
+                                                                                    size="small"
+                                                                                    placeholder="e.g. 50%" // Matches user expectation for discount string
+                                                                                    value={svc.discount || ''}
+                                                                                    onChange={(e) => {
+                                                                                        const copy = [...editedServices];
+                                                                                        copy[editedServices.indexOf(svc)] = { ...svc, discount: e.target.value };
+                                                                                        setEditedServices(copy);
+                                                                                    }}
+                                                                                    sx={{ width: 140, bgcolor: 'white' }}
+                                                                                />
+                                                                            </Box>
+                                                                        </>
+                                                                    )}
+
+                                                                    <Box sx={{ flex: 1 }} />
+
+                                                                    <IconButton 
+                                                                        size="medium" 
+                                                                        onClick={() => {
+                                                                            const copy = [...editedServices];
+                                                                            if (svc.membership_service_id) {
+                                                                                copy[editedServices.indexOf(svc)] = { ...svc, is_active: false };
+                                                                            } else {
+                                                                                const index = editedServices.indexOf(svc);
+                                                                                if (index > -1) copy.splice(index, 1);
+                                                                            }
+                                                                            setEditedServices(copy);
+                                                                        }}
+                                                                        sx={{ 
+                                                                            color: '#ef4444', 
+                                                                            bgcolor: '#fff', 
+                                                                            border: '1px solid #fecaca',
+                                                                            '&:hover': { bgcolor: '#fef2f2', borderColor: '#fca5a5' } 
+                                                                        }}
+                                                                    >
+                                                                        <Delete fontSize="small" />
+                                                                    </IconButton>
+                                                                 </Box>
+                                                             )}
+                                                         </Paper>
+                                                     );
+                                                 })}
+                                                 {editedServices.filter(s => s.is_active !== false).length === 0 && (
+                                                     <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderStyle: 'dashed' }}>
+                                                         <Typography variant="body2" color="text.secondary">
+                                                             No bundled services configured. Add a service to get started.
+                                                         </Typography>
+                                                     </Paper>
+                                                 )}
+                                             </Stack>
+                                         </Box>
+                                     )}
+                                 </Box>
+                             </Box>
+
+                             {/* Footer Actions */}
+                             {isEditing && (
+                                <Box sx={{ p: 3, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                    <Button 
+                                        variant="text" 
+                                        color="inherit" 
+                                        onClick={handleCancelEdit} 
+                                        disabled={isSaving}
+                                        sx={{ borderRadius: 2, fontWeight: 700, color: '#1e293b' }}
                                     >
-                                        Included Services
+                                        Cancel
+                                    </Button>
+                                    <Button 
+                                        variant="contained" 
+                                        onClick={handleSaveChanges} 
+                                        disabled={isSaving} 
+                                        startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : <Save />}
+                                        sx={{ 
+                                            borderRadius: 2, 
+                                            fontWeight: 700, 
+                                            px: 4,
+                                            bgcolor: '#4f46e5',
+                                            '&:hover': { bgcolor: '#4338ca' }
+                                        }}
+                                    >
+                                        Save Changes
                                     </Button>
                                 </Box>
+                             )}
+                        </>
+                    ) : (
+                        <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Typography color="text.secondary">Select a Base Plan to details.</Typography>
+                        </Box>
+                    )}
+                </Paper>
+            </Grid>
+        </Grid>
 
-                                {/* Terms Grid */}
-                                <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                                    {subscriptionTerms.map(term => {
-                                        const priceObj = getPrice(profileMeta, term.subscription_term_id);
-                                        return (
-                                           <Box key={term.subscription_term_id} sx={{ minWidth: 150 }}>
-                                                <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#78909c', fontWeight: 700, fontSize: '0.7rem' }}>
-                                                    {term.name.toUpperCase()}
-                                                </Typography>
-                                                <TextField 
-                                                    size="small"
-                                                    type="number"
-                                                    defaultValue={priceObj?.price || ''}
-                                                    placeholder="-"
-                                                    onBlur={(e) => {
-                                                        const val = parseFloat(e.target.value);
-                                                        if (!isNaN(val) && val !== priceObj?.price) {
-                                                            handlePriceSave(profileMeta, term.subscription_term_id, val);
-                                                        }
-                                                    }}
-                                                    sx={{ width: '100%' }}
-                                                    InputProps={{
-                                                        startAdornment: <InputAdornment position="start"><Typography sx={{ fontSize: '0.8rem', fontWeight: 600 }}>$</Typography></InputAdornment>,
-                                                        endAdornment: term.payment_mode === 'RECURRING' && <Typography variant="caption" sx={{ color: '#bdbdbd', fontSize: '0.7rem' }}>/mo</Typography>
-                                                    }}
-                                                />
-                                           </Box>
-                                        );
-                                    })}
-                                </Box>
-                            </Box>
-                        );
-                    })}
-                </Box>
-            </Paper>
-        ))}
-        
-        {/* Create Dialog */}
+        {/* Create Dialog (Preserved) */}
         <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
-            <DialogTitle>Add Base Plan Row</DialogTitle>
+            <DialogTitle>Create New Base Plan</DialogTitle>
             <DialogContent>
                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                      <TextField 
                         label="Plan Name"
-                        placeholder="Enter Plan Name"
+                        placeholder="e.g. Gold"
                         fullWidth
                         value={createForm.name || ''}
                         onChange={e => setCreateForm({...createForm, name: e.target.value})}
-                        InputLabelProps={{ shrink: true }}
                     />
                      <FormControl fullWidth>
                         <InputLabel>Role</InputLabel>
@@ -378,12 +828,14 @@ export const BasePlan = () => {
                             ))}
                         </Select>
                     </FormControl>
-                    <Typography variant="caption" color="text.secondary">Initial Price (You can allow other terms later)</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        Create with an initial price point:
+                    </Typography>
                      <FormControl fullWidth>
-                        <InputLabel>Initial Term</InputLabel>
+                        <InputLabel>Term</InputLabel>
                         <Select
                             value={createForm.subscription_term_id || ''}
-                            label="Initial Term"
+                            label="Term"
                             onChange={e => setCreateForm({...createForm, subscription_term_id: e.target.value})}
                         >
                              {subscriptionTerms.map(t => (
@@ -397,27 +849,21 @@ export const BasePlan = () => {
                         fullWidth
                         value={createForm.price || ''}
                         onChange={e => setCreateForm({...createForm, price: Number(e.target.value)})}
+                        InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment>, inputProps: { min: 0 } }}
                     />
                  </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => setOpenCreate(false)} disabled={saving}>Cancel</Button>
+                <Button onClick={() => setOpenCreate(false)}>Cancel</Button>
                 <Button 
                     variant="contained" 
-                    onClick={handleCreate} 
-                    disabled={saving || !createForm.name || !createForm.age_group_id || !createForm.subscription_term_id}
+                    onClick={handleCreateProfile}
+                    disabled={isSaving || !createForm.name || !createForm.age_group_id || !createForm.subscription_term_id}
                 >
-                    {saving ? <CircularProgress size={24} /> : "Create Row"}
+                    {isSaving ? <CircularProgress size={24} /> : "Create"}
                 </Button>
             </DialogActions>
         </Dialog>
-
-        {/* Services Manager Modal */}
-        <ServicesManagerDialog 
-            basePriceId={manageServicesId}
-            onClose={() => setManageServicesId(null)}
-            availableServices={availableServices}
-        />
 
         <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
             <Alert severity="error" onClose={() => setError(null)} variant="filled">{error}</Alert>
@@ -427,125 +873,4 @@ export const BasePlan = () => {
         </Snackbar>
     </Box>
   );
-};
-
-// --- Sub-components ---
-
-const ServicesManagerDialog = ({ basePriceId, onClose, availableServices }: { basePriceId: string | null, onClose: () => void, availableServices: any[] }) => {
-    const [services, setServices] = useState<MembershipService[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [newServiceId, setNewServiceId] = useState('');
-
-    useEffect(() => {
-        if(basePriceId) {
-            setLoading(true);
-            membershipService.getServices(basePriceId)
-                .then(setServices)
-                .catch(e => console.error(e))
-                .finally(() => setLoading(false));
-        } else {
-            setServices([]);
-        }
-    }, [basePriceId]);
-
-    const handleAdd = async () => {
-        if (!newServiceId || !basePriceId) return;
-        const newSvc: MembershipService = {
-            service_id: newServiceId,
-            membership_program_id: basePriceId, // Use basePriceId as owner
-            is_included: true,
-            usage_limit: 'Unlimited',
-            is_active: true
-        };
-        try {
-            await membershipService.upsertServices([newSvc]);
-            const updated = await membershipService.getServices(basePriceId);
-            setServices(updated);
-            setNewServiceId('');
-        } catch(e) { console.error(e); }
-    };
-
-    const handleUpdate = async (svc: MembershipService, updates: Partial<MembershipService>) => {
-        const updated = { ...svc, ...updates };
-        setServices(prev => prev.map(s => s.membership_service_id === svc.membership_service_id ? updated : s));
-        try {
-             await membershipService.upsertServices([updated]);
-        } catch(e) { console.error(e); }
-    };
-
-    return (
-        <Dialog open={!!basePriceId} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>Included Services</DialogTitle>
-            <DialogContent>
-                {loading ? <CircularProgress /> : (
-                    <Box sx={{ mt: 2 }}>
-                        {/* Add Bar */}
-                        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-                            <FormControl fullWidth size="small">
-                                <InputLabel>Add Service</InputLabel>
-                                <Select
-                                    value={newServiceId}
-                                    label="Add Service"
-                                    onChange={e => setNewServiceId(e.target.value)}
-                                >
-                                     {availableServices
-                                        .filter(s => !services.find(msg => msg.service_id === s.service_id && msg.is_active !== false))
-                                        .map(s => <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>)
-                                    }
-                                </Select>
-                            </FormControl>
-                            <Button variant="contained" onClick={handleAdd} disabled={!newServiceId}>Add</Button>
-                        </Box>
-                        
-                        <TableContainer component={Paper} variant="outlined">
-                            <Table size="small">
-                                <TableHead sx={{ bgcolor: '#fafafa' }}>
-                                    <TableRow>
-                                        <TableCell>Service</TableCell>
-                                        <TableCell>Included?</TableCell>
-                                        <TableCell>Limit</TableCell>
-                                        <TableCell>Discount</TableCell>
-                                        <TableCell>Action</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {services.filter(s => s.is_active !== false).map(s => {
-                                        const serviceName = s.service_name || availableServices.find(as => as.service_id === s.service_id)?.name || 'Unknown';
-                                        return (
-                                            <TableRow key={s.membership_service_id || s.service_id}>
-                                                <TableCell>{serviceName}</TableCell>
-                                                <TableCell>
-                                                    <FormControlLabel 
-                                                        control={<Checkbox checked={s.is_included} onChange={e => handleUpdate(s, { is_included: e.target.checked })} />}
-                                                        label={s.is_included ? "Free" : "Paid"}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <TextField size="small" value={s.usage_limit || ''} onChange={e => handleUpdate(s, { usage_limit: e.target.value })} />
-                                                </TableCell>
-                                                <TableCell>
-                                                    {!s.is_included && (
-                                                        <TextField size="small" value={s.discount || ''} onChange={e => handleUpdate(s, { discount: e.target.value })} placeholder="e.g 10%" />
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Button size="small" color="error" onClick={() => handleUpdate(s, { is_active: false })}>Remove</Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                    {services.filter(s => s.is_active !== false).length === 0 && (
-                                        <TableRow><TableCell colSpan={5} align="center">No services configured.</TableCell></TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </Box>
-                )}
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose}>Done</Button>
-            </DialogActions>
-        </Dialog>
-    );
 };

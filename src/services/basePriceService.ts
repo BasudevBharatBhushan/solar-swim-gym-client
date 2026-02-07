@@ -30,8 +30,13 @@ export const basePriceService = {
   },
 
   // Create or Update Base Price
-  upsert: async (data: BasePrice): Promise<BasePrice> => {
-    const response = await apiClient.post('/base-prices', data);
-    return response.prices ? response.prices[0] : response;
-  },
+    // Supports both single object (legacy/create) and bulk object { prices: [] }
+    upsert: async (data: BasePrice | { location_id: string; prices: BasePrice[] }): Promise<BasePrice | BasePrice[]> => {
+        const response = await apiClient.post('/base-prices', data);
+        // If bulk, it likely returns { prices: [...] } or just the array
+        if ('prices' in data && Array.isArray(data.prices)) {
+             return response.prices || response;
+        }
+        return response.prices ? response.prices[0] : response;
+    },
 };
