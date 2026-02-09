@@ -8,7 +8,6 @@ import {
   List,
   ListItemButton,
   ListItemText,
-  ListItemIcon,
   Divider,
   TextField,
   InputAdornment,
@@ -27,7 +26,8 @@ import {
   IconButton,
   Alert,
   Snackbar,
-  Stack
+  Stack,
+  Checkbox
 } from '@mui/material';
 import { 
   Add, 
@@ -37,7 +37,6 @@ import {
   ChildCare, 
   Person, 
   Elderly, 
-  Category,
   Settings
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
@@ -136,7 +135,9 @@ export const Memberships = () => {
   // Fetch Services when Category Changes (View Mode)
   useEffect(() => {
     if (selectedCategoryId && selectedCategoryId !== 'new') {
-        setServicesLoading(true);
+        // Fetch services using the Category ID. 
+        // Note: The database column in 'membership_service' is confusingly named 'membership_program_id' 
+        // but it points to category_id. We pass selectedCategoryId (the category UUID) here.
         membershipService.getServices(selectedCategoryId)
             .then((services) => {
                  setCategoryServices(services || []);
@@ -286,10 +287,10 @@ export const Memberships = () => {
           // 2. Save Program (Categories)
           const savedProgram = await membershipService.saveMembershipProgram(updatedProgram);
           
-          // 3. Resolve Category ID for Services
+          // 3. Resolve Category ID for Services (Category ID is passed as membership_program_id in payload)
           if (selectedCategoryId === 'new') {
-              // Find the new category ID. Attempt to use last or find by name match/structure
-              const savedCat = savedProgram.categories[savedProgram.categories.length - 1];
+              // Find the new category ID by matching the name from our draft
+              const savedCat = savedProgram.categories.find(c => c.name === draftCategory.name);
               if (savedCat) targetCategoryId = savedCat.category_id;
           }
 
@@ -441,6 +442,7 @@ export const Memberships = () => {
       );
 
       return (
+
           <Grid container spacing={3}>
               <Grid size={{ xs: 12, sm: 4 }}>{renderGroup('Children', <ChildCare fontSize="small"/>, 'minChild', 'maxChild')}</Grid>
               <Grid size={{ xs: 12, sm: 4 }}>{renderGroup('Adults', <Person fontSize="small"/>, 'minAdult', 'maxAdult')}</Grid>
@@ -455,38 +457,43 @@ export const Memberships = () => {
       const annual = categoryData.fees.find(f => f.fee_type === 'ANNUAL');
 
       return (
-          <Stack direction="row" spacing={3} sx={{ mt: 2 }}>
-              <Box>
-                  <Typography variant="caption" color="text.secondary" fontWeight={700}>JOINING FEE</Typography>
-                  {readOnly ? (
-                      <Typography variant="h6" color="primary">${joining?.amount || 0}</Typography>
-                  ) : (
-                      <TextField
-                           size="small" type="number"
-                           value={joining?.amount || 0}
-                           onChange={(e) => updateDraftFee('JOINING', Number(e.target.value))}
-                           InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                           sx={{ mt: 1, width: 120 }}
-                      />
-                  )}
-              </Box>
-              <Box>
-                   <Typography variant="caption" color="text.secondary" fontWeight={700}>ANNUAL FEE</Typography>
-                   {readOnly ? (
-                      <Typography variant="h6" color="primary">${annual?.amount || 0}</Typography>
-                   ) : (
-                      <TextField
-                           size="small" type="number"
-                           value={annual?.amount || 0}
-                           onChange={(e) => updateDraftFee('ANNUAL', Number(e.target.value))}
-                           InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
-                           sx={{ mt: 1, width: 120 }}
-                      />
-                   )}
-              </Box>
-          </Stack>
+
+        <Grid container spacing={3} sx={{ mt: 1 }}>
+            {[
+                { label: 'JOINING FEE', type: 'JOINING' as const, fee: joining },
+                { label: 'ANNUAL FEE', type: 'ANNUAL' as const, fee: annual }
+            ].map((item) => (
+                <Grid size={{ xs: 12, sm: 6 }} key={item.type}>
+                    {readOnly ? (
+                        <Paper elevation={0} sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3 }}>
+                            <Typography variant="caption" display="block" color="#64748b" fontWeight={700} sx={{ mb: 1 }}>
+                                {item.label}
+                            </Typography>
+                            <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                ${item.fee?.amount || 0}
+                            </Typography>
+                        </Paper>
+                    ) : (
+                        <TextField
+                             label={item.label}
+                             type="number"
+                             fullWidth
+                             variant="filled"
+                             value={item.fee?.amount || 0}
+                             onChange={(e) => updateDraftFee(item.type, Number(e.target.value))}
+                             InputProps={{
+                                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                 disableUnderline: true,
+                                 sx: { borderRadius: 2, bgcolor: '#f8fafc', fontSize: '1.1rem', fontWeight: 600 }
+                             }}
+                        />
+                    )}
+                </Grid>
+            ))}
+        </Grid>
       );
   };
+
 
 
   return (
@@ -520,55 +527,100 @@ export const Memberships = () => {
                      {programs.length === 0 && <MenuItem disabled>No Programs Available</MenuItem>}
                  </Select>
              </FormControl>
+
         </Box>
+        {activeProgram && (
+             <Box sx={{ mb: 4 }}>
+                 <Typography variant="h5" sx={{ textTransform: 'uppercase', color: '#1e293b', fontWeight: 900, letterSpacing: '-0.025em' }}>
+                     {activeProgram.name}
+                 </Typography>
+             </Box>
+        )}
 
         {loading ? (
              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
         ) : activeProgram ? (
              <Grid container spacing={3}>
                  {/* Left Column: Categories List (4/12) */}
-                 <Grid size={{ xs: 12, md: 4 }}>
+                 <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%' }}>
                      <Paper sx={{ height: '100%', borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                         <Box sx={{ p: 2, borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fafafa' }}>
-                             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#455a64', letterSpacing: 0.5 }}>CATEGORIES</Typography>
-                             <Button 
-                                 size="small" startIcon={<Add />} 
-                                 onClick={handleAddNewCategory}
-                                 disabled={isEditing}
-                             >
-                                 Add
-                             </Button>
+                         <Box sx={{ p: 2, bgcolor: '#fff', borderBottom: '1px solid #f0f4f8' }}>
+                             <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>
+                                 CATEGORIES
+                             </Typography>
                          </Box>
-                         <List sx={{ p: 0, flex: 1, overflowY: 'auto' }}>
-                             {activeProgram.categories.map((cat) => (
-                                 <ListItemButton 
-                                     key={cat.category_id}
-                                     selected={selectedCategoryId === cat.category_id}
-                                     onClick={() => handleCategorySelect(cat.category_id!)}
-                                     sx={{ 
-                                         borderLeft: selectedCategoryId === cat.category_id ? '4px solid #1976d2' : '4px solid transparent',
-                                         bgcolor: selectedCategoryId === cat.category_id ? '#f5f9ff !important' : 'inherit'
-                                     }}
-                                 >
-                                     <ListItemIcon sx={{ minWidth: 36 }}>
-                                         <Category fontSize="small" color={selectedCategoryId === cat.category_id ? 'primary' : 'action'} />
-                                     </ListItemIcon>
-                                     <ListItemText 
-                                         primary={cat.name} 
-                                         primaryTypographyProps={{ fontWeight: selectedCategoryId === cat.category_id ? 700 : 500, color: 'text.primary' }}
-                                         secondary={cat.is_active === false ? <Typography variant="caption" color="error">Inactive</Typography> : null}
-                                     />
-                                 </ListItemButton>
-                             ))}
-                             {/* Show "New Category" item if creating */}
+                         <List sx={{ flex: 1, overflowY: 'auto', p: 0 }}>
+                             {activeProgram.categories.map((cat) => {
+                                 const isSelected = selectedCategoryId === cat.category_id;
+                                 return (
+                                     <ListItemButton 
+                                         key={cat.category_id}
+                                         selected={isSelected}
+                                         onClick={() => handleCategorySelect(cat.category_id!)}
+                                         sx={{ 
+                                             pl: 2,
+                                             py: 1.5,
+                                             position: 'relative',
+                                             '&.Mui-selected': {
+                                                 bgcolor: '#f1f5f9',
+                                                 '&:hover': { bgcolor: '#e2e8f0' }
+                                             },
+                                             borderLeft: isSelected ? '4px solid #4f46e5' : '4px solid transparent'
+                                         }}
+                                     >
+                                         <ListItemText 
+                                             primary={cat.name} 
+                                             secondary={cat.is_active === false ? 'Inactive' : 'Active Category'}
+                                             sx={{
+                                                 m: 0,
+                                                 '& .MuiListItemText-primary': { 
+                                                     color: isSelected ? '#1e293b' : '#334155',
+                                                     fontWeight: isSelected ? 800 : 600,
+                                                     fontSize: '0.925rem'
+                                                 },
+                                                 '& .MuiListItemText-secondary': {
+                                                     color: cat.is_active === false ? '#ef4444' : '#64748b',
+                                                     fontSize: '0.75rem',
+                                                     fontWeight: 500
+                                                 }
+                                             }}
+                                         />
+                                     </ListItemButton>
+                                 );
+                             })}
+                             
+                             {/* New Category Item */}
                              {selectedCategoryId === 'new' && (
-                                 <ListItemButton 
-                                     selected={true}
-                                     sx={{ borderLeft: '4px solid #4caf50', bgcolor: '#f1f8e9 !important' }}
-                                 >
-                                     <ListItemIcon sx={{ minWidth: 36 }}><Add fontSize="small" /></ListItemIcon>
-                                     <ListItemText primary="New Category" primaryTypographyProps={{ fontWeight: 700, fontStyle: 'italic', color: 'text.primary' }} />
-                                 </ListItemButton>
+                                <ListItemButton 
+                                    selected={true}
+                                    sx={{ 
+                                        pl: 2, py: 1.5,
+                                        bgcolor: '#f1f5f9',
+                                        borderLeft: '4px solid #10b981'
+                                    }}
+                                >
+                                    <ListItemText 
+                                        primary="New Category"
+                                        secondary="Unsaved Draft"
+                                        sx={{
+                                            '& .MuiListItemText-primary': { fontWeight: 800, color: '#1e293b' },
+                                            '& .MuiListItemText-secondary': { color: '#10b981', fontSize: '0.75rem' }
+                                        }}
+                                    />
+                                </ListItemButton>
+                             )}
+                             
+                             {/* Add Button in List */}
+                             {!isEditing && (
+                                <Box sx={{ p: 2 }}>
+                                    <Button 
+                                        fullWidth variant="outlined" startIcon={<Add />} 
+                                        onClick={handleAddNewCategory}
+                                        sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, borderColor: '#e2e8f0', color: '#64748b', '&:hover': { borderColor: '#94a3b8', color: '#475569' } }}
+                                    >
+                                        Add Category
+                                    </Button>
+                                </Box>
                              )}
                          </List>
                      </Paper>
@@ -580,151 +632,228 @@ export const Memberships = () => {
                          {activeCategory || (selectedCategoryId === 'new' && draftCategory) ? (
                              <>
                                  {/* Header */}
-                                 <Box sx={{ p: 2, borderBottom: '1px solid #eee', bgcolor: '#fafafa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                 <Box sx={{ p: 4, borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                      <Box>
-                                        <Typography variant="caption" display="block" color="text.secondary" fontWeight={700}>CONFIGURATION</Typography>
-                                        {isEditing ? (
-                                             <TextField 
-                                                 hiddenLabel variant="standard" 
-                                                 value={draftCategory?.name || ''}
-                                                 onChange={(e) => updateDraftField('name', e.target.value)}
-                                                 inputProps={{ style: { fontSize: '1.25rem', fontWeight: 600 } }}
-                                                 placeholder="Category Name"
-                                             />
-                                        ) : (
-                                            <Typography variant="h6" fontWeight={600} color="#263238">{activeCategory?.name}</Typography>
-                                        )}
+                                        <Typography variant="caption" sx={{ textTransform: 'uppercase', color: '#64748b', fontWeight: 800, letterSpacing: '0.05em' }}>
+                                             {activeProgram.name}
+                                        </Typography>
+                                        <Box sx={{ mt: 1 }}>
+                                            {isEditing ? (
+                                                <TextField 
+                                                    hiddenLabel
+                                                    variant="standard" 
+                                                    value={draftCategory?.name || ''}
+                                                    onChange={(e) => updateDraftField('name', e.target.value)}
+                                                    inputProps={{ style: { fontSize: '2.125rem', fontWeight: 900, textTransform: 'uppercase', color: '#1e293b' } }}
+                                                    placeholder="CATEGORY NAME"
+                                                    fullWidth
+                                                />
+                                            ) : (
+                                                <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e293b', textTransform: 'uppercase' }}>
+                                                    {activeCategory?.name}
+                                                </Typography>
+                                            )}
+                                        </Box>
                                      </Box>
                                      <Box>
                                          {!isEditing ? (
-                                             <Button variant="outlined" startIcon={<Edit />} onClick={handleStartEdit}>
-                                                 Edit Config
+                                             <Button 
+                                                 variant="outlined" 
+                                                 startIcon={<Edit />} 
+                                                 onClick={handleStartEdit}
+                                                 sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, color: '#1e293b', borderColor: '#e2e8f0' }}
+                                             >
+                                                 Edit Category
                                              </Button>
                                          ) : (
-                                             <Stack direction="row" spacing={1}>
-                                                 <Button variant="text" color="inherit" onClick={handleCancelEdit} disabled={saving}>
-                                                     Cancel
-                                                 </Button>
-                                                 <Button variant="contained" startIcon={saving ? <CircularProgress size={20}/> : <Save />} onClick={handleSaveEdit} disabled={saving}>
-                                                     Save Changes
-                                                 </Button>
-                                             </Stack>
+                                             <Box sx={{ display: 'flex', gap: 1 }}>
+                                                 <Chip label="Editing Mode" color="warning" sx={{ fontWeight: 700 }} />
+                                             </Box>
                                          )}
                                      </Box>
                                  </Box>
 
                                  {/* Content */}
-                                 <Box sx={{ p: 3, flex: 1, overflowY: 'auto' }}>
-                                     {/* 1. General Settings */}
-                                     {isEditing ? (
-                                         <Box sx={{ mb: 4 }}>
-                                             <FormControlLabel
-                                                 control={
-                                                     <Switch 
-                                                         checked={draftCategory?.is_active !== false}
-                                                         onChange={(e) => updateDraftField('is_active', e.target.checked)}
-                                                     />
-                                                 }
-                                                 label="Active Status"
-                                             />
-                                             {renderFees(draftCategory!, false)}
-                                         </Box>
-                                     ) : (
-                                         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                            <Box>
-                                                <Chip 
-                                                    label={activeCategory?.is_active !== false ? "ACTIVE" : "INACTIVE"} 
-                                                    color={activeCategory?.is_active !== false ? "success" : "default"} 
-                                                    size="small" 
-                                                    variant="outlined"
-                                                    sx={{ mb: 1, fontWeight: 700 }}
-                                                />
-                                                {renderFees(activeCategory!, true)}
-                                            </Box>
-                                         </Box>
-                                     )}
+                                 <Box sx={{ p: 4, flex: 1, overflowY: 'auto' }}>
                                      
-                                     <Divider sx={{ my: 3 }} />
+                                     {/* 1. Pricing Configuration */}
+                                     <Box sx={{ mb: 6 }}>
+                                         <Typography variant="caption" sx={{ fontWeight: 800, mb: 3, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
+                                             PRICING & STATUS
+                                         </Typography>
+                                         
+                                         {isEditing ? (
+                                              <Box sx={{ mb: 3, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
+                                                  <FormControlLabel
+                                                      control={
+                                                          <Switch 
+                                                              checked={draftCategory?.is_active !== false}
+                                                              onChange={(e) => updateDraftField('is_active', e.target.checked)}
+                                                          />
+                                                      }
+                                                      label={<Typography fontWeight={600}>Active Status</Typography>}
+                                                  />
+                                              </Box>
+                                         ) : (
+                                              <Box sx={{ mb: 3 }}>
+                                                  <Chip 
+                                                      label={activeCategory?.is_active !== false ? "ACTIVE" : "INACTIVE"} 
+                                                      sx={{ 
+                                                          bgcolor: activeCategory?.is_active !== false ? '#dcfce7' : '#f1f5f9', 
+                                                          color: activeCategory?.is_active !== false ? '#166534' : '#64748b', 
+                                                          fontWeight: 800,
+                                                          borderRadius: '6px'
+                                                      }} 
+                                                  />
+                                              </Box>
+                                         )}
+                                         
+                                         {renderFees(isEditing ? draftCategory! : activeCategory!, !isEditing)}
+                                     </Box>
 
                                      {/* 2. Eligibility Rules */}
-                                     <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 700, color: '#546e7a', textTransform: 'uppercase' }}>ELIGIBILITY RULES</Typography>
-                                     <Box sx={{ mb: 4 }}>
+                                     <Box sx={{ mb: 6 }}>
+                                         <Typography variant="caption" sx={{ fontWeight: 800, mb: 3, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
+                                             ELIGIBILITY RULES
+                                         </Typography>
                                          {renderRuleInputs(isEditing ? draftCategory! : activeCategory!, !isEditing)}
                                      </Box>
 
-                                     <Divider sx={{ my: 3 }} />
-
-                                     {/* 3. Included Services */}
-                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', items: 'center', mb: 2 }}>
-                                         <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#546e7a', textTransform: 'uppercase' }}>BUNDLED SERVICES</Typography>
-                                         {isEditing && (
-                                             <Button size="small" startIcon={<Add />} onClick={() => setOpenAddService(true)}>Add Service</Button>
-                                         )}
-                                     </Box>
-                                     
-                                     {servicesLoading ? <CircularProgress size={24} /> : (
-                                     <Grid container spacing={2}>
-                                         {(isEditing ? draftServices : categoryServices)
-                                             .filter(s => s.is_active !== false)
-                                             .map((s, idx) => {
-                                                 // Match service name
-                                                 const serviceName = s.service_name || availableServices.find(as => as.service_id === s.service_id)?.name || 'Unknown Service';
-                                                 return (
-                                                     <Grid size={{ xs: 12 }} key={idx}>
-                                                         <Paper variant="outlined" sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
-                                                             <Box sx={{ p: 1, bgcolor: '#e0f2f1', borderRadius: 1 }}>
-                                                                 <Category fontSize="small" sx={{ color: '#00695c' }} />
-                                                             </Box>
-                                                             <Box sx={{ flex: 1 }}>
-                                                                 <Typography variant="subtitle2" fontWeight={600} color="text.primary">{serviceName}</Typography>
-                                                                 {isEditing ? (
-                                                                     <Stack direction="row" spacing={2} sx={{ mt: 1, alignItems: 'center' }}>
-                                                                         <FormControlLabel 
-                                                                             control={<Switch size="small" checked={s.is_included} onChange={(e) => updateDraftService(idx, { is_included: e.target.checked })} />}
-                                                                             label={<Typography variant="caption">Included</Typography>}
-                                                                         />
-                                                                         <TextField 
-                                                                             size="small" variant="standard" placeholder="Limit"
-                                                                             value={s.usage_limit || ''}
-                                                                             onChange={(e) => updateDraftService(idx, { usage_limit: e.target.value })}
-                                                                             sx={{ width: 100 }}
-                                                                         />
-                                                                         {!s.is_included && (
-                                                                             <TextField 
-                                                                                size="small" variant="standard" placeholder="Discount %"
-                                                                                value={s.discount || ''}
-                                                                                onChange={(e) => updateDraftService(idx, { discount: e.target.value })}
-                                                                                sx={{ width: 100 }}
-                                                                             />
+                                     {/* 3. Bundled Services */}
+                                     <Box>
+                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                                             <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                 BUNDLED SERVICES
+                                             </Typography>
+                                             {isEditing && (
+                                                 <Button 
+                                                     size="small" 
+                                                     startIcon={<Add />} 
+                                                     variant="contained"
+                                                     onClick={() => setOpenAddService(true)}
+                                                     sx={{ textTransform: 'none', borderRadius: 2, bgcolor: '#0f172a' }}
+                                                 >
+                                                     Add Service
+                                                 </Button>
+                                             )}
+                                         </Box>
+                                         
+                                         {servicesLoading ? <CircularProgress size={24} /> : (
+                                         <Stack spacing={2}>
+                                             {(isEditing ? draftServices : categoryServices)
+                                                 .filter(s => s.is_active !== false)
+                                                 .map((svc, idx) => {
+                                                     const serviceRef = availableServices.find(as => as.service_id === svc.service_id);
+                                                     const name = svc.service_name || serviceRef?.name || 'Unknown Service';
+                                                     const description = serviceRef?.description || '';
+                                                     
+                                                     return (
+                                                         <Paper key={idx} elevation={0} sx={{ 
+                                                             p: 3, 
+                                                             display: 'flex', 
+                                                             flexDirection: 'column',
+                                                             gap: 2,
+                                                             bgcolor: '#fff', 
+                                                             border: '1px solid #e2e8f0', 
+                                                             borderRadius: 3 
+                                                         }}>
+                                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                 <Box>
+                                                                     <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0f172a' }}>{name}</Typography>
+                                                                     {description && (
+                                                                         <Typography variant="caption" sx={{ color: '#64748b', mt: 0.5, display: 'block', maxWidth: 500 }}>
+                                                                             {description}
+                                                                         </Typography>
+                                                                     )}
+                                                                 </Box>
+                                                                 
+                                                                 {!isEditing && (
+                                                                     <Stack direction="row" spacing={1} alignItems="center">
+                                                                         {svc.is_included ? (
+                                                                             <Chip label="INCLUDED" size="small" sx={{ bgcolor: '#10b981', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} />
+                                                                         ) : (
+                                                                             svc.discount ? <Chip label={`${svc.discount} OFF`} size="small" sx={{ bgcolor: '#f59e0b', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} /> : null
                                                                          )}
+                                                                         <Box sx={{ bgcolor: '#f1f5f9', px: 1.5, py: 0.5, borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                                             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, fontSize: '0.7rem' }}>
+                                                                                 Limit: <Box component="span" sx={{ color: '#1e293b' }}>{svc.usage_limit || 'Unlimited'}</Box>
+                                                                             </Typography>
+                                                                         </Box>
                                                                      </Stack>
-                                                                 ) : (
-                                                                     <Typography variant="caption" color="text.secondary">
-                                                                         {s.is_included ? `Included (${s.usage_limit})` : `Discount: ${s.discount || 'None'} (${s.usage_limit})`}
-                                                                     </Typography>
                                                                  )}
                                                              </Box>
+
                                                              {isEditing && (
-                                                                 <IconButton color="error" size="small" onClick={() => removeDraftService(idx)}>
-                                                                     <Delete fontSize="small" />
-                                                                 </IconButton>
+                                                                 <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                                                                     <FormControlLabel 
+                                                                         control={
+                                                                             <Checkbox 
+                                                                                 checked={svc.is_included}
+                                                                                 onChange={(e) => updateDraftService(idx, { is_included: e.target.checked, discount: e.target.checked ? '' : svc.discount })}
+                                                                                 sx={{ '&.Mui-checked': { color: '#0f172a' } }}
+                                                                             />
+                                                                         }
+                                                                         label={<Box><Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a' }}>Included (Free)</Typography></Box>}
+                                                                     />
+                                                                     <Divider orientation="vertical" flexItem variant="middle" />
+                                                                     <TextField 
+                                                                         label="Usage Limit" size="small" placeholder="Unlimited"
+                                                                         value={svc.usage_limit || ''}
+                                                                         onChange={(e) => updateDraftService(idx, { usage_limit: e.target.value })}
+                                                                         sx={{ width: 140, bgcolor: 'white' }}
+                                                                     />
+                                                                     {!svc.is_included && (
+                                                                         <TextField 
+                                                                             label="Discount" size="small" placeholder="e.g. 50%"
+                                                                             value={svc.discount || ''}
+                                                                             onChange={(e) => updateDraftService(idx, { discount: e.target.value })}
+                                                                             sx={{ width: 140, bgcolor: 'white' }}
+                                                                         />
+                                                                     )}
+                                                                     <Box sx={{ flex: 1 }} />
+                                                                     <IconButton size="small" onClick={() => removeDraftService(idx)} sx={{ color: '#ef4444', bgcolor: '#fff', border: '1px solid #fecaca' }}>
+                                                                         <Delete fontSize="small" />
+                                                                     </IconButton>
+                                                                 </Box>
                                                              )}
                                                          </Paper>
-                                                     </Grid>
-                                                 );
-                                             })
-                                         }
-                                         {(isEditing ? draftServices : categoryServices).filter(s => s.is_active !== false).length === 0 && (
-                                             <Grid size={{ xs: 12 }}>
-                                                 <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 3, fontStyle: 'italic', bgcolor: '#f9f9f9', borderRadius: 1 }}>
-                                                     No services bundled with this category.
-                                                 </Typography>
-                                             </Grid>
+                                                     );
+                                                 })
+                                             }
+                                             {(isEditing ? draftServices : categoryServices).filter(s => s.is_active !== false).length === 0 && (
+                                                 <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderStyle: 'dashed' }}>
+                                                     <Typography variant="body2" color="text.secondary">
+                                                         No bundled services configured. Add a service to get started.
+                                                     </Typography>
+                                                 </Paper>
+                                             )}
+                                         </Stack>
                                          )}
-                                     </Grid>
-                                     )}
-
+                                     </Box>
                                  </Box>
+                                 
+                                 {/* Footer Actions */}
+                                 {isEditing && (
+                                    <Box sx={{ p: 3, borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                        <Button 
+                                            variant="text" color="inherit" 
+                                            onClick={handleCancelEdit} 
+                                            disabled={saving}
+                                            sx={{ borderRadius: 2, fontWeight: 700, color: '#1e293b' }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                        <Button 
+                                            variant="contained" 
+                                            onClick={handleSaveEdit} 
+                                            disabled={saving} 
+                                            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save />}
+                                            sx={{ borderRadius: 2, fontWeight: 700, px: 4, bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
+                                        >
+                                            Save Changes
+                                        </Button>
+                                    </Box>
+                                 )}
                              </>
                          ) : (
                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 4 }}>
