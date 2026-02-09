@@ -295,7 +295,9 @@ Services bundled into a membership.
 | :--- | :--- | :--- | :--- |
 | `membership_service_id`| `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
 | `membership_program_id`| `UUID` | Parent category (NULL for Base Plan). | **FK** -> `membership_program_category` |
-| `base_price_id`| `UUID` | Parent base price (NULL for Program). | **FK** -> `base_price` |
+| `location_id` | `UUID` | Location (for Base Plan). | **FK** -> `location` |
+| `baseprice_role`| `TEXT` | Role (for Base Plan: PRIMARY/ADD_ON). | |
+| `baseprice_age_group_id`| `UUID` | Age Group (for Base Plan). | **FK** -> `age_group` |
 | `service_id` | `UUID` | The included service. | **FK** -> `service`, `NOT NULL` |
 | `is_included` | `BOOLEAN` | Whether it is free/included. | Default: `TRUE` |
 | `usage_limit` | `TEXT` | Cap on usage (e.g., "10 visits"). | |

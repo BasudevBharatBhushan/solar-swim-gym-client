@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -22,105 +22,147 @@ import {
   Tab,
   Divider,
   Alert,
-  Snackbar
+  Snackbar,
+  MenuItem,
+  Select,
+  FormControl,
+  FormHelperText
 } from '@mui/material';
-import { Add, FilterList, Download, Edit, Delete, LocalOffer, MonetizationOn } from '@mui/icons-material';
+import { Add, FilterList, Download, Edit, Delete, LocalOffer, MonetizationOn, InfoOutlined } from '@mui/icons-material';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { discountService, Discount } from '../../services/discountService';
+import { serviceCatalog, Service } from '../../services/serviceCatalog';
 import { useAuth } from '../../context/AuthContext';
 
 export const DiscountCodes = () => {
-    const { currentLocationId: locationId } = useAuth();
+    const { currentLocationId: locationId, userParams } = useAuth();
     const [tabValue, setTabValue] = useState(0);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
+    const [services, setServices] = useState<Service[]>([]);
     
     // Form State
-    const [discountName, setDiscountName] = useState('FLASH20');
+    const [editingDiscountId, setEditingDiscountId] = useState<string | null>(null);
+    const [discountName, setDiscountName] = useState('');
     const [discountType, setDiscountType] = useState<'Percentage' | 'Flat'>('Percentage');
-    const [discountValue, setDiscountValue] = useState('15');
-    const [usageLimit, setUsageLimit] = useState('');
+    const [discountValue, setDiscountValue] = useState('');
+    const [selectedServiceId, setSelectedServiceId] = useState<string>('all');
     const [isActive, setIsActive] = useState(true);
 
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success'|'error', text: string } | null>(null);
 
-    const DUMMY_DISCOUNTS: Discount[] = [
-        {
-            discount_id: 'dummy-1',
-            location_id: locationId || 'dummy-loc',
-            discount_code: 'WINTER2024',
-            discount: '15%',
-            is_active: true,
-            created_at: new Date('2024-01-15').toISOString(),
-            staff_name: 'Admin'
-        },
-        {
-            discount_id: 'dummy-2',
-            location_id: locationId || 'dummy-loc',
-            discount_code: 'SWIMFAST',
-            discount: '20%',
-            is_active: true,
-            created_at: new Date('2024-02-01').toISOString(),
-            staff_name: 'Marketing'
-        },
-        {
-            discount_id: 'dummy-3',
-            location_id: locationId || 'dummy-loc',
-            discount_code: 'NEWPLAYER',
-            discount: '50',
-            is_active: false,
-            created_at: new Date('2024-02-10').toISOString(),
-            staff_name: 'Admin'
-        }
-    ];
+    const nameInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (locationId) {
-            loadDiscounts();
-        } else {
-            // Show dummy data if no location/auth yet for representation
-            setDiscounts(DUMMY_DISCOUNTS);
+            loadInitialData();
         }
     }, [locationId]);
+
+    const loadInitialData = async () => {
+        if (!locationId) return;
+        setLoading(true);
+        try {
+            const [discountData, serviceData] = await Promise.all([
+                discountService.getAllDiscounts(locationId),
+                serviceCatalog.getServices(locationId)
+            ]);
+            setDiscounts(discountData || []);
+            // Handle possibility that serviceData.data exists
+            const servicesList = serviceData.data || serviceData;
+            setServices(Array.isArray(servicesList) ? servicesList : []);
+        } catch (error) {
+            console.error("Failed to load initial data", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const loadDiscounts = async () => {
         if (!locationId) return;
         try {
             const data = await discountService.getAllDiscounts(locationId!);
-            if (data && data.length > 0) {
-                setDiscounts(data);
-            } else {
-                setDiscounts(DUMMY_DISCOUNTS);
-            }
+            setDiscounts(data || []);
         } catch (error) {
             console.error("Failed to load discounts", error);
-            setDiscounts(DUMMY_DISCOUNTS);
         }
     };
 
-    const handleCreateDiscount = async () => {
+    const handleEditClick = (discount: Discount) => {
+        setEditingDiscountId(discount.discount_id);
+        setDiscountName(discount.discount_code);
+        
+        const isPercentage = discount.discount.includes('%');
+        setDiscountType(isPercentage ? 'Percentage' : 'Flat');
+        setDiscountValue(discount.discount.replace('%', ''));
+        setSelectedServiceId(discount.service_id || 'all');
+        setIsActive(discount.is_active);
+    };
+
+    const resetForm = () => {
+        setEditingDiscountId(null);
+        setDiscountName('');
+        setDiscountType('Percentage');
+        setDiscountValue('');
+        setSelectedServiceId('all');
+        setIsActive(true);
+        
+        // Use a small timeout to ensure field exists if we toggle something
+        setTimeout(() => {
+            nameInputRef.current?.focus();
+        }, 100);
+    };
+
+    const handleSaveDiscount = async () => {
         if (!locationId) {
             setMessage({ type: 'error', text: 'No location selected' });
             return;
         }
+        if (!discountName || !discountValue) {
+            setMessage({ type: 'error', text: 'Please fill in all required fields' });
+            return;
+        }
+
         setLoading(true);
         setMessage(null);
         try {
             const finalValue = discountType === 'Percentage' ? `${discountValue}%` : discountValue;
+            const staffName = userParams ? `${userParams.first_name || ''} ${userParams.last_name || ''}`.trim() : 'Admin';
             
-            await discountService.createDiscount(locationId!, {
+            const payload: Partial<Discount> = {
                 discount_code: discountName,
                 discount: finalValue,
                 is_active: isActive,
+                staff_name: staffName,
+                location_id: locationId,
+                service_id: selectedServiceId === 'all' ? null : selectedServiceId
+            };
+
+            if (editingDiscountId) {
+                payload.discount_id = editingDiscountId;
+            }
+
+            await discountService.createDiscount(locationId!, payload);
+            
+            setMessage({ 
+                type: 'success', 
+                text: editingDiscountId ? 'Discount code updated successfully' : 'Discount code created successfully' 
             });
-            setMessage({ type: 'success', text: 'Discount code created successfully' });
+            
+            resetForm();
             loadDiscounts(); // Refresh list
         } catch (error: any) {
-            setMessage({ type: 'error', text: error.message || 'Failed to create discount' });
+            setMessage({ type: 'error', text: error.message || 'Failed to save discount' });
         } finally {
             setLoading(false);
         }
     };
+
+    const filteredDiscounts = discounts.filter(d => {
+        if (tabValue === 1) return d.is_active;
+        if (tabValue === 2) return !d.is_active;
+        return true;
+    });
 
     return (
         <Box sx={{ p: 3, maxWidth: 1600, mx: 'auto' }}>
@@ -135,6 +177,7 @@ export const DiscountCodes = () => {
                     <Button 
                         variant="contained" 
                         startIcon={<Add />}
+                        onClick={resetForm}
                         sx={{ 
                             textTransform: 'none', 
                             fontWeight: 700, 
@@ -145,7 +188,7 @@ export const DiscountCodes = () => {
                             py: 1
                         }}
                     >
-                        Add New Discount
+                        New Discount
                     </Button>
                 }
             />
@@ -205,15 +248,20 @@ export const DiscountCodes = () => {
                                         <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>TYPE</TableCell>
                                         <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>VALUE</TableCell>
                                         <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>STATUS</TableCell>
-                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>CREATED</TableCell>
+                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>SERVICE</TableCell>
                                         <TableCell align="right" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>ACTIONS</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {discounts.map((discount) => {
+                                    {loading && discounts.length === 0 ? (
+                                        <TableRow><TableCell colSpan={6} align="center">Loading...</TableCell></TableRow>
+                                    ) : filteredDiscounts.length === 0 ? (
+                                        <TableRow><TableCell colSpan={6} align="center">No discounts found</TableCell></TableRow>
+                                    ) : filteredDiscounts.map((discount) => {
                                         const isPercentage = discount.discount.includes('%');
                                         const displayType = isPercentage ? 'Percentage' : 'Flat Amount';
-                                        const displayValue = discount.discount;
+                                        const displayValue = isPercentage ? discount.discount : `$${discount.discount}`;
+                                        const serviceName = discount.service_id ? services.find(s => s.service_id === discount.service_id)?.name || 'Error' : 'All Services';
                                         
                                         return (
                                         <TableRow key={discount.discount_id} sx={{ borderTop: '1px solid #F5F5F5' }}>
@@ -248,16 +296,15 @@ export const DiscountCodes = () => {
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Box>
-                                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#263238' }}>
-                                                        {discount.created_at ? new Date(discount.created_at).toLocaleDateString() : 'N/A'}
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ color: '#90A4AE', fontSize: '0.65rem' }}>{discount.staff_name || 'Admin'}</Typography>
-                                                </Box>
+                                                <Typography variant="body2" sx={{ color: '#263238', fontWeight: 600 }}>{serviceName}</Typography>
                                             </TableCell>
                                             <TableCell align="right">
-                                                <IconButton size="small" sx={{ color: '#90A4AE' }}><Edit fontSize="small" /></IconButton>
-                                                <IconButton size="small" sx={{ color: '#90A4AE' }}><Delete fontSize="small" /></IconButton>
+                                                <IconButton size="small" sx={{ color: '#90A4AE' }} onClick={() => handleEditClick(discount)}>
+                                                    <Edit fontSize="small" />
+                                                </IconButton>
+                                                <IconButton size="small" sx={{ color: '#90A4AE' }}>
+                                                    <Delete fontSize="small" />
+                                                </IconButton>
                                             </TableCell>
                                         </TableRow>
                                     )})}
@@ -266,24 +313,26 @@ export const DiscountCodes = () => {
                         </TableContainer>
                         
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3, px: 1 }}>
-                            <Typography variant="caption" color="text.secondary">Showing {discounts.length} codes</Typography>
-                            <Box>
-                                <Button variant="outlined" disabled sx={{ minWidth: 40, px: 0, mr: 1, borderColor: '#EEEEEE' }}>&lt;</Button>
-                                <Button variant="outlined" sx={{ minWidth: 40, px: 0, borderColor: '#EEEEEE', color: '#546E7A' }}>&gt;</Button>
-                            </Box>
+                            <Typography variant="caption" color="text.secondary">Showing {filteredDiscounts.length} codes</Typography>
                         </Box>
 
                     </Paper>
                 </Grid>
 
-                {/* Right Column: Define New Discount */}
+                {/* Right Column: Define/Edit Discount */}
                 <Grid size={{ xs: 12, md: 4 }}>
                     <Paper sx={{ p: 3, borderRadius: 2, border: '1px solid #E0E0E0' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                            <Box sx={{ bgcolor: '#42A5F5', borderRadius: '50%', color: 'white', p: 0.5, display: 'flex' }}><Add sx={{ fontSize: 20 }} /></Box>
+                            <Box sx={{ bgcolor: '#42A5F5', borderRadius: '50%', color: 'white', p: 0.5, display: 'flex' }}>
+                                {editingDiscountId ? <Edit sx={{ fontSize: 20 }} /> : <Add sx={{ fontSize: 20 }} />}
+                            </Box>
                             <Box>
-                                <Typography variant="subtitle1" fontWeight="bold">Define New Discount</Typography>
-                                <Typography variant="caption" color="text.secondary">Configure rule parameters for the promo code.</Typography>
+                                <Typography variant="subtitle1" fontWeight="bold">
+                                    {editingDiscountId ? 'Edit Discount Code' : 'New Discount'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    {editingDiscountId ? 'Update parameters for this promo code.' : 'Configure rule parameters for the promo code.'}
+                                </Typography>
                             </Box>
                         </Box>
                         
@@ -294,6 +343,7 @@ export const DiscountCodes = () => {
                                 <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>DISCOUNT CODE NAME</Typography>
                                 <TextField 
                                     fullWidth 
+                                    inputRef={nameInputRef}
                                     placeholder="E.G. FLASH20" 
                                     value={discountName}
                                     onChange={(e) => setDiscountName(e.target.value)}
@@ -360,14 +410,27 @@ export const DiscountCodes = () => {
                             </Box>
 
                             <Box>
-                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>USAGE LIMIT (OPTIONAL)</Typography>
-                                <TextField 
-                                    fullWidth 
-                                    placeholder="e.g. 100"
-                                    value={usageLimit}
-                                    onChange={(e) => setUsageLimit(e.target.value)}
-                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
-                                />
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>TARGET SERVICE (OPTIONAL)</Typography>
+                                <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}>
+                                    <Select
+                                        value={selectedServiceId}
+                                        onChange={(e) => setSelectedServiceId(e.target.value as string)}
+                                        displayEmpty
+                                    >
+                                        <MenuItem value="all">Applicable for All Services</MenuItem>
+                                        {services.map((service) => (
+                                            <MenuItem key={service.service_id} value={service.service_id}>
+                                                {service.name}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    <FormHelperText sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
+                                        <InfoOutlined sx={{ fontSize: 14 }} />
+                                        {selectedServiceId === 'all' 
+                                            ? "This discount can be applied to any service." 
+                                            : `This discount is restricted to ${services.find(s => s.service_id === selectedServiceId)?.name}.`}
+                                    </FormHelperText>
+                                </FormControl>
                             </Box>
 
                             <Box>
@@ -379,21 +442,28 @@ export const DiscountCodes = () => {
                                             color="success"
                                         />
                                     } 
-                                    label={<Typography variant="body2" fontWeight="bold">Active Immediately</Typography>} 
+                                    label={<Typography variant="body2" fontWeight="bold">Active</Typography>} 
                                 />
                             </Box>
                         </Stack>
 
                         <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
-                            <Button fullWidth variant="outlined" sx={{ color: '#546E7A', borderColor: '#CFD8DC', borderRadius: 1.5, textTransform: 'none', fontWeight: 600, py: 1 }}>Cancel</Button>
+                            <Button 
+                                fullWidth 
+                                variant="outlined" 
+                                onClick={resetForm}
+                                sx={{ color: '#546E7A', borderColor: '#CFD8DC', borderRadius: 1.5, textTransform: 'none', fontWeight: 600, py: 1 }}
+                            >
+                                Cancel
+                            </Button>
                             <Button 
                                 fullWidth 
                                 variant="contained" 
-                                onClick={handleCreateDiscount}
+                                onClick={handleSaveDiscount}
                                 disabled={loading}
                                 sx={{ bgcolor: '#42A5F5',  borderRadius: 1.5, textTransform: 'none', fontWeight: 700, py: 1, boxShadow: 'none' }}
                             >
-                                {loading ? 'Saving...' : 'Save Discount'}
+                                {loading ? 'Saving...' : editingDiscountId ? 'Update Discount' : 'Save Discount'}
                             </Button>
                         </Box>
                     </Paper>

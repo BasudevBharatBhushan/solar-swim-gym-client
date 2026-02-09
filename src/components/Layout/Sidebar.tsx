@@ -26,7 +26,6 @@ import {
   ExpandLess,
   ExpandMore,
   DateRange,
-  Tune,
   MonetizationOn,
   Description,
   CreditCard,
@@ -47,35 +46,28 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { text: 'Leads', icon: <PeopleAlt />, path: '/leads' },
-  { text: 'Accounts', icon: <Business />, path: '/accounts' },
-  { text: 'Profiles', icon: <AccountBox />, path: '/profiles' },
+  { text: 'Leads', icon: <PeopleAlt />, path: '/admin/leads' },
+  { text: 'Accounts', icon: <Business />, path: '/admin/accounts' },
+  { text: 'Profiles', icon: <AccountBox />, path: '/admin/profiles' },
   { 
     text: 'Staff', 
     icon: <Badge />, 
-    path: '/staff', 
+    path: '/admin/staff', 
     roleVerified: (role: string | null) => role === 'SUPERADMIN' 
   },
   {
     text: 'Settings',
     icon: <Settings />,
     children: [
-      {
-        text: 'Configuration',
-        icon: <Tune />,
-        children: [
-          { text: 'Age Profile', icon: <DateRange />, path: '/settings/age-profiles' },
-          { text: 'Subscription Term', icon: <CardMembership />, path: '/settings/subscription-terms' },
-        ]
-      },
-      { text: 'Services', icon: <Pool />, path: '/services' },
-      { text: 'Base Plan', icon: <MonetizationOn />, path: '/settings/base-plan' },
-
-      { text: 'Membership', icon: <Loyalty />, path: '/memberships' },
-      { text: 'Waiver Program', icon: <Description />, path: '/waiver-program' },
-      { text: 'Discount Codes', icon: <LocalOffer />, path: '/discounts' },
-      { text: 'Email Settings', icon: <Email />, path: '/email-settings' },
-      { text: 'Billing', icon: <CreditCard />, path: '/billing' },
+      { text: 'Age Profile', icon: <DateRange />, path: '/admin/settings/age-profiles' },
+      { text: 'Subscription Term', icon: <CardMembership />, path: '/admin/settings/subscription-terms' },
+      { text: 'Services', icon: <Pool />, path: '/admin/services' },
+      { text: 'Base Plan', icon: <MonetizationOn />, path: '/admin/settings/base-plan' },
+      { text: 'Membership', icon: <Loyalty />, path: '/admin/memberships' },
+      { text: 'State Waiver Program', icon: <Description />, path: '/admin/settings/waiver-programs' },
+      { text: 'Discount Codes', icon: <LocalOffer />, path: '/admin/discounts' },
+      { text: 'Email Settings', icon: <Email />, path: '/admin/email-settings' },
+      { text: 'Billing', icon: <CreditCard />, path: '/admin/billing' },
     ]
   }
 ];

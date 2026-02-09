@@ -21,7 +21,10 @@ import {
   TextField,
   Stack,
   MenuItem,
-  Chip
+  Chip,
+  FormControl,
+  InputLabel,
+  Select
 } from '@mui/material';
 import { EditOutlined, DeleteOutline, Add } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
@@ -67,7 +70,7 @@ export const SubscriptionTerms = () => {
   }, [currentLocationId]);
 
   const handleOpenDialog = (term?: any) => {
-    setCurrentTerm(term || { name: '', duration_months: '', payment_mode: 'RECURRING' });
+    setCurrentTerm(term || { name: '', duration_months: '', payment_mode: 'RECURRING', recurrence_unit: 'MONTH' });
     setOpenDialog(true);
   };
 
@@ -146,6 +149,7 @@ export const SubscriptionTerms = () => {
               <TableCell style={{ width: '40%', fontWeight: 600 }}>Name</TableCell>
               <TableCell align="center" sx={{ fontWeight: 600 }}>Duration (Months)</TableCell>
               <TableCell align="center" sx={{ fontWeight: 600 }}>Payment Mode</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 600 }}>Cycle</TableCell>
               <TableCell align="right" sx={{ fontWeight: 600 }}>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -175,6 +179,9 @@ export const SubscriptionTerms = () => {
                         }}
                     />
                 </TableCell>
+                <TableCell align="center">
+                    {row.payment_mode === 'RECURRING' ? `Every ${row.recurrence_unit ? (row.recurrence_unit.charAt(0).toUpperCase() + row.recurrence_unit.slice(1).toLowerCase()) : 'Month'}` : '-'}
+                </TableCell>
                 <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                         <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ color: 'text.secondary' }}>
@@ -189,7 +196,7 @@ export const SubscriptionTerms = () => {
             ))}
              {data.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={4} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                    <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                         No subscription terms found.
                     </TableCell>
                 </TableRow>
@@ -230,6 +237,23 @@ export const SubscriptionTerms = () => {
                         </MenuItem>
                     ))}
                 </TextField>
+
+                {currentTerm.payment_mode === 'RECURRING' && (
+                    <FormControl fullWidth>
+                        <InputLabel id="recurrence-unit-label">Every</InputLabel>
+                        <Select
+                            labelId="recurrence-unit-label"
+                            label="Every"
+                            value={currentTerm.recurrence_unit || 'MONTH'}
+                            onChange={(e) => setCurrentTerm({...currentTerm, recurrence_unit: e.target.value})}
+                        >
+                            <MenuItem value="DAY">Day</MenuItem>
+                            <MenuItem value="WEEK">Week</MenuItem>
+                            <MenuItem value="MONTH">Month</MenuItem>
+                            <MenuItem value="YEAR">Year</MenuItem>
+                        </Select>
+                    </FormControl>
+                )}
             </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>

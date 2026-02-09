@@ -36,12 +36,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   }, [isAuthenticated, role, locations.length, token, currentLocationId, setLocations, setCurrentLocationId]);
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/admin/login" />;
   }
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/admin/login');
   };
 
   return (

@@ -12,8 +12,10 @@ import { BasePlan } from './pages/Settings/BasePlan';
 import { Memberships } from './pages/Settings/Memberships';
 import { DiscountCodes } from './pages/Settings/DiscountCodes';
 import { EmailSettings } from './pages/Settings/EmailSettings';
+import { WaiverPrograms } from './pages/Settings/WaiverPrograms';
 import { MainLayout } from './components/Layout/MainLayout';
 import { Leads } from './pages/Leads/Leads';
+import { Accounts } from './pages/Accounts/Accounts';
 import { Typography } from '@mui/material';
 
 import { LayoutProvider } from './context/LayoutContext';
@@ -31,34 +33,36 @@ function App() {
           <LayoutProvider>
             <Router>
             <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route path="/admin/login" element={<Login />} />
             
             {/* Protected Routes */}
-            <Route path="/" element={<MainLayout><Navigate to="/settings" replace /></MainLayout>} />
-            <Route path="/settings" element={<MainLayout><Placeholder title="Leads" /></MainLayout>} />
-            <Route path="/settings/age-profiles" element={<MainLayout><AgeProfiles /></MainLayout>} />
-            <Route path="/settings/subscription-terms" element={<MainLayout><SubscriptionTerms /></MainLayout>} />
-            <Route path="/settings/base-plan" element={<MainLayout><BasePlan /></MainLayout>} />
+            <Route path="/" element={<Navigate to="/admin/settings" replace />} />
+            <Route path="/admin" element={<Navigate to="/admin/settings" replace />} />
             
-            <Route path="/leads" element={<MainLayout><Leads /></MainLayout>} />
-            <Route path="/accounts" element={<MainLayout><Placeholder title="Accounts" /></MainLayout>} />
-            <Route path="/profiles" element={<MainLayout><Placeholder title="Profiles" /></MainLayout>} />
-            <Route path="/staff" element={<MainLayout><Placeholder title="Staff Management" /></MainLayout>} />
-            <Route path="/subscription" element={<MainLayout><Placeholder title="Subscription" /></MainLayout>} />
-            <Route path="/services" element={<MainLayout><Services /></MainLayout>} />
-            <Route path="/memberships"  element={<MainLayout><Memberships /></MainLayout>} />
-            <Route path="/discounts" element={<MainLayout><DiscountCodes /></MainLayout>} />
-            <Route path="/email-settings" element={<MainLayout><EmailSettings /></MainLayout>} />
-            {/* <Route path="/settings/memberships" element={<MainLayout><Memberships /></MainLayout>} /> */}
+            <Route path="/admin/settings" element={<MainLayout><Placeholder title="Leads" /></MainLayout>} />
+            <Route path="/admin/settings/age-profiles" element={<MainLayout><AgeProfiles /></MainLayout>} />
+            <Route path="/admin/settings/subscription-terms" element={<MainLayout><SubscriptionTerms /></MainLayout>} />
+            <Route path="/admin/settings/base-plan" element={<MainLayout><BasePlan /></MainLayout>} />
+            
+            <Route path="/admin/leads" element={<MainLayout><Leads /></MainLayout>} />
+            <Route path="/admin/accounts" element={<MainLayout><Accounts /></MainLayout>} />
+            <Route path="/admin/profiles" element={<MainLayout><Placeholder title="Profiles" /></MainLayout>} />
+            <Route path="/admin/staff" element={<MainLayout><Placeholder title="Staff Management" /></MainLayout>} />
+            <Route path="/admin/subscription" element={<MainLayout><Placeholder title="Subscription" /></MainLayout>} />
+            <Route path="/admin/services" element={<MainLayout><Services /></MainLayout>} />
+            <Route path="/admin/memberships"  element={<MainLayout><Memberships /></MainLayout>} />
+            <Route path="/admin/discounts" element={<MainLayout><DiscountCodes /></MainLayout>} />
+            <Route path="/admin/email-settings" element={<MainLayout><EmailSettings /></MainLayout>} />
+            <Route path="/admin/settings/waiver-programs" element={<MainLayout><WaiverPrograms /></MainLayout>} />
 
              {/* Catch all */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/admin/login" replace />} />
           </Routes>
         </Router>
-        </LayoutProvider>
-        </ConfigProvider>
-      </AuthProvider>
-    </ThemeProvider>
+      </LayoutProvider>
+    </ConfigProvider>
+  </AuthProvider>
+</ThemeProvider>
   );
 }
 

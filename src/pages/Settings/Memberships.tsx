@@ -531,7 +531,18 @@ export const Memberships = () => {
         </Box>
         {activeProgram && (
              <Box sx={{ mb: 4 }}>
-                 <Typography variant="h5" sx={{ textTransform: 'uppercase', color: '#1e293b', fontWeight: 900, letterSpacing: '-0.025em' }}>
+                 <Typography 
+                    variant="h3" 
+                    sx={{ 
+                        textTransform: 'uppercase', 
+                        color: '#1e40af', 
+                        fontWeight: 900, 
+                        letterSpacing: '-0.01em',
+                        fontSize: '2.5rem',
+                        lineHeight: 1.2,
+                        mb: 1
+                    }}
+                 >
                      {activeProgram.name}
                  </Typography>
              </Box>
@@ -663,7 +674,7 @@ export const Memberships = () => {
                                                  onClick={handleStartEdit}
                                                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, color: '#1e293b', borderColor: '#e2e8f0' }}
                                              >
-                                                 Edit Category
+                                                 Category
                                              </Button>
                                          ) : (
                                              <Box sx={{ display: 'flex', gap: 1 }}>

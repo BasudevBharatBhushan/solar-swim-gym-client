@@ -49,7 +49,7 @@ export const Login = () => {
       const userRole = role === 'SUPERADMIN' ? 'SUPERADMIN' : 'ADMIN';
       
       login(token, userRole, staffId, userDetails);
-      navigate('/settings');
+      navigate('/admin/settings');
     } catch (err: any) {
       console.error(err);
       setError('Invalid email or password. Please try again.');

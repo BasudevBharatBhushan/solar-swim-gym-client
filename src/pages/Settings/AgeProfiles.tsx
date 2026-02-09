@@ -19,7 +19,11 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Stack
+  Stack,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import { EditOutlined, DeleteOutline, Add, InfoOutlined } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
@@ -56,7 +60,12 @@ export const AgeProfiles = () => {
   }, []);
 
   const handleOpenDialog = (profile?: any) => {
-    setCurrentProfile(profile || { name: '', min_age: '', max_age: '' });
+    setCurrentProfile(profile || { 
+      name: '', 
+      min_age: '', 
+      max_age: '',
+      max_age: ''
+    });
     setOpenDialog(true);
   };
 
@@ -70,6 +79,7 @@ export const AgeProfiles = () => {
       const payload: any = {
         name: currentProfile.name,
         min_age: parseFloat(currentProfile.min_age),
+        max_age: parseFloat(currentProfile.max_age),
         max_age: parseFloat(currentProfile.max_age)
       };
 
@@ -146,6 +156,7 @@ export const AgeProfiles = () => {
                 </TableCell>
                 <TableCell align="center">{row.min_age}</TableCell>
                 <TableCell align="center">{row.max_age}</TableCell>
+
                 <TableCell align="right">
                   <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ mr: 1, color: 'text.secondary' }}>
                     <EditOutlined fontSize="small" />
@@ -214,6 +225,7 @@ export const AgeProfiles = () => {
                         onChange={(e) => setCurrentProfile({...currentProfile, max_age: e.target.value})}
                     />
                 </Stack>
+
             </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2.5 }}>

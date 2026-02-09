@@ -4,6 +4,7 @@ export interface Discount {
     discount_id: string;
     staff_id?: string;
     location_id: string;
+    service_id?: string | null;
     discount_code: string;
     discount: string; // e.g. "6%" or "50.00"
     staff_name?: string;
@@ -20,26 +21,34 @@ export const discountService = {
     if (response && response.data && Array.isArray(response.data)) {
         return response.data;
     }
-    // Handle case where single object might be returned or different structure
+    // Handle case where array is returned directly
     return Array.isArray(response) ? response : [];
   },
 
   createDiscount: async (locationId: string, data: Partial<Discount>): Promise<Discount> => {
     const options = { headers: { 'x-location-id': locationId } };
     const response = await apiClient.post('/discounts', data, options);
-     if (response && response.data) {
+    if (response && response.data) {
         return response.data;
     }
     return response as Discount;
   },
   
-  validateDiscount: async (locationId: string, discountCode: string): Promise<Discount | null> => {
-      const options = { headers: { 'x-location-id': locationId } };
-      // Assuming a validate endpoint exists or we query by code
-      const response = await apiClient.post('/discounts/validate', { discount_code: discountCode }, options);
-       if (response && response.data) {
+  upsertDiscount: async (data: Partial<Discount>, locationId: string): Promise<Discount> => {
+    const options = { headers: { 'x-location-id': locationId } };
+    // Assuming backend handles upsert on /discounts POST or there is a specific endpoint
+    // Following the pattern of createDiscount but with name expected by tests
+    const response = await apiClient.post('/discounts', data, options);
+    if (response && response.data) {
         return response.data;
     }
     return response as Discount;
+  },
+
+  validateDiscount: async (discountCode: string, locationId: string): Promise<any> => {
+    const options = { headers: { 'x-location-id': locationId } };
+    // As per Postman collection: GET /discounts/validate/:code
+    const response = await apiClient.get(`/discounts/validate/${discountCode}`, {}, options);
+    return response;
   }
 };
