@@ -38,12 +38,8 @@ export const AccountDetail = () => {
         };
         
         setAccount(normalizedData);
-        
-        // Select primary profile by default
-        if (normalizedData.profiles && normalizedData.profiles.length > 0) {
-            const primary = normalizedData.profiles.find((p: any) => p.is_primary);
-            setSelectedProfileId(primary ? primary.profile_id : normalizedData.profiles[0].profile_id);
-        }
+        // Default to 'All Members' (null)
+        setSelectedProfileId(null);
 
       } catch (err: any) {
         console.error("Failed to fetch account details", err);

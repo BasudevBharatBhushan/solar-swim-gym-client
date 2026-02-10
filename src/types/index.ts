@@ -27,14 +27,17 @@ export interface Subscription {
   created_at: string;
   billing_period_start?: string;
   billing_period_end?: string;
-  coverage: {
+  coverage?: {
       profile_id: string;
-      role: 'PRIMARY' | 'ADD_ON'; 
+      role: 'PRIMARY' | 'ADD_ON';
+      profile?: any;
   }[];
-  // We might need a computed field for display name if reference_id isn't enough
-  // For now, let's assume we can fetch or it comes with some expanded data, 
-  // or we just display reference_id until we have a lookup
-  plan_name?: string; // Optional if backend returns it or we map it
+  subscription_coverage?: {
+      profile_id: string;
+      role: 'PRIMARY' | 'ADD_ON';
+      profile?: any;
+  }[];
+  plan_name?: string; 
 }
 
 export interface AccountSearchResponse {

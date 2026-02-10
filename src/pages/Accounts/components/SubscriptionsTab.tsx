@@ -19,6 +19,10 @@ import { useAuth } from '../../../context/AuthContext';
 import { billingService } from '../../../services/billingService';
 import { Subscription } from '../../../types';
 
+import { useConfig } from '../../../context/ConfigContext';
+import { getAgeGroupName } from '../../../lib/ageUtils';
+
+
 interface SubscriptionsTabProps {
   accountId: string;
   selectedProfileId: string | null;
@@ -27,7 +31,9 @@ interface SubscriptionsTabProps {
 export const SubscriptionsTab = ({ accountId, selectedProfileId }: SubscriptionsTabProps) => {
   const navigate = useNavigate();
   const { currentLocationId } = useAuth();
+  const { ageGroups } = useConfig();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,9 +65,8 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
       }
   };
 
-  const isProfileCovered = (sub: Subscription) => {
-      if (!selectedProfileId) return true; 
-      return sub.coverage?.some(c => c.profile_id === selectedProfileId);
+  const getCoverage = (sub: any) => {
+      return sub.subscription_coverage || sub.coverage || [];
   };
 
   if (loading) {
@@ -115,55 +120,77 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                 </TableRow>
             </TableHead>
             <TableBody>
-                {subscriptions.map((sub) => {
-                    const isRelevant = isProfileCovered(sub);
+                {subscriptions
+                  .filter(sub => !selectedProfileId || getCoverage(sub).some((c: any) => c.profile_id === selectedProfileId))
+                  .map((sub) => {
+                    const coverage = getCoverage(sub);
                     return (
                         <TableRow 
                             key={sub.subscription_id} 
-                            sx={{ 
-                                bgcolor: isRelevant ? 'transparent' : 'action.hover',
-                                opacity: isRelevant ? 1 : 0.5 
-                            }}
+                            hover
                         >
                             <TableCell>
-                                <Chip label={sub.subscription_type} size="small" variant="outlined" />
+                                <Chip 
+                                    label={sub.subscription_type.replace('_', ' ')} 
+                                    size="small" 
+                                    variant="outlined" 
+                                    sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                                />
                             </TableCell>
                             <TableCell>
-                                <Typography variant="body2" fontWeight={500}>
-                                    {sub.plan_name || sub.reference_id}
+                                <Typography variant="body2" fontWeight={600}>
+                                    {sub.plan_name || (sub.subscription_type === 'MEMBERSHIP_FEE' ? 'Membership Program' : (sub.subscription_type === 'ADDON_SERVICE' ? 'Service/Pack' : 'Base Subscription'))}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                    Ref: {sub.reference_id.substring(0, 8)}...
                                 </Typography>
                             </TableCell>
                             <TableCell>
                                 {sub.billing_period_start ? (
-                                    <Typography variant="caption" display="block">
+                                    <Typography variant="body2">
                                         {new Date(sub.billing_period_start).toLocaleDateString()} - {new Date(sub.billing_period_end!).toLocaleDateString()}
                                     </Typography>
-                                ) : '-'}
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">N/A</Typography>
+                                )}
                             </TableCell>
                             <TableCell>
                                 <Chip 
                                     label={sub.status} 
                                     size="small" 
                                     color={getStatusColor(sub.status) as any} 
+                                    sx={{ fontWeight: 600, fontSize: '0.7rem' }}
                                 />
                             </TableCell>
                             <TableCell>
                                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                    {sub.coverage?.map((c) => (
-                                        <Chip 
-                                            key={c.profile_id} 
-                                            label={c.role} 
-                                            size="small" 
-                                            variant={c.profile_id === selectedProfileId ? "filled" : "outlined"}
-                                            color={c.profile_id === selectedProfileId ? "primary" : "default"}
-                                            sx={{ fontSize: '0.7rem' }}
-                                        />
-                                    ))}
+                                    {coverage.length > 0 ? (
+                                        coverage.map((c: any) => (
+                                            <Chip 
+                                                key={c.profile_id} 
+                                                label={`${c.profile?.first_name || 'Member'} (${getAgeGroupName(c.profile?.date_of_birth, ageGroups)})`} 
+                                                size="small" 
+
+                                                variant={c.profile_id === selectedProfileId ? "filled" : "outlined"}
+                                                color={c.profile_id === selectedProfileId ? "primary" : "default"}
+                                                sx={{ fontSize: '0.65rem', height: '20px' }}
+                                            />
+                                        ))
+                                    ) : (
+                                        <Typography variant="caption" color="text.secondary italic">No coverage recorded</Typography>
+                                    )}
                                 </Box>
                             </TableCell>
                         </TableRow>
                     );
                 })}
+                {subscriptions.filter(sub => !selectedProfileId || getCoverage(sub).some((c: any) => c.profile_id === selectedProfileId)).length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                            <Typography color="text.secondary">No subscriptions found for the selected profile.</Typography>
+                        </TableCell>
+                    </TableRow>
+                )}
             </TableBody>
         </Table>
       </TableContainer>

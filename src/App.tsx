@@ -19,6 +19,10 @@ import { Accounts } from './pages/Accounts/Accounts';
 import { AccountDetail } from './pages/Accounts/AccountDetail';
 import { Marketplace } from './pages/Marketplace/Marketplace';
 import { Typography } from '@mui/material';
+import { ActivateAccount } from './pages/ActivateAccount';
+import { UserLogin } from './pages/UserLogin';
+
+
 
 import { LayoutProvider } from './context/LayoutContext';
 
@@ -36,6 +40,10 @@ function App() {
             <Router>
             <Routes>
             <Route path="/admin/login" element={<Login />} />
+            <Route path="/login" element={<UserLogin />} />
+            <Route path="/activate" element={<ActivateAccount />} />
+
+
             
             {/* Protected Routes */}
             <Route path="/" element={<Navigate to="/admin/settings" replace />} />
