@@ -114,7 +114,7 @@ export const Accounts = () => {
         title="Accounts"
         description="Manage client accounts and memberships"
         breadcrumbs={[
-            { label: 'Dashboard', href: '/admin/settings' },
+            { label: 'Dashboard', href: '/' },
             { label: 'Accounts', active: true }
         ]}
         action={

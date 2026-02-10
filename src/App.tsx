@@ -59,10 +59,10 @@ function App() {
 
             
             {/* Protected Routes */}
-            <Route path="/" element={<Navigate to="/admin/settings" replace />} />
-            <Route path="/admin" element={<Navigate to="/admin/settings" replace />} />
+            <Route path="/" element={<Navigate to="/admin/leads" replace />} />
+            <Route path="/admin" element={<Navigate to="/admin/leads" replace />} />
             
-            <Route path="/admin/settings" element={<MainLayout><Placeholder title="Leads" /></MainLayout>} />
+            <Route path="/admin/settings" element={<Navigate to="/admin/leads" replace />} />
             <Route path="/admin/settings/age-profiles" element={<MainLayout><AgeProfiles /></MainLayout>} />
             <Route path="/admin/settings/subscription-terms" element={<MainLayout><SubscriptionTerms /></MainLayout>} />
             <Route path="/admin/settings/base-plan" element={<MainLayout><BasePlan /></MainLayout>} />

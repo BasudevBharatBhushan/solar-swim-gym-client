@@ -277,7 +277,7 @@ export const AdminActivation = () => {
               }}
             />
             <Typography variant="h6" fontWeight="bold" color="text.primary">
-              Solar Swim & Gym
+              Zalexy
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 1, textTransform: 'uppercase' }}>
               Staff Portal

@@ -241,7 +241,7 @@ export const StaffManagement = () => {
             title="Staff Management" 
             description="Manage your team members and permissions"
             breadcrumbs={[
-                { label: 'Settings', href: '/admin/settings' },
+                { label: 'Settings', href: '/' },
                 { label: 'Staff Management', active: true }
             ]}
             action={

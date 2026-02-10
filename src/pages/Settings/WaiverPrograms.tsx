@@ -96,7 +96,7 @@ export const WaiverPrograms = () => {
                 title="State Waiver Programs" 
                 description="Manage government or partner-funded waiver programs available at this location."
                 breadcrumbs={[
-                    { label: 'Settings', href: '/admin/settings' },
+                    { label: 'Settings', href: '/' },
                     { label: 'Waiver Programs', active: true }
                 ]}
                 action={

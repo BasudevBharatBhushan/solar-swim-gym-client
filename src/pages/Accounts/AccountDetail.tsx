@@ -89,7 +89,7 @@ export const AccountDetail = () => {
       <PageHeader
         title="Account Details"
         breadcrumbs={[
-            { label: 'Dashboard', href: '/admin/settings' },
+            { label: 'Dashboard', href: '/' },
             { label: 'Accounts', href: '/admin/accounts' },
             { label: 'Detail', active: true }
         ]}

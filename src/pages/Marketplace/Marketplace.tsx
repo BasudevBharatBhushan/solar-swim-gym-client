@@ -251,7 +251,7 @@ export const Marketplace = () => {
                     { label: 'My Account', href: '/portal' },
                     { label: 'Shop', active: true }
                 ] : [
-                    { label: 'Dashboard', href: '/admin/settings' },
+                    { label: 'Dashboard', href: '/' },
                     { label: 'Accounts', href: '/admin/accounts' },
                     { label: 'Detail', href: `/admin/accounts/${accountId}` },
                     { label: 'Shop', active: true }

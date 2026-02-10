@@ -49,7 +49,7 @@ export const Login = () => {
       const userRole = role === 'SUPERADMIN' ? 'SUPERADMIN' : 'ADMIN';
       
       login(token, userRole, staffId, userDetails);
-      navigate('/admin/settings');
+      navigate('/admin/leads');
     } catch (err: any) {
       console.error(err);
       setError('Invalid email or password. Please try again.');
@@ -104,7 +104,7 @@ export const Login = () => {
                 fontSize: '1.25rem',
               }}
             >
-              Solar Swim & Gym
+              Zalexy
             </Typography>
             <Typography
               variant="body2"

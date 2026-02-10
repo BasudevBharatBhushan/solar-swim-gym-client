@@ -169,7 +169,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ textAlign: 'center', pb: 0 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Join Solar Swim & Gym</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Join Zalexy</Typography>
       </DialogTitle>
       
       <DialogContent sx={{ mt: 2 }}>

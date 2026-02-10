@@ -221,7 +221,7 @@ export const Sidebar = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', p: 2, justifyContent: '', minHeight: 64 }}>
           <img 
             src={logo} 
-            alt="Solar Swim Gym" 
+            alt="Zalexy" 
             style={{ height: '50px', marginRight: '10px' }} 
           />
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -231,27 +231,13 @@ export const Sidebar = () => {
               sx={{ 
                 fontWeight: 600, 
                 color: 'white', 
-                fontSize: '1rem', 
-                lineHeight: 0.9,
-                letterSpacing: '-0.5px',
-                textTransform: 'none'
-              }}
-            >
-              Solar Swim
-            </Typography>
-            <Typography 
-              variant="h6" 
-              component="div" 
-              sx={{ 
-                fontWeight: 600, 
-                color: 'white', 
-                fontSize: '1rem', 
+                fontSize: '1.25rem', 
                 lineHeight: 1.2,
                 letterSpacing: '-0.5px',
                 textTransform: 'none'
               }}
             >
-              & Gym
+              Zalexy
             </Typography>
           </Box>
         </Box>
@@ -315,7 +301,7 @@ export const Sidebar = () => {
                 textOverflow: 'ellipsis'
               }}
             >
-              {userParams?.email || 'admin@solarswim.com'}
+              {userParams?.email || 'admin@zalexy.com'}
             </Typography>
             <Typography 
               variant="caption" 

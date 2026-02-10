@@ -320,7 +320,7 @@ export const ActivateAccount = () => {
               }}
             />
             <Typography variant="h5" sx={{ fontWeight: 800, color: '#1e293b', mb: 0.5, fontSize: '1.25rem' }}>
-              Solar Swim & Gym
+              Zalexy
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748b', fontWeight: 500 }}>
               Account Activation

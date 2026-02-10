@@ -109,7 +109,7 @@ export const UserLogin = () => {
                 fontSize: '1.25rem',
               }}
             >
-              Solar Swim & Gym
+              Zalexy
             </Typography>
             <Typography
               variant="body2"

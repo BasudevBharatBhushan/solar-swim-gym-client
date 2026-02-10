@@ -24,7 +24,7 @@ export const UserPortalLayout = () => {
                         onClick={() => navigate('/portal')}
                     />
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'text.primary', fontWeight: 'bold' }}>
-                        Solar Swim & Gym
+                        Zalexy
                     </Typography>
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -50,7 +50,7 @@ export const UserPortalLayout = () => {
             <Box component="footer" sx={{ py: 3, px: 2, mt: 'auto', backgroundColor: '#fff', borderTop: '1px solid', borderColor: 'divider' }}>
                 <Container maxWidth="lg">
                     <Typography variant="body2" color="text.secondary" align="center">
-                        © {new Date().getFullYear()} Solar Swim & Gym. All rights reserved.
+                        © {new Date().getFullYear()} Zalexy. All rights reserved.
                     </Typography>
                 </Container>
             </Box>
