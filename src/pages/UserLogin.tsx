@@ -27,7 +27,7 @@ export const UserLogin = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login } = useAuth();
+  const { login, setCurrentLocationId } = useAuth();
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -37,10 +37,24 @@ export const UserLogin = () => {
     try {
       const response = await authService.loginUser(email, password);
 
-      const { token, user } = response;
-      // Note: Adapted to handle user data structure if different from staff
-      login(token, 'USER', user.account_id, user);
-      navigate('/'); // Redirect to user dashboard/home
+      // API might return 'user' or 'staff' (as seen in user report) depending on backend implementation
+      const userObj = response.user || response.staff || response.profile;
+      const token = response.token;
+      
+      if (!userObj) {
+          throw new Error('User profile not found in response');
+      }
+
+      // Use profile_id as the unique login ID, and pass full user object (including account_id) as params
+      login(token, 'MEMBER', userObj.profile_id, userObj);
+      
+      if (userObj.location_id) {
+          setCurrentLocationId(userObj.location_id);
+      } else if (userObj.account?.location_id) {
+          setCurrentLocationId(userObj.account.location_id);
+      }
+
+      navigate('/portal'); // Redirect to user portal
     } catch (err: any) {
       console.error(err);
       setError('Invalid email or password. Please try again.');

@@ -30,7 +30,7 @@ interface SubscriptionsTabProps {
 
 export const SubscriptionsTab = ({ accountId, selectedProfileId }: SubscriptionsTabProps) => {
   const navigate = useNavigate();
-  const { currentLocationId } = useAuth();
+  const { currentLocationId, role } = useAuth();
   const { ageGroups } = useConfig();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
 
@@ -85,7 +85,14 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                 <Button 
                     variant="contained" 
                     size="small" 
-                    onClick={() => navigate(`/admin/accounts/${accountId}/marketplace`)}
+                    onClick={() => {
+                        const isMember = role === 'MEMBER' || role === 'USER';
+                        if (isMember) {
+                            navigate('/portal/marketplace');
+                        } else {
+                            navigate(`/admin/accounts/${accountId}/marketplace`);
+                        }
+                    }}
                 >
                     Add Subscription
                 </Button>
@@ -102,7 +109,14 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
           <Button 
             variant="contained" 
             size="small" 
-            onClick={() => navigate(`/admin/accounts/${accountId}/marketplace`)}
+            onClick={() => {
+                const isMember = role === 'MEMBER' || role === 'USER';
+                if (isMember) {
+                    navigate('/portal/marketplace');
+                } else {
+                    navigate(`/admin/accounts/${accountId}/marketplace`);
+                }
+            }}
           >
             Add Subscription
           </Button>

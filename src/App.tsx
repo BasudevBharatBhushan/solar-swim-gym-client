@@ -21,6 +21,8 @@ import { Marketplace } from './pages/Marketplace/Marketplace';
 import { Typography } from '@mui/material';
 import { ActivateAccount } from './pages/ActivateAccount';
 import { UserLogin } from './pages/UserLogin';
+import { UserPortalLayout } from './components/Layout/UserPortalLayout';
+import { MyAccount } from './pages/Portal/MyAccount';
 
 
 
@@ -42,6 +44,13 @@ function App() {
             <Route path="/admin/login" element={<Login />} />
             <Route path="/login" element={<UserLogin />} />
             <Route path="/activate" element={<ActivateAccount />} />
+
+            {/* User Portal Routes */}
+            <Route path="/portal" element={<UserPortalLayout />}>
+              <Route index element={<MyAccount />} />
+              <Route path="my-account" element={<MyAccount />} />
+              <Route path="marketplace" element={<Marketplace />} />
+            </Route>
 
 
             

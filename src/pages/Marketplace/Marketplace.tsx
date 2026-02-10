@@ -60,10 +60,13 @@ interface CartItem {
 }
 
 export const Marketplace = () => {
-    const { accountId } = useParams<{ accountId: string }>();
+    const { accountId: paramAccountId } = useParams<{ accountId: string }>();
     const navigate = useNavigate();
-    const { currentLocationId } = useAuth();
+    const { currentLocationId, userParams, role } = useAuth();
     const { ageGroups } = useConfig();
+
+    const accountId = paramAccountId || userParams?.account_id;
+    const isMember = role === 'MEMBER' || role === 'USER';
 
     
     // Data States
@@ -92,19 +95,33 @@ export const Marketplace = () => {
             setLoading(true);
             try {
                 // Fetch Account to get Primary Profile
-                const accountRes = await crmService.getAccountDetails(accountId, currentLocationId || undefined);
-                const accountData = accountRes.data || accountRes;
-                
-                // Normalize profiles key and sort primary first
-                const rawProfs = accountData.profiles || accountData.profile || [];
-                const profs = [...rawProfs].sort((a, b) => {
-                    if (a.is_primary && !b.is_primary) return -1;
-                    if (!a.is_primary && b.is_primary) return 1;
-                    return 0;
-                });
-                setProfiles(profs);
-                const primary = profs.find((p: any) => p.is_primary);
-                setPrimaryProfileId(primary ? primary.profile_id : (profs[0]?.profile_id || null));
+                try {
+                    const accountRes = await crmService.getAccountDetails(accountId, currentLocationId || undefined);
+                    const accountData = accountRes.data || accountRes;
+                    
+                    // Normalize profiles key and sort primary first
+                    const rawProfs = accountData.profiles || accountData.profile || [];
+                    const profs = [...rawProfs].sort((a, b) => {
+                        if (a.is_primary && !b.is_primary) return -1;
+                        if (!a.is_primary && b.is_primary) return 1;
+                        return 0;
+                    });
+                    setProfiles(profs);
+                    const primary = profs.find((p: any) => p.is_primary);
+                    setPrimaryProfileId(primary ? primary.profile_id : (profs[0]?.profile_id || null));
+                } catch (err) {
+                    console.warn("Marketplace: Failed to fetch account details. Using current user fallback.", err);
+                    if (userParams && userParams.profile_id) {
+                         setProfiles([{
+                            profile_id: userParams.profile_id,
+                            first_name: userParams.first_name,
+                            last_name: userParams.last_name,
+                            date_of_birth: userParams.date_of_birth,
+                            is_primary: userParams.is_primary ?? true // Default to true if missing, or use param
+                        }]);
+                        setPrimaryProfileId(userParams.profile_id);
+                    }
+                }
 
 
                 // Fetch Catalog Data
@@ -210,7 +227,7 @@ export const Marketplace = () => {
             });
 
             await Promise.all(promises);
-            navigate(`/admin/accounts/${accountId}`);
+            navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`);
         } catch (error) {
             console.error("Failed to create subscriptions", error);
         } finally {
@@ -230,7 +247,10 @@ export const Marketplace = () => {
         <Box sx={{ p: 3 }}>
              <PageHeader
                 title="Marketplace"
-                breadcrumbs={[
+                breadcrumbs={isMember ? [
+                    { label: 'My Account', href: '/portal' },
+                    { label: 'Shop', active: true }
+                ] : [
                     { label: 'Dashboard', href: '/admin/settings' },
                     { label: 'Accounts', href: '/admin/accounts' },
                     { label: 'Detail', href: `/admin/accounts/${accountId}` },
@@ -239,7 +259,7 @@ export const Marketplace = () => {
                 action={
                     <Button 
                         startIcon={<ArrowBackIcon />} 
-                        onClick={() => navigate(`/admin/accounts/${accountId}`)}
+                        onClick={() => navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`)}
                         variant="outlined"
                     >
                         Back
