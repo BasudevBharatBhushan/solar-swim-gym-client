@@ -66,22 +66,24 @@ export const membershipService = {
   },
 
   // Create or Update Membership Program
-  saveMembershipProgram: async (programData: MembershipProgram): Promise<MembershipProgram> => {
-     return apiClient.post('/memberships', programData);
+  saveMembershipProgram: async (programData: MembershipProgram, locationId?: string): Promise<MembershipProgram> => {
+     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+     return apiClient.post('/memberships', programData, options);
   },
 
   // --- Unified Service Management ---
 
   // Fetch Services by Owner (Category OR Base Price)
-  getServices: async (ownerId: string): Promise<MembershipService[]> => {
+  getServices: async (ownerId: string, locationId?: string): Promise<MembershipService[]> => {
     // Route: GET /api/membership-services/:ownerId
-    return apiClient.get(`/membership-services/${ownerId}`);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/membership-services/${ownerId}`, {}, options);
   },
 
   // Upsert Services (Generic)
   // Payload: { service_id, membership_program_id: ownerId, ... }
   // The backend maps 'membership_program_id' to the correct column based on the ownerId type.
-  upsertServices: async (services: MembershipService[]): Promise<any> => {
+  upsertServices: async (services: MembershipService[], locationId?: string): Promise<any> => {
     const payload = services.map(s => {
         // We clean up the object to match the expected payload
         const { membership_service_id, service_name, ...rest } = s;
@@ -94,7 +96,8 @@ export const membershipService = {
         
         return cleanObj;
     });
-    return apiClient.post('/membership-services/upsert', payload);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/membership-services/upsert', payload, options);
   },
 
   // Deprecated: Use getServices(basePlanId) instead

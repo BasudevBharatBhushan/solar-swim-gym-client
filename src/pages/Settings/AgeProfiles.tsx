@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import { 
   Box, 
   Paper, 
@@ -19,20 +18,15 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Stack,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel
+  Stack
 } from '@mui/material';
 import { EditOutlined, DeleteOutline, Add, InfoOutlined } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
+import { configService } from '../../services/configService';
 
 // Config
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
-
 export const AgeProfiles = () => {
   const [data, setData] = useState<any[]>([]);
   const [error, setError] = useState<string|null>(null);
@@ -40,15 +34,14 @@ export const AgeProfiles = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [currentProfile, setCurrentProfile] = useState<any>({});
   
-  const { token } = useAuth();
+  const { currentLocationId } = useAuth();
   const { refreshAgeGroups } = useConfig();
 
   const fetchData = async () => {
+    if (!currentLocationId) return;
     try {
-      const res = await axios.get(`${API_URL}/config/age-groups`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setData(res.data);
+      const res = await configService.getAgeGroups(currentLocationId);
+      setData(res || []);
     } catch (err) {
       console.error(err);
       setError('Failed to fetch age groups');
@@ -57,13 +50,12 @@ export const AgeProfiles = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentLocationId]);
 
   const handleOpenDialog = (profile?: any) => {
     setCurrentProfile(profile || { 
       name: '', 
       min_age: '', 
-      max_age: '',
       max_age: ''
     });
     setOpenDialog(true);
@@ -79,7 +71,6 @@ export const AgeProfiles = () => {
       const payload: any = {
         name: currentProfile.name,
         min_age: parseFloat(currentProfile.min_age),
-        max_age: parseFloat(currentProfile.max_age),
         max_age: parseFloat(currentProfile.max_age)
       };
 
@@ -87,9 +78,7 @@ export const AgeProfiles = () => {
         payload.age_group_id = currentProfile.age_group_id;
       }
 
-      await axios.post(`${API_URL}/config/age-groups`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await configService.upsertAgeGroup(payload, currentLocationId || undefined);
       setSuccess(currentProfile.age_group_id ? 'Profile updated successfully' : 'Profile created successfully');
       
       handleCloseDialog();
@@ -105,9 +94,7 @@ export const AgeProfiles = () => {
     if (!window.confirm('Are you sure you want to delete this age profile?')) return;
     
     try {
-        await axios.delete(`${API_URL}/config/age-groups/${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        await configService.deleteAgeGroup(id, currentLocationId || undefined);
         setSuccess('Profile deleted successfully');
         fetchData();
         refreshAgeGroups();
@@ -116,6 +103,16 @@ export const AgeProfiles = () => {
         setError('Delete operation not supported or failed');
     }
   };
+
+  if (!currentLocationId) {
+      return (
+          <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
+              <Alert severity="warning" variant="filled">
+                  Please select a location from the top bar to view age profiles.
+              </Alert>
+          </Box>
+      );
+  }
 
   return (
     <Box sx={{ width: '100%' }}>

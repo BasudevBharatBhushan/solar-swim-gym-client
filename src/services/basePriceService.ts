@@ -23,7 +23,8 @@ export interface BasePlanResponse {
 export const basePriceService = {
   // Get all base prices
   getAll: async (locationId: string): Promise<BasePlanResponse> => {
-    const response = await apiClient.get(`/base-prices?location_id=${locationId}`);
+    const options = { headers: { 'x-location-id': locationId } };
+    const response = await apiClient.get('/base-prices', {}, options);
     return {
         prices: response.prices || []
     };
@@ -31,8 +32,9 @@ export const basePriceService = {
 
   // Create or Update Base Price
     // Supports both single object (legacy/create) and bulk object { prices: [] }
-    upsert: async (data: BasePrice | { location_id: string; prices: BasePrice[] }): Promise<BasePrice | BasePrice[]> => {
-        const response = await apiClient.post('/base-prices', data);
+    upsert: async (data: BasePrice | { location_id: string; prices: BasePrice[] }, locationId?: string): Promise<BasePrice | BasePrice[]> => {
+        const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+        const response = await apiClient.post('/base-prices', data, options);
         // If bulk, it likely returns { prices: [...] } or just the array
         if ('prices' in data && Array.isArray(data.prices)) {
              return response.prices || response;

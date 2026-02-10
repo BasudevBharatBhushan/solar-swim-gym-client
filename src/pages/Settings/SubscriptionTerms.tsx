@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import axios from 'axios';
 import { 
   Box, 
   Paper, 
@@ -31,8 +30,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { dropdownOptions } from '../../lib/dropdownOptions';
-
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
+import { configService } from '../../services/configService';
 
 export const SubscriptionTerms = () => {
   const [data, setData] = useState<any[]>([]);
@@ -41,20 +39,15 @@ export const SubscriptionTerms = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [currentTerm, setCurrentTerm] = useState<any>({});
   
-  const { token, currentLocationId } = useAuth();
+  const { currentLocationId } = useAuth();
   const { refreshSubscriptionTerms } = useConfig();
   // const currentLocation = locations.find(l => l.location_id === currentLocationId);
 
   const fetchData = async () => {
     if (!currentLocationId) return;
     try {
-      const res = await axios.get(`${API_URL}/config/subscription-terms`, {
-        headers: { 
-            Authorization: `Bearer ${token}`,
-            'x-location-id': currentLocationId 
-        }
-      });
-      setData(res.data);
+      const res = await configService.getSubscriptionTerms(currentLocationId);
+      setData(res || []);
     } catch (err) {
       console.error(err);
       setError('Failed to fetch subscription terms');
@@ -85,9 +78,7 @@ export const SubscriptionTerms = () => {
         return;
     }
     try {
-      await axios.post(`${API_URL}/config/subscription-terms`, { ...currentTerm, location_id: currentLocationId }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await configService.upsertSubscriptionTerm({ ...currentTerm, location_id: currentLocationId }, currentLocationId || undefined);
       setSuccess('Subscription term saved');
       setOpenDialog(false);
       await fetchData();
@@ -101,9 +92,7 @@ export const SubscriptionTerms = () => {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure?')) return;
     try {
-        await axios.delete(`${API_URL}/config/subscription-terms/${id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        await configService.deleteSubscriptionTerm(id, currentLocationId || undefined);
         setSuccess('Term deleted');
         fetchData();
     } catch (err) {

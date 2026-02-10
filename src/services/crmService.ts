@@ -26,9 +26,10 @@ export const crmService = {
     return apiClient.get('/leads/search', queryParams, options);
   },
 
-  upsertLead: async (leadData: any) => {
+  upsertLead: async (leadData: any, locationId?: string) => {
     // leadData: { lead_id?, ... }
-    return apiClient.post('/leads', leadData);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/leads', leadData, options);
   },
 
   reindexLeads: async (locationId?: string) => {
@@ -42,19 +43,35 @@ export const crmService = {
     return apiClient.get('/accounts', { page, limit }, options);
   },
 
-  searchAccounts: async (query: string, locationId?: string) => {
-    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get('/accounts/search', { q: query }, options);
+  searchAccounts: async (params: {
+    q?: string,
+    from?: number,
+    size?: number,
+    sort?: string, 
+    order?: 'asc' | 'desc',
+    locationId?: string
+  }) => {
+    const queryParams: Record<string, string> = {};
+    if (params.q) queryParams.q = params.q;
+    if (params.from !== undefined) queryParams.from = params.from.toString();
+    if (params.size !== undefined) queryParams.size = params.size.toString();
+    if (params.sort) queryParams.sort = params.sort;
+    if (params.order) queryParams.order = params.order;
+
+    const options = params.locationId ? { headers: { 'x-location-id': params.locationId } } : {};
+    return apiClient.get('/accounts/search', queryParams, options);
   },
 
-  getAccountDetails: async (accountId: string) => {
-    return apiClient.get(`/accounts/${accountId}`);
+  getAccountDetails: async (accountId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/accounts/${accountId}`, {}, options);
   },
 
   // Upsert Profiles (Manual modification of Profiles within an existing Account)
-  upsertAccountProfiles: async (accountData: any) => {
+  upsertAccountProfiles: async (accountData: any, locationId?: string) => {
     // accountData: { account_id, location_id, primary_profile, family_members }
-    return apiClient.post('/accounts/upsert', accountData);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/accounts/upsert', accountData, options);
   },
 
   // Global Indexing

@@ -84,7 +84,8 @@ export const BasePlan = () => {
         serviceCatalog.getServices(currentLocationId)
       ]);
       setBasePrices(pricesData.prices);
-      setAllServices(servicesData);
+      const services = servicesData.data || servicesData;
+      setAllServices(Array.isArray(services) ? services : []);
     } catch (err) {
       console.error(err);
       setError("Failed to load data.");
@@ -176,7 +177,7 @@ export const BasePlan = () => {
       if (priceRecord?.base_price_id) {
           setBundledServicesLoading(true);
           try {
-              const services = await membershipService.getServices(priceRecord.base_price_id);
+              const services = await membershipService.getServices(priceRecord.base_price_id, currentLocationId || undefined);
               setEditedServices(services);
           } catch (e) {
               console.error(e);
@@ -259,7 +260,7 @@ export const BasePlan = () => {
             await basePriceService.upsert({
                 location_id: currentLocationId,
                 prices: pricesPayload
-            });
+            }, currentLocationId || undefined);
         }
 
         // 2. Save Services
@@ -283,7 +284,7 @@ export const BasePlan = () => {
                 ...s,
                 membership_program_id: ownerId
             }));
-            await membershipService.upsertServices(servicesPayload);
+            await membershipService.upsertServices(servicesPayload, currentLocationId || undefined);
         }
 
         // Final Refresh
@@ -321,7 +322,7 @@ export const BasePlan = () => {
     };
 
     try {
-        await basePriceService.upsert(payload);
+        await basePriceService.upsert(payload, currentLocationId || undefined);
         await fetchData();
         setSuccess("Base Plan created.");
         setOpenCreate(false);

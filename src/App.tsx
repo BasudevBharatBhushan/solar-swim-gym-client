@@ -16,6 +16,8 @@ import { WaiverPrograms } from './pages/Settings/WaiverPrograms';
 import { MainLayout } from './components/Layout/MainLayout';
 import { Leads } from './pages/Leads/Leads';
 import { Accounts } from './pages/Accounts/Accounts';
+import { AccountDetail } from './pages/Accounts/AccountDetail';
+import { Marketplace } from './pages/Marketplace/Marketplace';
 import { Typography } from '@mui/material';
 
 import { LayoutProvider } from './context/LayoutContext';
@@ -46,6 +48,8 @@ function App() {
             
             <Route path="/admin/leads" element={<MainLayout><Leads /></MainLayout>} />
             <Route path="/admin/accounts" element={<MainLayout><Accounts /></MainLayout>} />
+            <Route path="/admin/accounts/:accountId" element={<MainLayout><AccountDetail /></MainLayout>} />
+            <Route path="/admin/accounts/:accountId/marketplace" element={<MainLayout><Marketplace /></MainLayout>} />
             <Route path="/admin/profiles" element={<MainLayout><Placeholder title="Profiles" /></MainLayout>} />
             <Route path="/admin/staff" element={<MainLayout><Placeholder title="Staff Management" /></MainLayout>} />
             <Route path="/admin/subscription" element={<MainLayout><Placeholder title="Subscription" /></MainLayout>} />

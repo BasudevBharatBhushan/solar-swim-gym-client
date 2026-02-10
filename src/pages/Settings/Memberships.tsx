@@ -138,7 +138,7 @@ export const Memberships = () => {
         // Fetch services using the Category ID. 
         // Note: The database column in 'membership_service' is confusingly named 'membership_program_id' 
         // but it points to category_id. We pass selectedCategoryId (the category UUID) here.
-        membershipService.getServices(selectedCategoryId)
+        membershipService.getServices(selectedCategoryId, currentLocationId || undefined)
             .then((services) => {
                  setCategoryServices(services || []);
             })
@@ -202,7 +202,7 @@ export const Memberships = () => {
               is_active: true
           };
           
-          const created = await membershipService.saveMembershipProgram(newProgram);
+          const created = await membershipService.saveMembershipProgram(newProgram, currentLocationId || undefined);
           setPrograms(prev => [...prev, created]);
           setSelectedProgramId(created.membership_program_id!);
           setOpenCreateProgram(false);
@@ -285,7 +285,7 @@ export const Memberships = () => {
           }
 
           // 2. Save Program (Categories)
-          const savedProgram = await membershipService.saveMembershipProgram(updatedProgram);
+          const savedProgram = await membershipService.saveMembershipProgram(updatedProgram, currentLocationId || undefined);
           
           // 3. Resolve Category ID for Services (Category ID is passed as membership_program_id in payload)
           if (selectedCategoryId === 'new') {
@@ -301,14 +301,14 @@ export const Memberships = () => {
                    ...s,
                    membership_program_id: targetCategoryId!
                }));
-               await membershipService.upsertServices(servicesToSave);
+               await membershipService.upsertServices(servicesToSave, currentLocationId || undefined);
           }
 
           // 5. Cleanup
           await fetchData(true);
           
           if (targetCategoryId) {
-               const freshServices = await membershipService.getServices(targetCategoryId);
+               const freshServices = await membershipService.getServices(targetCategoryId, currentLocationId || undefined);
                setCategoryServices(freshServices);
           }
 

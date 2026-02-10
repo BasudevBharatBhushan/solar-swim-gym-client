@@ -145,7 +145,7 @@ export const Leads = () => {
             status: currentLead.status || 'NEW',
             added_by_staff_id: userParams?.staff_id 
         };
-        await crmService.upsertLead(payload);
+        await crmService.upsertLead(payload, currentLocationId || undefined);
         setSuccess('Lead saved successfully');
         setIsModalOpen(false);
         fetchLeads();

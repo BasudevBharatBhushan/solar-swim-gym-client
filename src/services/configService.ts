@@ -25,13 +25,15 @@ export const configService = {
   },
 
   // Age Groups
-  getAgeGroups: async () => {
-    return apiClient.get('/config/age-groups');
+  getAgeGroups: async (locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get('/config/age-groups', {}, options);
   },
 
-  upsertAgeGroup: async (ageGroupData: any) => {
+  upsertAgeGroup: async (ageGroupData: any, locationId?: string) => {
     // ageGroupData: { age_group_id?, name, min_age, max_age }
-    return apiClient.post('/config/age-groups', ageGroupData);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/config/age-groups', ageGroupData, options);
   },
 
   // Subscription Terms
@@ -40,9 +42,10 @@ export const configService = {
     return apiClient.get('/config/subscription-terms', {}, options);
   },
 
-  upsertSubscriptionTerm: async (termData: any) => {
+  upsertSubscriptionTerm: async (termData: any, locationId?: string) => {
     // termData: { subscription_term_id?, ... }
-    return apiClient.post('/config/subscription-terms', termData);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/config/subscription-terms', termData, options);
   },
 
   // Waiver Programs
@@ -51,8 +54,19 @@ export const configService = {
     return apiClient.get('/config/waiver-programs', {}, options);
   },
 
-  upsertWaiverProgram: async (programData: any) => {
+  upsertWaiverProgram: async (programData: any, locationId?: string) => {
     // programData: { waiver_program_id?, name, code, requires_case_manager, is_active }
-    return apiClient.post('/config/waiver-programs', programData);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/config/waiver-programs', programData, options);
+  },
+
+  deleteAgeGroup: async (id: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.delete(`/config/age-groups/${id}`, options);
+  },
+
+  deleteSubscriptionTerm: async (id: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.delete(`/config/subscription-terms/${id}`, options);
   },
 };

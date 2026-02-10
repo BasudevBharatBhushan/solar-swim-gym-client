@@ -2,13 +2,15 @@ import { apiClient } from './apiClient';
 
 export const billingService = {
   // Subscriptions
-  createSubscription: async (subscriptionData: any) => {
+  createSubscription: async (subscriptionData: any, locationId?: string) => {
     // subscriptionData: { account_id, location_id, subscription_type, ... }
-    return apiClient.post('/billing/subscriptions', subscriptionData);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/billing/subscriptions', subscriptionData, options);
   },
 
-  getAccountSubscriptions: async (accountId: string) => {
-    return apiClient.get(`/billing/accounts/${accountId}/subscriptions`);
+  getAccountSubscriptions: async (accountId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/billing/accounts/${accountId}/subscriptions`, {}, options);
   },
 
   // Invoices & Payments
