@@ -355,7 +355,7 @@ export const BasePlan = () => {
                     startIcon={<Add />} 
                     onClick={() => setOpenCreate(true)}
                     sx={{ 
-                        borderRadius: 2, 
+                        borderRadius: '8px', // Reduced from 2 (default 8px usually, but making sure it's explicit small) or just 1
                         textTransform: 'none', 
                         fontWeight: 700,
                         px: 3,
@@ -382,7 +382,7 @@ export const BasePlan = () => {
                         
                         {ageGroupsWithProfiles.map(group => (
                             <Box key={group.ageGroupId}>
-                                <ListSubheader sx={{ bgcolor: '#fff', fontWeight: 700, color: '#1e293b', lineHeight: '48px', fontSize: '0.875rem' }}>
+                                <ListSubheader sx={{ bgcolor: '#fff', fontWeight: 900, color: '#0f172a', lineHeight: '48px', fontSize: '1.1rem', letterSpacing: '-0.02em', borderBottom: '1px solid #f1f5f9' }}>
                                     {getAgeGroupName(group.ageGroupId)}
                                 </ListSubheader>
                                 {group.profiles.map(profile => {
@@ -395,14 +395,15 @@ export const BasePlan = () => {
                                             selected={isSelected}
                                             onClick={() => setSelectedProfile(profile)}
                                             sx={{ 
-                                                pl: 2,
-                                                py: 1.5,
-                                                position: 'relative',
-                                                '&.Mui-selected': {
-                                                    bgcolor: '#f1f5f9',
-                                                    '&:hover': { bgcolor: '#e2e8f0' }
+                                                py: 2, 
+                                                px: 2.5, 
+                                                borderBottom: '1px solid #f8fafc',
+                                                '&.Mui-selected': { 
+                                                    borderRight: '3px solid #3b82f6',
+                                                    bgcolor: '#f0f9ff'
                                                 },
-                                                borderLeft: isSelected ? '4px solid #4f46e5' : '4px solid transparent'
+                                                transition: 'all 0.2s',
+                                                '&:hover': { bgcolor: '#f8fafc' } // Hover when not selected
                                             }}
                                         >
                                             <ListItemText 
@@ -411,14 +412,15 @@ export const BasePlan = () => {
                                                 sx={{
                                                     m: 0,
                                                     '& .MuiListItemText-primary': { 
-                                                        color: isSelected ? '#1e293b' : '#334155',
+                                                        color: isSelected ? '#3b82f6' : '#1e293b',
                                                         fontWeight: isSelected ? 800 : 600,
                                                         fontSize: '0.925rem'
                                                     },
                                                     '& .MuiListItemText-secondary': {
                                                         color: '#64748b',
                                                         fontSize: '0.75rem',
-                                                        fontWeight: 500
+                                                        fontWeight: 500,
+                                                        mt: 0.5
                                                     }
                                                 }}
                                             />
@@ -487,19 +489,29 @@ export const BasePlan = () => {
                              </Box>
 
                              {/* Content Scrollable */}
-                             <Box sx={{ flex: 1, overflowY: 'auto', p: 4 }}>
+                             <Box sx={{ flex: 1, overflowY: 'auto', p: 4, bgcolor: '#f8fafc' }}>
                                  
                                  {/* Section 1: Pricing Configuration */}
-                                 <Box sx={{ mb: 6 }}>
+                                 <Paper elevation={0} sx={{ p: 4, mb: 4, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
                                      <Typography variant="caption" sx={{ fontWeight: 800, mb: 3, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>
                                          PRICING CONFIGURATION
                                      </Typography>
                                      <Grid container spacing={3}>
+                                         {subscriptionTerms.length === 0 && (
+                                             <Grid size={{ xs: 12 }}>
+                                                 <Typography variant="body2" sx={{ color: '#64748b', textAlign: 'center', py: 4 }}>
+                                                     No subscription terms configured.
+                                                 </Typography>
+                                             </Grid>
+                                         )}
                                          {subscriptionTerms.map(term => {
                                              const existingPrice = getExistingPrice(selectedProfile, term.subscription_term_id);
                                              const priceValue = isEditing 
                                                  ? (editedPrices[term.subscription_term_id] ?? (existingPrice?.price || ''))
                                                  : existingPrice?.price;
+                                             
+                                             const isRecurring = term.payment_mode === 'RECURRING';
+                                             const unit = isRecurring ? (term.recurrence_unit || 'Month') : '';
 
                                              return (
                                                  <Grid size={{ xs: 12, sm: 4 }} key={term.subscription_term_id}>
@@ -512,34 +524,39 @@ export const BasePlan = () => {
                                                             value={priceValue}
                                                             onChange={(e) => {
                                                                 const val = e.target.value;
-                                                                // Allow empty string to clear field, otherwise parse
                                                                 const numVal = val === '' ? 0 : parseFloat(val);
                                                                 setEditedPrices(prev => ({ ...prev, [term.subscription_term_id]: numVal }));
                                                             }}
                                                             InputProps={{
                                                                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
                                                                 disableUnderline: true,
-                                                                sx: { borderRadius: 2, bgcolor: '#f8fafc' }
+                                                                sx: { borderRadius: 2, bgcolor: '#f1f5f9' }
                                                             }}
+                                                            helperText={isRecurring ? `Recurring every ${unit.toLowerCase()}` : 'Pay in full'}
                                                          />
                                                      ) : (
-                                                         <Paper elevation={0} sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3 }}>
+                                                         <Paper elevation={0} sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #f1f5f9' }}>
                                                              <Typography variant="caption" display="block" color="#64748b" fontWeight={700} sx={{ mb: 1 }}>
                                                                  {term.name}
                                                              </Typography>
                                                              <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
                                                                  {priceValue !== undefined ? `$${priceValue}` : '-'}
                                                              </Typography>
+                                                             {isRecurring && priceValue !== undefined && (
+                                                                 <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, mt: 0.5, display: 'block' }}>
+                                                                     / {unit.toLowerCase()}
+                                                                 </Typography>
+                                                             )}
                                                          </Paper>
                                                      )}
                                                  </Grid>
                                              );
                                          })}
                                      </Grid>
-                                 </Box>
+                                 </Paper>
 
                                  {/* Section 2: Bundled Services */}
-                                 <Box>
+                                 <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
                                      <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 2, display: 'block' }}>
                                          BUNDLED SERVICES
                                      </Typography>
@@ -600,6 +617,21 @@ export const BasePlan = () => {
                                                                              {description}
                                                                          </Typography>
                                                                      )}
+                                                                     {serviceRef?.type && (
+                                                                         <Chip 
+                                                                             label={serviceRef.type} 
+                                                                             size="small" 
+                                                                             sx={{ 
+                                                                                 mt: 1, 
+                                                                                 height: 20, 
+                                                                                 fontSize: '0.6rem', 
+                                                                                 fontWeight: 700, 
+                                                                                 bgcolor: '#f1f5f9', 
+                                                                                 color: '#64748b',
+                                                                                 borderRadius: '4px'
+                                                                             }} 
+                                                                         />
+                                                                     )}
                                                                  </Box>
                                                                  
                                                                  {/* View Mode Tags */}
@@ -621,7 +653,7 @@ export const BasePlan = () => {
                                                                          ) : (
                                                                              svc.discount ? (
                                                                                 <Chip 
-                                                                                    label={`${svc.discount} OFF`} 
+                                                                                    label={svc.discount.includes('%') ? `${svc.discount} OFF` : `$${svc.discount} OFF`} 
                                                                                     size="small" 
                                                                                     sx={{ 
                                                                                         bgcolor: '#f59e0b', 
@@ -697,19 +729,47 @@ export const BasePlan = () => {
                                                                             <Divider orientation="vertical" flexItem variant="middle" />
                                                                             <Box>
                                                                                 <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#64748b', fontWeight: 600 }}>Discount (Optional)</Typography>
-                                                                                <TextField 
-                                                                                    hiddenLabel
-                                                                                    variant="outlined"
-                                                                                    size="small"
-                                                                                    placeholder="e.g. 50%" // Matches user expectation for discount string
-                                                                                    value={svc.discount || ''}
-                                                                                    onChange={(e) => {
-                                                                                        const copy = [...editedServices];
-                                                                                        copy[editedServices.indexOf(svc)] = { ...svc, discount: e.target.value };
-                                                                                        setEditedServices(copy);
-                                                                                    }}
-                                                                                    sx={{ width: 140, bgcolor: 'white' }}
-                                                                                />
+                                                                                <Stack direction="row" spacing={1}>
+                                                                                    {/* Dual Field Implementation */}
+                                                                                    <TextField
+                                                                                        hiddenLabel
+                                                                                        variant="outlined"
+                                                                                        size="small"
+                                                                                        placeholder="Amount"
+                                                                                        value={!((svc.discount || '').includes('%')) ? svc.discount || '' : ''}
+                                                                                        onChange={(e) => {
+                                                                                            const val = e.target.value;
+                                                                                            if (!/^\d*\.?\d*$/.test(val)) return;
+                                                                                            const copy = [...editedServices];
+                                                                                            copy[editedServices.indexOf(svc)] = { ...svc, discount: val };
+                                                                                            setEditedServices(copy);
+                                                                                        }}
+                                                                                        disabled={(svc.discount || '').includes('%')}
+                                                                                        InputProps={{
+                                                                                            startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                                                                        }}
+                                                                                        sx={{ width: 100, bgcolor: !((svc.discount || '').includes('%')) ? 'white' : '#f1f5f9' }}
+                                                                                    />
+                                                                                     <TextField
+                                                                                        hiddenLabel
+                                                                                        variant="outlined"
+                                                                                        size="small"
+                                                                                        placeholder="Percent"
+                                                                                        value={(svc.discount || '').includes('%') ? (svc.discount || '').replace('%', '') : ''}
+                                                                                        onChange={(e) => {
+                                                                                            const val = e.target.value;
+                                                                                            if (!/^\d*\.?\d*$/.test(val)) return;
+                                                                                            const copy = [...editedServices];
+                                                                                            copy[editedServices.indexOf(svc)] = { ...svc, discount: val ? `${val}%` : '' };
+                                                                                            setEditedServices(copy);
+                                                                                        }}
+                                                                                        disabled={!!svc.discount && !svc.discount.includes('%')}
+                                                                                        InputProps={{
+                                                                                            endAdornment: <InputAdornment position="end">%</InputAdornment>
+                                                                                        }}
+                                                                                        sx={{ width: 100, bgcolor: (svc.discount || '').includes('%') ? 'white' : '#f1f5f9' }}
+                                                                                    />
+                                                                                </Stack>
                                                                             </Box>
                                                                         </>
                                                                     )}
@@ -752,7 +812,7 @@ export const BasePlan = () => {
                                              </Stack>
                                          </Box>
                                      )}
-                                 </Box>
+                                 </Paper>
                              </Box>
 
                              {/* Footer Actions */}

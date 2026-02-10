@@ -569,9 +569,26 @@ export const Marketplace = () => {
                                                                     }}
                                                                 >
                                                                     <Box>
-                                                                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                                                            {p.name}
-                                                                        </Typography>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                                                                {p.name}
+                                                                            </Typography>
+                                                                            {p.is_waiver_free_allowed && (
+                                                                                <Chip 
+                                                                                    label="WAIVER ELIGIBLE" 
+                                                                                    size="small" 
+                                                                                    sx={{ 
+                                                                                        height: 16, 
+                                                                                        fontSize: '0.55rem', 
+                                                                                        fontWeight: 800, 
+                                                                                        bgcolor: '#fff7ed', 
+                                                                                        color: '#c2410c', 
+                                                                                        borderRadius: '4px',
+                                                                                        '& .MuiChip-label': { px: 0.5 }
+                                                                                    }} 
+                                                                                />
+                                                                            )}
+                                                                        </Box>
                                                                         <Typography variant="caption" color="text.secondary">
                                                                             {p.classes ? `${p.classes} Classes` : ''} 
                                                                             {p.classes && (p.duration_days || p.duration_months) ? ' • ' : ''}

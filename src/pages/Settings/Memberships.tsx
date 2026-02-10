@@ -522,7 +522,7 @@ export const Memberships = () => {
                     onChange={(e) => handleProgramChange(e.target.value)}
                  >
                      {programs.map(p => (
-                         <MenuItem key={p.membership_program_id} value={p.membership_program_id}>{p.name}</MenuItem>
+                          <MenuItem key={p.membership_program_id} value={p.membership_program_id}>{p.name}</MenuItem>
                      ))}
                      {programs.length === 0 && <MenuItem disabled>No Programs Available</MenuItem>}
                  </Select>
@@ -783,7 +783,20 @@ export const Memberships = () => {
                                                                          {svc.is_included ? (
                                                                              <Chip label="INCLUDED" size="small" sx={{ bgcolor: '#10b981', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} />
                                                                          ) : (
-                                                                             svc.discount ? <Chip label={`${svc.discount} OFF`} size="small" sx={{ bgcolor: '#f59e0b', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} /> : null
+                                                                             svc.discount ? (
+                                                                                 <Chip 
+                                                                                     label={svc.discount.includes('%') ? `${svc.discount} OFF` : `$${svc.discount} OFF`} 
+                                                                                     size="small" 
+                                                                                     sx={{ 
+                                                                                         bgcolor: '#f59e0b', 
+                                                                                         color: 'white', 
+                                                                                         fontWeight: 800, 
+                                                                                         fontSize: '0.65rem', 
+                                                                                         height: 24,
+                                                                                         borderRadius: '6px'
+                                                                                     }} 
+                                                                                 />
+                                                                             ) : null
                                                                          )}
                                                                          <Box sx={{ bgcolor: '#f1f5f9', px: 1.5, py: 0.5, borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                                                                              <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, fontSize: '0.7rem' }}>
@@ -814,12 +827,36 @@ export const Memberships = () => {
                                                                          sx={{ width: 140, bgcolor: 'white' }}
                                                                      />
                                                                      {!svc.is_included && (
-                                                                         <TextField 
-                                                                             label="Discount" size="small" placeholder="e.g. 50%"
-                                                                             value={svc.discount || ''}
-                                                                             onChange={(e) => updateDraftService(idx, { discount: e.target.value })}
-                                                                             sx={{ width: 140, bgcolor: 'white' }}
-                                                                         />
+                                                                         <Stack direction="row" spacing={1}>
+                                                                             <TextField 
+                                                                                 label="Discount ($)" size="small" placeholder="Amount"
+                                                                                 value={!((svc.discount || '').includes('%')) ? svc.discount || '' : ''}
+                                                                                 onChange={(e) => {
+                                                                                     const val = e.target.value;
+                                                                                     if (!/^\d*\.?\d*$/.test(val)) return;
+                                                                                     updateDraftService(idx, { discount: val });
+                                                                                 }}
+                                                                                 disabled={(svc.discount || '').includes('%')}
+                                                                                 InputProps={{
+                                                                                     startAdornment: <InputAdornment position="start">$</InputAdornment>
+                                                                                 }}
+                                                                                 sx={{ width: 120, bgcolor: !((svc.discount || '').includes('%')) ? 'white' : '#f1f5f9' }}
+                                                                             />
+                                                                             <TextField 
+                                                                                 label="Discount (%)" size="small" placeholder="Percent"
+                                                                                 value={(svc.discount || '').includes('%') ? (svc.discount || '').replace('%', '') : ''}
+                                                                                 onChange={(e) => {
+                                                                                     const val = e.target.value;
+                                                                                     if (!/^\d*\.?\d*$/.test(val)) return;
+                                                                                     updateDraftService(idx, { discount: val ? `${val}%` : '' });
+                                                                                 }}
+                                                                                 disabled={!!svc.discount && !svc.discount.includes('%')}
+                                                                                 InputProps={{
+                                                                                     endAdornment: <InputAdornment position="end">%</InputAdornment>
+                                                                                 }}
+                                                                                 sx={{ width: 120, bgcolor: (svc.discount || '').includes('%') ? 'white' : '#f1f5f9' }}
+                                                                             />
+                                                                         </Stack>
                                                                      )}
                                                                      <Box sx={{ flex: 1 }} />
                                                                      <IconButton size="small" onClick={() => removeDraftService(idx)} sx={{ color: '#ef4444', bgcolor: '#fff', border: '1px solid #fecaca' }}>
@@ -885,7 +922,7 @@ export const Memberships = () => {
         )}
 
         {/* Create Program Dialog */}
-        <Dialog open={openCreateProgram} onClose={() => setOpenCreateProgram(false)}>
+        <Dialog open={openCreateProgram} onClose={() => setOpenCreateProgram(false)} maxWidth="sm" fullWidth>
             <DialogTitle>Add Membership Program</DialogTitle>
             <DialogContent>
                 <TextField 

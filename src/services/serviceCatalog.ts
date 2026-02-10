@@ -21,6 +21,7 @@ export interface ServicePack {
   classes?: number;
   duration_days?: number;
   duration_months?: number;
+  is_waiver_free_allowed?: boolean;
 }
 
 export interface ServicePrice {

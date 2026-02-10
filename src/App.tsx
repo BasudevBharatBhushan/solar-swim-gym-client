@@ -28,6 +28,9 @@ import { MyAccount } from './pages/Portal/MyAccount';
 
 import { LayoutProvider } from './context/LayoutContext';
 
+import { StaffManagement } from './pages/Settings/StaffManagement';
+import { AdminActivation } from './pages/AdminActivation';
+
 // Placeholder Component
 const Placeholder = ({ title }: { title: string }) => (
   <Typography variant="h4">{title} (Coming Soon)</Typography>
@@ -44,6 +47,7 @@ function App() {
             <Route path="/admin/login" element={<Login />} />
             <Route path="/login" element={<UserLogin />} />
             <Route path="/activate" element={<ActivateAccount />} />
+            <Route path="/admin/activate" element={<AdminActivation />} />
 
             {/* User Portal Routes */}
             <Route path="/portal" element={<UserPortalLayout />}>
@@ -68,7 +72,7 @@ function App() {
             <Route path="/admin/accounts/:accountId" element={<MainLayout><AccountDetail /></MainLayout>} />
             <Route path="/admin/accounts/:accountId/marketplace" element={<MainLayout><Marketplace /></MainLayout>} />
             <Route path="/admin/profiles" element={<MainLayout><Placeholder title="Profiles" /></MainLayout>} />
-            <Route path="/admin/staff" element={<MainLayout><Placeholder title="Staff Management" /></MainLayout>} />
+            <Route path="/admin/staff" element={<MainLayout><StaffManagement /></MainLayout>} />
             <Route path="/admin/subscription" element={<MainLayout><Placeholder title="Subscription" /></MainLayout>} />
             <Route path="/admin/services" element={<MainLayout><Services /></MainLayout>} />
             <Route path="/admin/memberships"  element={<MainLayout><Memberships /></MainLayout>} />

@@ -38,6 +38,108 @@
                     "response": []
                 },
                 {
+                    "name": "Staff Create",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"first_name\": \"Staff\",\n    \"last_name\": \"Member\",\n    \"email\": \"staff@example.com\",\n    \"password\": \"password123\",\n    \"role\": \"STAFF\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/staff/create",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "staff",
+                                "create"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Staff Upsert",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"staff_id\": \"{{lastStaffId}}\",\n    \"first_name\": \"Staff Updated\",\n    \"last_name\": \"Member Updated\",\n    \"role\": \"ADMIN\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/staff/upsert",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "staff",
+                                "upsert"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Staff Password Reset",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"staff_id\": \"{{staffId}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/staff/reset-password",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "staff",
+                                "reset-password"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
                     "name": "Get All Staff",
                     "request": {
                         "method": "GET",
@@ -51,6 +153,59 @@
                                 "auth",
                                 "staff",
                                 "all"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Validate Admin Token",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/admin/activate?token={{activationToken}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "admin",
+                                "activate"
+                            ],
+                            "query": [
+                                {
+                                    "key": "token",
+                                    "value": "{{activationToken}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Admin Activate",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"token\": \"{{activationToken}}\",\n    \"password\": \"password123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/auth/admin/activate",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "auth",
+                                "admin",
+                                "activate"
                             ]
                         }
                     },
@@ -637,7 +792,7 @@
                             ]
                         }
                     },
-                    "description": "Upsert services. 'membership_program_id' acts as a generic parent ID. It will be automatically mapped to either a Category or a Base Price in the database.",
+                    "description": "Upsert services. 'membership_program_id' acts as a generic parent ID.\n\n- If ID is a **Category**: Services are linked directly to that category.\n- If ID is a **Base Price**: The system resolves its components (Location, Role, Age Group) and links services to that *profile*. This means services are **SHARED** across all subscription terms for that base plan.\n\nExample: Adding a service to 'Adult Primary (Monthly)' automatically adds it to 'Adult Primary (Annual)'.",
                     "response": []
                 }
             ]
@@ -765,7 +920,7 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"service_id\": \"{{lastServiceId}}\",\n    \"name\": \"10 Class Pack\",\n    \"description\": \"Standard 10 classes\",\n    \"classes\": 10,\n    \"duration_months\": 3\n}",
+                            "raw": "{\n    \"service_id\": \"{{lastServiceId}}\",\n    \"name\": \"10 Class Pack\",\n    \"description\": \"Standard 10 classes\",\n    \"classes\": 10,\n    \"duration_months\": 3,\n    \"is_waiver_free_allowed\": false\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1033,6 +1188,38 @@
                     "response": []
                 },
                 {
+                    "name": "Upsert Lead",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"first_name\": \"Jane\",\n    \"last_name\": \"Smith\",\n    \"email\": \"jane.smith@example.com\",\n    \"phone\": \"555-0100\",\n    \"message\": \"Interested in swimming lessons\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/leads",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "leads"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
                     "name": "Reindex Leads",
                     "request": {
                         "method": "POST",
@@ -1051,6 +1238,29 @@
                             "path": [
                                 "leads",
                                 "reindex"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Accounts",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/accounts",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "accounts"
                             ]
                         }
                     },
@@ -1132,6 +1342,78 @@
                             "path": [
                                 "accounts",
                                 "upsert"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Account by ID (With Profiles)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/accounts/{{lastAccountId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "accounts",
+                                "{{lastAccountId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Profile by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/profiles/{{lastProfileId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "profiles",
+                                "{{lastProfileId}}"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Reindex Accounts",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/accounts/reindex",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "accounts",
+                                "reindex"
                             ]
                         }
                     },

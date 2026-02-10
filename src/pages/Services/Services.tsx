@@ -80,8 +80,8 @@ const ServiceListItem = memo(({
 
 
 const ServiceBasicInfo = memo(({
-    name, type, serviceType, isActive, imageUrl, isCreating,
-    onNameChange, onTypeChange, onServiceTypeChange, onActiveChange, onSave, onImageUpload
+    name, description, type, serviceType, isActive, imageUrl, isCreating,
+    onNameChange, onDescriptionChange, onTypeChange, onServiceTypeChange, onActiveChange, onSave, onImageUpload
 }: any) => {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
@@ -180,73 +180,96 @@ const ServiceBasicInfo = memo(({
                                 }}
                             />
                         </Grid>
+
+                        <Grid size={{ xs: 12 }}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, mb: 1, display: 'block', letterSpacing: '0.02em' }}>
+                                Description
+                            </Typography>
+                            <TextField 
+                                fullWidth 
+                                multiline
+                                rows={2}
+                                value={description} 
+                                onChange={(e) => onDescriptionChange(e.target.value)} 
+                                size="small" 
+                                placeholder="Details about this service..." 
+                                sx={{ 
+                                    '& .MuiOutlinedInput-root': { 
+                                        bgcolor: '#f8fafc', 
+                                        borderRadius: '8px',
+                                        '& fieldset': { borderColor: '#f1f5f9' },
+                                        '& textarea': { fontWeight: 500 }
+                                    } 
+                                }}
+                            />
+                        </Grid>
                         
                         <Grid size={{ xs: 6 }}>
-                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, mb: 1, display: 'block', letterSpacing: '0.02em' }}>
-                            Category
-                        </Typography>
-                        <TextField 
-                            fullWidth 
-                            select 
-                            value={serviceType} 
-                            onChange={(e) => onServiceTypeChange(e.target.value)} 
-                            size="small"
-                            sx={{ 
-                                '& .MuiOutlinedInput-root': { 
-                                    bgcolor: '#ffffff', 
-                                    borderRadius: '8px',
-                                    '& fieldset': { borderColor: '#e2e8f0' }
-                                } 
-                            }}
-                        >
-                            {dropdownOptions.serviceCategory.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
-                        </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 6 }}>
-                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, mb: 1, display: 'block', letterSpacing: '0.02em' }}>
-                            Type
-                        </Typography>
-                         <TextField 
-                            fullWidth 
-                            select 
-                            value={type} 
-                            onChange={(e) => onTypeChange(e.target.value)} 
-                            size="small"
-                            sx={{ 
-                                '& .MuiOutlinedInput-root': { 
-                                    bgcolor: '#ffffff', 
-                                    borderRadius: '8px',
-                                    '& fieldset': { borderColor: '#e2e8f0' }
-                                } 
-                            }}
-                        >
-                            {dropdownOptions.serviceType.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
-                        </TextField>
-                    </Grid>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, mb: 1, display: 'block', letterSpacing: '0.02em' }}>
+                                Category
+                            </Typography>
+                            <TextField 
+                                fullWidth 
+                                select 
+                                value={serviceType} 
+                                onChange={(e) => onServiceTypeChange(e.target.value)} 
+                                size="small"
+                                sx={{ 
+                                    '& .MuiOutlinedInput-root': { 
+                                        bgcolor: '#ffffff', 
+                                        borderRadius: '8px',
+                                        '& fieldset': { borderColor: '#e2e8f0' }
+                                    } 
+                                }}
+                            >
+                                {dropdownOptions.serviceCategory.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                            </TextField>
+                        </Grid>
+                        <Grid size={{ xs: 6 }}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, mb: 1, display: 'block', letterSpacing: '0.02em' }}>
+                                Type
+                            </Typography>
+                            <TextField 
+                                fullWidth 
+                                select 
+                                value={type} 
+                                onChange={(e) => onTypeChange(e.target.value)} 
+                                size="small"
+                                sx={{ 
+                                    '& .MuiOutlinedInput-root': { 
+                                        bgcolor: '#ffffff', 
+                                        borderRadius: '8px',
+                                        '& fieldset': { borderColor: '#e2e8f0' }
+                                    } 
+                                }}
+                            >
+                                {dropdownOptions.serviceType.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                            </TextField>
+                        </Grid>
 
-                    <Grid size={{ xs: 12 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#f8fafc', p: 1.5, px: 2, borderRadius: 2, border: '1px solid #f1f5f9', mt: 0.5 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#64748b', fontSize: '0.875rem' }}>Published Status</Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <Typography variant="caption" sx={{ fontWeight: 800, mr: 1.5, color: isActive ? '#10b981' : '#94a3b8', letterSpacing: '0.05em' }}>
-                                    {isActive ? 'ACTIVE' : 'INACTIVE'}
-                                </Typography>
-                                <Switch 
-                                    checked={isActive} 
-                                    onChange={(e) => onActiveChange(e.target.checked)} 
-                                    sx={{
-                                        '& .MuiSwitch-switchBase.Mui-checked': { color: '#10b981' },
-                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#10b981' }
-                                    }}
-                                />
+                        <Grid size={{ xs: 12 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#f8fafc', p: 1.5, px: 2, borderRadius: 2, border: '1px solid #f1f5f9', mt: 0.5 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#64748b', fontSize: '0.875rem' }}>Published Status</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 800, mr: 1.5, color: isActive ? '#10b981' : '#94a3b8', letterSpacing: '0.05em' }}>
+                                        {isActive ? 'ACTIVE' : 'INACTIVE'}
+                                    </Typography>
+                                    <Switch 
+                                        checked={isActive} 
+                                        onChange={(e) => onActiveChange(e.target.checked)} 
+                                        sx={{
+                                            '& .MuiSwitch-switchBase.Mui-checked': { color: '#10b981' },
+                                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#10b981' }
+                                        }}
+                                    />
+                                </Box>
                             </Box>
-                        </Box>
+                        </Grid>
                     </Grid>
                 </Grid>
             </Grid>
-        </Grid>
-    </Paper>
-);
+        </Paper>
+    );
 });
 
 const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, ageGroups: any[], onSave: (prices: Record<string, number>) => Promise<void> }) => {
@@ -400,6 +423,8 @@ export const Services = () => {
     const [packClasses, setPackClasses] = useState<number | ''>('');
     const [packDurationDays, setPackDurationDays] = useState<number | ''>('');
     const [packDurationMonths, setPackDurationMonths] = useState<number | ''>('');
+    const [packDurationUnit, setPackDurationUnit] = useState<'days' | 'months'>('months');
+    const [packIsWaiverFreeAllowed, setPackIsWaiverFreeAllowed] = useState(false);
     
     // Feedback
     const [error, setError] = useState<string | null>(null);
@@ -519,8 +544,18 @@ export const Services = () => {
         setPackName(pack?.name || '');
         setPackDesc(pack?.description || '');
         setPackClasses(pack?.classes || '');
-        setPackDurationDays(pack?.duration_days || '');
-        setPackDurationMonths(pack?.duration_months || '');
+        
+        if (pack?.duration_days) {
+            setPackDurationDays(pack.duration_days);
+            setPackDurationMonths('');
+            setPackDurationUnit('days');
+        } else {
+            setPackDurationMonths(pack?.duration_months || '');
+            setPackDurationDays('');
+            setPackDurationUnit('months');
+        }
+        
+        setPackIsWaiverFreeAllowed(pack?.is_waiver_free_allowed || false);
         setIsPackModalOpen(true);
     };
 
@@ -537,8 +572,9 @@ export const Services = () => {
                 name: packName,
                 description: packDesc,
                 classes: packClasses || null,
-                duration_days: packDurationDays || null,
-                duration_months: packDurationMonths || null
+                duration_days: packDurationUnit === 'days' ? (packDurationDays || null) : null,
+                duration_months: packDurationUnit === 'months' ? (packDurationMonths || null) : null,
+                is_waiver_free_allowed: packIsWaiverFreeAllowed
             };
             await serviceCatalog.upsertServicePack(packPayload);
             
@@ -598,8 +634,18 @@ export const Services = () => {
                         {/* Service Details on Top */}
                         <Grid size={{ xs: 12 }}>
                             <ServiceBasicInfo 
-                                name={serviceName} type={serviceType} serviceType={serviceCategory} isActive={serviceActive} imageUrl={serviceImageUrl} isCreating={isCreatingService}
-                                onNameChange={setServiceName} onTypeChange={setServiceType} onServiceTypeChange={setServiceCategory} onActiveChange={setServiceActive}
+                                name={serviceName} 
+                                description={serviceDesc}
+                                type={serviceType} 
+                                serviceType={serviceCategory} 
+                                isActive={serviceActive} 
+                                imageUrl={serviceImageUrl} 
+                                isCreating={isCreatingService}
+                                onNameChange={setServiceName} 
+                                onDescriptionChange={setServiceDesc}
+                                onTypeChange={setServiceType} 
+                                onServiceTypeChange={setServiceCategory} 
+                                onActiveChange={setServiceActive}
                                 onSave={handleSaveService}
                                 onImageUpload={handleImageUpload}
                             />
@@ -659,7 +705,12 @@ export const Services = () => {
                                                                     secondary={
                                                                         <Box sx={{ display: 'flex', gap: 1 }}>
                                                                             {pack.classes && <Chip label={`${pack.classes} CLASSES`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
-                                                                            {pack.duration_months && <Chip label={`${pack.duration_months} MONTHS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
+                                                                            {pack.duration_months ? (
+                                                                                <Chip label={`${pack.duration_months} MONTHS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
+                                                                            ) : pack.duration_days ? (
+                                                                                <Chip label={`${pack.duration_days} DAYS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
+                                                                            ) : null}
+                                                                            {pack.is_waiver_free_allowed && <Chip label="WAIVER FREE" size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fff7ed', color: '#c2410c', borderRadius: '4px' }} />}
                                                                         </Box>
                                                                     }
                                                                 />
@@ -708,32 +759,104 @@ export const Services = () => {
                     {currentPack ? 'Edit Pack & Pricing' : 'New Service Pack'}
                     <IconButton onClick={() => setIsPackModalOpen(false)}><CloseIcon /></IconButton>
                 </DialogTitle>
-                <DialogContent dividers>
-                    <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 700 }}>PACK DETAILS</Typography>
-                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                <DialogContent dividers sx={{ p: 4 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 3, color: 'text.secondary', fontWeight: 700, letterSpacing: '0.05em' }}>PACK DETAILS</Typography>
+                    <Grid container spacing={4}>
                         <Grid size={{ xs: 12 }}>
-                            <TextField fullWidth label="Pack Name" autoFocus value={packName} onChange={(e) => setPackName(e.target.value)} size="small" placeholder="e.g. 10 Class Pack" />
+                            <TextField 
+                                fullWidth 
+                                label="Pack Name" 
+                                autoFocus 
+                                value={packName} 
+                                onChange={(e) => setPackName(e.target.value)} 
+                                size="small" 
+                                placeholder="e.g. 10 Class Pack" 
+                                sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                            />
                         </Grid>
                         <Grid size={{ xs: 12 }}>
-                            <TextField fullWidth type="number" label="Classes Included" value={packClasses} onChange={(e) => setPackClasses(parseInt(e.target.value) || '')} size="small" helperText="Leave empty for unlimited" />
+                            <TextField 
+                                fullWidth 
+                                type="number" 
+                                label="Classes Included" 
+                                value={packClasses} 
+                                onChange={(e) => setPackClasses(parseInt(e.target.value) || '')} 
+                                size="small" 
+                                helperText="Leave empty for unlimited" 
+                                sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                            />
                         </Grid>
                         
-                        <Grid size={{ xs: 12 }}>
-                            <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                                <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Service Pack Duration</Typography>
-                                <Grid container spacing={2}>
-                                    <Grid size={{ xs: 6 }}>
-                                        <TextField fullWidth type="number" label="Valid Days" value={packDurationDays} onChange={(e) => setPackDurationDays(parseInt(e.target.value) || '')} size="small" />
+                        <Grid size={{ xs: 12 }} sx={{ mt: 1 }}>
+                            <Paper variant="outlined" sx={{ p: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                <Typography variant="caption" sx={{ display: 'block', mb: 2, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Service Pack Duration</Typography>
+                                <Grid container spacing={3} alignItems="center">
+                                    <Grid size={{ xs: 4 }}>
+                                        <TextField 
+                                            fullWidth 
+                                            select 
+                                            label="Unit" 
+                                            value={packDurationUnit} 
+                                            onChange={(e) => setPackDurationUnit(e.target.value as 'days' | 'months')} 
+                                            size="small"
+                                            sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                                        >
+                                            <MenuItem value="days">Days</MenuItem>
+                                            <MenuItem value="months">Months</MenuItem>
+                                        </TextField>
                                     </Grid>
-                                    <Grid size={{ xs: 6 }}>
-                                        <TextField fullWidth type="number" label="Valid Months" value={packDurationMonths} onChange={(e) => setPackDurationMonths(parseInt(e.target.value) || '')} size="small" />
+                                    <Grid size={{ xs: 8 }}>
+                                        {packDurationUnit === 'days' ? (
+                                            <TextField 
+                                                fullWidth 
+                                                type="number" 
+                                                label="Valid Days" 
+                                                value={packDurationDays} 
+                                                onChange={(e) => setPackDurationDays(parseInt(e.target.value) || '')} 
+                                                size="small" 
+                                                sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                                            />
+                                        ) : (
+                                            <TextField 
+                                                fullWidth 
+                                                type="number" 
+                                                label="Valid Months" 
+                                                value={packDurationMonths} 
+                                                onChange={(e) => setPackDurationMonths(parseInt(e.target.value) || '')} 
+                                                size="small" 
+                                                sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                                            />
+                                        )}
                                     </Grid>
                                 </Grid>
                             </Paper>
                         </Grid>
 
-                        <Grid size={{ xs: 12 }}>
-                            <TextField fullWidth multiline rows={4} label="Description" value={packDesc} onChange={(e) => setPackDesc(e.target.value)} size="small" />
+                        <Grid size={{ xs: 12 }} sx={{ mt: 1 }}>
+                            <TextField 
+                                fullWidth 
+                                multiline 
+                                rows={3} 
+                                label="Description" 
+                                value={packDesc} 
+                                onChange={(e) => setPackDesc(e.target.value)} 
+                                size="small" 
+                                sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                            />
+                        </Grid>
+
+                        <Grid size={{ xs: 12 }} sx={{ mt: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fff7ed', p: 2.5, px: 3, borderRadius: 2, border: '1px solid #ffedd5' }}>
+                                <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#9a3412', fontSize: '0.875rem', mb: 0.5 }}>Waiver Free Allowed</Typography>
+                                    <Typography variant="caption" sx={{ color: '#c2410c', fontWeight: 500 }}>Allow this pack to be used with state waiver programs</Typography>
+                                </Box>
+                                <Switch 
+                                    checked={packIsWaiverFreeAllowed} 
+                                    onChange={(e) => setPackIsWaiverFreeAllowed(e.target.checked)}
+                                    color="warning"
+                                />
+                            </Box>
                         </Grid>
                     </Grid>
                 </DialogContent>
