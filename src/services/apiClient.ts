@@ -101,6 +101,14 @@ export const apiClient = {
     });
   },
 
+  patch: (endpoint: string, body: any, options: RequestInit = {}) => {
+    return request(endpoint, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      ...options,
+    });
+  },
+
   delete: (endpoint: string, options: RequestInit = {}) => {
     return request(endpoint, { method: 'DELETE', ...options });
   },

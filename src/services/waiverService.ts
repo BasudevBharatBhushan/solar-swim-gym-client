@@ -26,6 +26,24 @@ export interface UpsertSignedWaiverResponse {
     [key: string]: any;
 }
 
+export interface SignedWaiver {
+    signed_waiver_id: string;
+    profile_id: string;
+    waiver_template_id: string;
+    waiver_type: string;
+    content: string;
+    signature_url: string;
+    location_id: string;
+    signed_at: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface GetSignedWaiversResponse {
+    success: boolean;
+    data: SignedWaiver[];
+}
+
 export const waiverService = {
   // Fetch all waiver templates for the current location
   getWaiverTemplates: async (locationId: string) => {
@@ -44,6 +62,24 @@ export const waiverService = {
   // Persist signed waiver record
   upsertSignedWaiver: async (payload: UpsertSignedWaiverPayload, locationId: string): Promise<UpsertSignedWaiverResponse> => {
     return apiClient.post('/signed-waivers/upsert', payload, {
+        headers: {
+            'x-location-id': locationId
+        }
+    });
+  },
+
+  // Fetch signed waivers by profile ID
+  getSignedWaivers: async (profileId: string, locationId: string): Promise<GetSignedWaiversResponse> => {
+    return apiClient.get('/signed-waivers', { profile_id: profileId }, {
+        headers: {
+            'x-location-id': locationId
+        }
+    });
+  },
+
+  // Link an anonymous signed waiver to a profile
+  linkProfileToWaiver: async (signedWaiverId: string, profileId: string, locationId: string) => {
+    return apiClient.patch(`/signed-waivers/${signedWaiverId}/link-profile`, { profile_id: profileId }, {
         headers: {
             'x-location-id': locationId
         }

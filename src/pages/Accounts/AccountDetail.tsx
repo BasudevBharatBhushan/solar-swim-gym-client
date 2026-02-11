@@ -9,6 +9,7 @@ import { AccountSummary } from './components/AccountSummary';
 import { ProfileList } from './components/ProfileList';
 import { ProfileDetail } from './components/ProfileDetail';
 import { SubscriptionsTab } from './components/SubscriptionsTab';
+import { WaiversTab } from './components/WaiversTab';
 import { useAuth } from '../../context/AuthContext';
 
 export const AccountDetail = () => {
@@ -124,6 +125,7 @@ export const AccountDetail = () => {
                     <Tabs value={tabValue} onChange={handleTabChange} aria-label="account detail tabs">
                         <Tab label="Profile Details" />
                         <Tab label="Subscriptions" />
+                        <Tab label="Signed Waivers" />
                     </Tabs>
                 </Box>
                 <Box sx={{ p: 3 }}>
@@ -132,6 +134,9 @@ export const AccountDetail = () => {
                     )}
                     {tabValue === 1 && (
                         <SubscriptionsTab accountId={account.account_id} selectedProfileId={selectedProfileId} />
+                    )}
+                    {tabValue === 2 && (
+                        <WaiversTab profiles={account.profiles || []} selectedProfileId={selectedProfileId} />
                     )}
                 </Box>
             </Paper>

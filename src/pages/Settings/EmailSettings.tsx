@@ -28,8 +28,7 @@ export const EmailSettings = () => {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     
-    // Config State
-    const [config, setConfig] = useState<Partial<EmailConfig>>({
+    const INITIAL_CONFIG: Partial<EmailConfig> = {
         smtp_host: '',
         smtp_port: 587,
         smtp_username: '',
@@ -37,24 +36,16 @@ export const EmailSettings = () => {
         is_secure: false,
         sender_email: '',
         is_active: false
-    });
-
-    const DUMMY_CONFIG: Partial<EmailConfig> = {
-        smtp_host: 'smtp.sendgrid.net',
-        smtp_port: 587,
-        smtp_username: 'apikey',
-        smtp_password: '••••••••••••••••••••••••••••',
-        is_secure: true,
-        sender_email: 'notifications@solarswim.com',
-        is_active: true
     };
+
+    // Config State
+    const [config, setConfig] = useState<Partial<EmailConfig>>(INITIAL_CONFIG);
 
     useEffect(() => {
         if (locationId) {
             fetchConfig();
         } else {
-            // Show dummy data for representation if no location
-            setConfig(DUMMY_CONFIG);
+            setConfig(INITIAL_CONFIG);
         }
     }, [locationId]);
 
@@ -70,11 +61,11 @@ export const EmailSettings = () => {
                     smtp_password: data.smtp_password || '' 
                 });
             } else {
-                setConfig(DUMMY_CONFIG);
+                setConfig(INITIAL_CONFIG);
             }
         } catch (err: any) {
             console.error("Failed to load email config", err);
-            setConfig(DUMMY_CONFIG);
+            setConfig(INITIAL_CONFIG);
             // Don't show error immediately on load if it's just 404 (not configured yet)
         } finally {
             setLoading(false);

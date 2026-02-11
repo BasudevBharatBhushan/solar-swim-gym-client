@@ -28,7 +28,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         setLocations(res.data);
         // Set default location if not set
         if (!currentLocationId && res.data.length > 0) {
-            setCurrentLocationId(res.data[0].location_id);
+            // TODO: will change later - static location preselect
+            const targetId = "490f7013-a95d-4664-b750-1ecbb98bd463";
+            const targetExists = res.data.find((l: any) => l.location_id === targetId);
+            setCurrentLocationId(targetExists ? targetId : res.data[0].location_id);
         }
       })
       .catch(err => console.error("Failed to fetch locations", err));
