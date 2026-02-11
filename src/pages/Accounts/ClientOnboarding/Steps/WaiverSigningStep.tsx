@@ -1,0 +1,428 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, Typography, Button, CircularProgress, Alert, Grid, List, ListItem, ListItemButton } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // For signed status
+import { configService } from '../../../../services/configService';
+import { useAuth } from '../../../../context/AuthContext';
+import { WaiverPreview } from '../../../../components/Waiver/WaiverPreview';
+import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../../../../components/Waiver/SignaturePad';
+import { waiverService, WaiverTemplate } from '../../../../services/waiverService';
+
+interface WaiverSigningStepProps {
+  primaryProfile: any;
+  familyMembers: any[];
+  onWaiversSigned: (signedWaiversMap: Record<string, string>) => void;
+  onAllSigned: (isSigned: boolean) => void;
+}
+
+interface MemberState {
+    id: string; 
+    name: string;
+    ageProfileId: string; 
+    ageGroupName?: string;
+    waiverTemplate: WaiverTemplate | null;
+    isSigned: boolean;
+    signedWaiverId: string | null;
+    signatureUrl: string | null; // Store the signature image URL
+    agreed: boolean;
+    loading: boolean;
+    error: string | null;
+}
+
+export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryProfile, familyMembers, onWaiversSigned, onAllSigned }) => {
+    const { currentLocationId } = useAuth();
+    const [activeTab, setActiveTab] = useState(0);
+    const [memberStates, setMemberStates] = useState<MemberState[]>([]);
+    const [loadingTemplates, setLoadingTemplates] = useState(true);
+    const signaturePadRef = useRef<SignaturePadRef>(null);
+
+    // Helper to calculate age
+    const calculateAge = (dob: string | null) => {
+        if (!dob) return 0;
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const m = today.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+            age--;
+        }
+        return age;
+    };
+
+    // Initial Setup
+    useEffect(() => {
+        const init = async () => {
+             if (!currentLocationId) {
+                console.error("No location ID found");
+                setLoadingTemplates(false);
+                return;
+            }
+            setLoadingTemplates(true);
+            try {
+                // Fetch templates and age groups
+                const [waiverRes, ageGroupRes] = await Promise.all([
+                    waiverService.getWaiverTemplates(currentLocationId),
+                    configService.getAgeGroups(currentLocationId)
+                ]);
+
+                const templates = (waiverRes as any).data || [];
+                const ageGroups = (ageGroupRes as any) || [];
+                
+                const findGroup = (age: number) => {
+                    return ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+                };
+
+                const membersData = [
+                    { 
+                        id: 'primary', 
+                        name: `${primaryProfile.first_name} ${primaryProfile.last_name}`, 
+                        age: calculateAge(primaryProfile.date_of_birth)
+                    },
+                    ...familyMembers.map((m, idx) => ({ 
+                        id: `family_${idx}`, 
+                        name: `${m.first_name} ${m.last_name}`, 
+                        age: calculateAge(m.date_of_birth)
+                    }))
+                ];
+
+                setMemberStates(prev => {
+                    // Preserve signed status for existing members if their data hasn't changed meaningfully
+                    // This prevents re-signing if user just navigates back and forth
+                    return membersData.map((m) => {
+                        const group = findGroup(m.age);
+                        const existing = prev.find(p => p.id === m.id);
+                        
+                        // Determine template
+                        let matchedTemplate = templates.find((t: any) => 
+                            t.is_active && t.ageprofile_id === group?.age_group_id
+                        );
+
+                        if (!matchedTemplate) {
+                            matchedTemplate = templates.find((t: any) => t.is_active && !t.ageprofile_id);
+                        }
+
+                        // If member already exists and has the same name/age, preserve their signed status
+                        if (existing && existing.name === m.name && existing.ageProfileId === (group?.age_group_id || '')) {
+                            return {
+                                ...existing,
+                                waiverTemplate: matchedTemplate || null,
+                                error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`
+                            };
+                        }
+
+                        return {
+                            id: m.id,
+                            name: m.name,
+                            ageProfileId: group?.age_group_id || '',
+                            ageGroupName: group?.name || 'Unknown',
+                            waiverTemplate: matchedTemplate || null,
+                            isSigned: false,
+                            signedWaiverId: null,
+                            signatureUrl: null,
+                            agreed: false,
+                            loading: false,
+                            error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`
+                        };
+                    });
+                });
+
+            } catch (err) {
+                console.error("Failed to fetch data", err);
+            } finally {
+                setLoadingTemplates(false);
+            }
+        };
+
+        // Only re-init if location changes or we have no members yet
+        // For profile/family changes, we want to be careful not to wipe signatures unnecessarily
+        // But for now, let's ensure it runs when those props change.
+        init();
+    }, [currentLocationId, primaryProfile.first_name, primaryProfile.last_name, primaryProfile.date_of_birth, familyMembers.length]);
+
+    const handleAgreeChange = (checked: boolean) => {
+        updateMemberState(activeTab, { agreed: checked });
+    };
+
+    const updateMemberState = (index: number, updates: Partial<MemberState>) => {
+        setMemberStates(prev => {
+            const newStates = [...prev];
+            newStates[index] = { ...newStates[index], ...updates };
+            return newStates;
+        });
+    };
+
+    const handleSign = async () => {
+        const member = memberStates[activeTab];
+        if (!member.waiverTemplate) return;
+        if (!signaturePadRef.current) return;
+
+        if (signaturePadRef.current.isEmpty()) {
+            updateMemberState(activeTab, { error: "Please sign to continue." });
+            return;
+        }
+
+        const canvas = signaturePadRef.current.getCanvas();
+        if (!canvas) return;
+
+        updateMemberState(activeTab, { loading: true, error: null });
+
+        try {
+            const blob = await getSignatureBlob(canvas);
+            if (!blob) throw new Error("Failed to capture signature");
+
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64 = reader.result as string;
+                
+                const sigResponse = await waiverService.uploadSignature(base64);
+                
+                let content = member.waiverTemplate!.content;
+                content = content.replace(/\[FullName\]/g, member.name);
+                
+                const response = await waiverService.upsertSignedWaiver({
+                    profile_id: null,
+                    waiver_template_id: member.waiverTemplate!.waiver_template_id,
+                    waiver_type: 'AGE_PROFILE',
+                    content,
+                    signature_url: sigResponse.signature_url
+                }, currentLocationId!);
+
+                console.log("Upsert Waiver Response:", response);
+                const signedId = response.signed_waiver_id || (response as any).data?.signed_waiver_id;
+
+                if (!signedId) {
+                    throw new Error("Waiver saved but no ID returned from server.");
+                }
+
+                updateMemberState(activeTab, {
+                    loading: false,
+                    isSigned: true,
+                    signedWaiverId: signedId,
+                    signatureUrl: sigResponse.signature_url
+                });
+            };
+
+        } catch (err: any) {
+            console.error("Signing failed", err);
+            updateMemberState(activeTab, { loading: false, error: err.message || "Signing failed" });
+        }
+    };
+
+    // Notify parent whenever signedWaiverId changes in ANY member
+    useEffect(() => {
+        if (memberStates.length === 0) {
+            onAllSigned(false);
+            return;
+        }
+        
+        const map: Record<string, string> = {};
+        let allReady = true;
+        
+        memberStates.forEach((m) => {
+            if (m.isSigned && m.signedWaiverId) {
+                map[m.id] = m.signedWaiverId;
+            } else {
+                allReady = false;
+            }
+        });
+        
+        // Pass a fresh object to ensure parent state detects the update
+        onWaiversSigned({...map});
+        onAllSigned(allReady);
+    }, [memberStates, onWaiversSigned, onAllSigned]);
+
+    if (memberStates.length === 0) return null;
+    
+    const currentMember = memberStates[activeTab];
+
+    if (loadingTemplates) {
+        return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+    }
+
+    if (!currentMember) return null;
+
+    return (
+        <Grid container sx={{ height: '600px', border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff' }}>
+            {/* Left Sidebar: List - Profiles */}
+            <Grid size={{ xs: 4, md: 3 }} sx={{ borderRight: '1px solid #e2e8f0', overflowY: 'auto', maxHeight: '100%', bgcolor: '#f8fafc' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+                    <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.05em' }}>
+                        Family Members
+                    </Typography>
+                </Box>
+                <List disablePadding>
+                    {memberStates.map((m, idx) => (
+                        <ListItem key={idx} disablePadding>
+                            <ListItemButton 
+                                selected={activeTab === idx} 
+                                onClick={() => setActiveTab(idx)}
+                                sx={{ 
+                                    flexDirection: 'column', 
+                                    alignItems: 'flex-start',
+                                    borderLeft: activeTab === idx ? '4px solid' : '4px solid transparent',
+                                    borderColor: 'primary.main',
+                                    py: 2,
+                                    px: 2,
+                                    transition: 'all 0.2s',
+                                    '&.Mui-selected': {
+                                        bgcolor: 'primary.50',
+                                        '&:hover': {
+                                            bgcolor: 'primary.100',
+                                        }
+                                    },
+                                    '&:hover': {
+                                        bgcolor: 'rgba(0,0,0,0.02)'
+                                    }
+                                }}
+                            >
+                                <Box sx={{ width: '100%' }}>
+                                    <Typography variant="body2" fontWeight={activeTab === idx ? 700 : 600} color={activeTab === idx ? 'primary.main' : 'text.primary'}>
+                                        {m.name}
+                                    </Typography>
+                                    <Typography 
+                                        variant="caption" 
+                                        sx={{ 
+                                            display: 'inline-block',
+                                            mt: 0.5,
+                                            px: 1,
+                                            py: 0.25,
+                                            borderRadius: 1,
+                                            bgcolor: activeTab === idx ? 'primary.100' : '#e2e8f0',
+                                            color: activeTab === idx ? 'primary.700' : 'text.secondary',
+                                            fontWeight: 700,
+                                            fontSize: '0.65rem'
+                                        }}
+                                    >
+                                        {m.ageGroupName || 'Unknown'}
+                                    </Typography>
+                                </Box>
+                                {m.isSigned && (
+                                    <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <CheckCircleIcon color="success" sx={{ fontSize: 14 }} />
+                                        <Typography variant="caption" color="success.main" fontWeight={700}>Signed</Typography>
+                                    </Box>
+                                )}
+                            </ListItemButton>
+                        </ListItem>
+                    ))}
+                </List>
+            </Grid>
+
+            {/* Right Content: Waiver - Contracts */}
+            <Grid size={{ xs: 8, md: 9 }} sx={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
+                <Box sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                            {currentMember.isSigned ? "Waiver Signed" : "Review & Sign Waiver"}
+                        </Typography>
+                        {currentMember.isSigned && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'success.main', bgcolor: 'success.50', px: 1.5, py: 0.5, borderRadius: 1 }}>
+                                <CheckCircleIcon sx={{ fontSize: 18 }} />
+                                <Typography variant="caption" fontWeight={700}>COMPLETED</Typography>
+                            </Box>
+                        )}
+                    </Box>
+                    
+                    {currentMember.error && (
+                        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{currentMember.error}</Alert>
+                    )}
+
+                    {currentMember.isSigned && (
+                        <Alert severity="success" sx={{ mb: 3, borderRadius: 2, bgcolor: 'success.50', border: '1px solid', borderColor: 'success.100' }}>
+                            <Typography variant="body2" fontWeight={600} color="success.800">
+                                {currentMember.name} has successfully signed this waiver.
+                            </Typography>
+                        </Alert>
+                    )}
+                    
+                    <Box sx={{ flex: 1, minHeight: 0 }}>
+                        {currentMember.waiverTemplate ? (
+                            <>
+                                <WaiverPreview 
+                                    content={currentMember.waiverTemplate.content}
+                                    data={{ 
+                                        first_name: currentMember.name.split(' ')[0], 
+                                        last_name: currentMember.name.split(' ').slice(1).join(' '),
+                                    }}
+                                    agreed={currentMember.agreed}
+                                    onAgreeChange={handleAgreeChange}
+                                    signatureComponent={
+                                        !currentMember.isSigned ? (
+                                            <SignaturePad 
+                                                key={activeTab} 
+                                                ref={signaturePadRef}
+                                                onEnd={() => updateMemberState(activeTab, { error: null })} 
+                                                width={500}
+                                                height={150}
+                                            />
+                                        ) : currentMember.signatureUrl ? (
+                                            <Box sx={{ 
+                                                p: 2, 
+                                                border: '1px solid #e2e8f0', 
+                                                borderRadius: 2, 
+                                                bgcolor: '#f8fafc',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: 1
+                                            }}>
+                                                <Typography variant="caption" color="success.main" fontWeight={700} sx={{ mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    Digital Signature Captured
+                                                </Typography>
+                                                <Box sx={{ bgcolor: '#fff', p: 1, borderRadius: 1, border: '1px solid #e2e8f0' }}>
+                                                    <img 
+                                                        src={currentMember.signatureUrl} 
+                                                        alt="Signature" 
+                                                        style={{ 
+                                                            maxWidth: '100%', 
+                                                            height: 'auto',
+                                                            maxHeight: '120px',
+                                                            display: 'block'
+                                                        }} 
+                                                    />
+                                                </Box>
+                                            </Box>
+                                        ) : (
+                                            <Box sx={{ p: 3, bgcolor: 'success.50', borderRadius: 2, textAlign: 'center', border: '1px dashed', borderColor: 'success.300' }}>
+                                                <Typography variant="body2" color="success.main" fontWeight={700}>
+                                                    ✓ Signature confirmed
+                                                </Typography>
+                                            </Box>
+                                        )
+                                    }
+                                />
+
+                                {!currentMember.isSigned && (
+                                    <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #e2e8f0', textAlign: 'right' }}>
+                                        <Button
+                                            variant="contained"
+                                            onClick={handleSign}
+                                            disabled={!currentMember.agreed || currentMember.loading}
+                                            sx={{ 
+                                                px: 4, 
+                                                py: 1.2, 
+                                                borderRadius: 2,
+                                                fontWeight: 700,
+                                                textTransform: 'none',
+                                                boxShadow: 'none',
+                                                '&:hover': {
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                                                }
+                                            }}
+                                        >
+                                            {currentMember.loading ? 'Signing...' : 'Complete & Sign Waiver'}
+                                        </Button>
+                                    </Box>
+                                )}
+                            </>
+                        ) : (
+                            <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                                No waiver template available for this profile (Age Group: {currentMember.ageGroupName}).
+                            </Alert>
+                        )}
+                    </Box>
+                </Box>
+            </Grid>
+        </Grid>
+    );
+};

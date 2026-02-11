@@ -44,7 +44,6 @@ export const Login = () => {
       });
 
       const { token, staff } = response.data;
-      console.log(response.data);
       const { role, staff_id: staffId, ...userDetails } = staff;
       const userRole = role === 'SUPERADMIN' ? 'SUPERADMIN' : 'ADMIN';
       

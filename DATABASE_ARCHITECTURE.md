@@ -45,7 +45,7 @@ Administrative users who manage the system.
 | `first_name` | `TEXT` | Staff first name. | `NOT NULL` |
 | `last_name` | `TEXT` | Staff last name. | `NOT NULL` |
 | `email` | `TEXT` | Login email address. | `UNIQUE`, `NOT NULL` |
-| `password_hash` | `TEXT` | Securely hashed password. | `NOT NULL` |
+| `password_hash` | `TEXT` | Securely hashed password. | |
 | `role` | `ENUM` | `SUPERADMIN`, `ADMIN`, `STAFF` | Default: `STAFF` |
 | `is_active` | `BOOLEAN` | If false, staff cannot log in. | Default: `TRUE` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
@@ -114,9 +114,11 @@ Temporary tokens for email verification and password setup.
 | Field Name | Type | Description | Key / Constraint |
 | :--- | :--- | :--- | :--- |
 | `token_id` | `UUID` | Primary Key. | **PK**, Default: `gen_random_uuid()` |
-| `account_id` | `UUID` | The account being activated. | **FK** -> `account`, `NOT NULL` |
-| `token` | `UUID` | The secret token sent to the user. | Default: `gen_random_uuid()`, `NOT NULL` |
-| `expires_at` | `TIMESTAMP`| Expiration time. | `NOT NULL` |
+| `account_id` | `UUID` | The account being activated. | **FK** -> `account`, Nullable |
+| `staff_id` | `UUID` | The staff account being activated/reset. | **FK** -> `staff`, Nullable |
+| `is_staff` | `BOOLEAN` | True if this token is for a staff member. | Default: `FALSE` |
+| `token` | `UUID` | The secret token sent to the user/staff. | Default: `gen_random_uuid()`, `NOT NULL` |
+| `expires_at` | `TIMESTAMP`| Expiration time (usually 24h). | `NOT NULL` |
 | `is_used` | `BOOLEAN` | Flag to prevent reuse. | Default: `FALSE` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
@@ -164,6 +166,7 @@ The catalog of available offerings.
 | `type` | `TEXT` | e.g., "Private", "Group". | |
 | `service_type` | `TEXT` | e.g., "SELF", "TRAINING". | |
 | `image_url` | `TEXT` | Public URL of the uploaded image. | |
+| `LessonRegistrationFee` | `DECIMAL` | Registration fee for classes/lessons. | Default: `0.00` |
 
 **RLS Policy**: Filter by `location_id`.
 
@@ -445,3 +448,41 @@ Billing duration definitions.
 **RLS Policy**: Filter by `location_id`.
 
 ---
+### **Table: `waiver_template`**
+Stores waiver document templates which can be mapped to various configurations.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `waiver_template_id`| `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
+| `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
+| `ageprofile_id` | `UUID` | Target age group (Reference). | **FK** -> `age_group` |
+| `subterm_id` | `UUID` | Billing duration (Reference). | **FK** -> `subscription_term` |
+| `base_price_id` | `UUID` | Base pricing (Reference). | **FK** -> `base_price` |
+| `membership_category_id`| `UUID` | Membership category (Reference).| **FK** -> `membership_program_category` |
+| `service_id` | `UUID` | Service (Reference). | **FK** -> `service` |
+| `content` | `TEXT` | The waiver template content string.| `NOT NULL` |
+| `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
+| `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
+| `updated_at` | `TIMESTAMP` | Record update. | Default: `NOW()` |
+
+
+**RLS Policy**: Filter by `location_id`.
+
+### **Table: `signed_waiver`**
+Stored signed waivers linked to profiles.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `signed_waiver_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
+| `profile_id` | `UUID` | Profile who signed. | **FK** -> `profile`, `NOT NULL` |
+| `waiver_template_id` | `UUID` | Template used. | **FK** -> `waiver_template`, `NOT NULL` |
+| `waiver_type` | `TEXT` | Type (SERVICE, MEMBERSHIP, etc). | `NOT NULL` |
+| `content` | `TEXT` | Final rendered HTML content. | `NOT NULL` |
+| `signature_url` | `TEXT` | Public URL of signature image. | `NOT NULL` |
+| `signed_at` | `TIMESTAMPTZ` | When signed. | Default: `now()` |
+| `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
+| `created_at` | `TIMESTAMPTZ` | Record creation. | Default: `now()` |
+| `updated_at` | `TIMESTAMPTZ` | Record update. | Default: `now()` |
+
+**RLS Policy**: Filter by `location_id`.
+

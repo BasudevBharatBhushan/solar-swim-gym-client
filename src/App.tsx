@@ -13,6 +13,7 @@ import { Memberships } from './pages/Settings/Memberships';
 import { DiscountCodes } from './pages/Settings/DiscountCodes';
 import { EmailSettings } from './pages/Settings/EmailSettings';
 import { WaiverPrograms } from './pages/Settings/WaiverPrograms';
+import { WaiverTemplates } from './pages/Settings/WaiverTemplates';
 import { MainLayout } from './components/Layout/MainLayout';
 import { Leads } from './pages/Leads/Leads';
 import { Accounts } from './pages/Accounts/Accounts';
@@ -79,6 +80,7 @@ function App() {
             <Route path="/admin/discounts" element={<MainLayout><DiscountCodes /></MainLayout>} />
             <Route path="/admin/email-settings" element={<MainLayout><EmailSettings /></MainLayout>} />
             <Route path="/admin/settings/waiver-programs" element={<MainLayout><WaiverPrograms /></MainLayout>} />
+            <Route path="/admin/settings/waiver-templates" element={<MainLayout><WaiverTemplates /></MainLayout>} />
 
              {/* Catch all */}
             <Route path="*" element={<Navigate to="/admin/login" replace />} />

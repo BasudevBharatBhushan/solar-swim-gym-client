@@ -14,11 +14,13 @@ import {
   IconButton,
   Chip,
   CircularProgress,
-  Typography
+  Typography,
+  Tooltip
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import SyncIcon from '@mui/icons-material/Sync';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from 'react-router-dom';
 import { ClientOnboardingModal } from './ClientOnboarding/ClientOnboardingModal';
@@ -44,6 +46,7 @@ export const Accounts = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [reindexing, setReindexing] = useState(false);
 
   const fetchAccounts = async () => {
     if (!currentLocationId) return;
@@ -83,9 +86,33 @@ export const Accounts = () => {
   const handleOpenModal = () => setIsModalOpen(true);
   const handleCloseModal = () => setIsModalOpen(false);
   
-  const handleSuccess = () => {
+  const handleSuccess = async () => {
+      // Refresh list
       fetchAccounts();
       handleCloseModal();
+      
+      // Trigger Reindex as requested
+      try {
+          console.log('Triggering automatic reindex after adding client...');
+          await crmService.reindexAccounts(currentLocationId || undefined);
+      } catch (error) {
+          console.error('Failed to trigger automatic reindex', error);
+      }
+  };
+
+  const handleReindex = async () => {
+      if (!currentLocationId || reindexing) return;
+      setReindexing(true);
+      try {
+          await crmService.reindexAccounts(currentLocationId || undefined);
+          // Optional: Show success message or refresh list after reindex
+          fetchAccounts();
+      } catch (error) {
+          console.error('Failed to manually reindex accounts', error);
+          alert('Failed to reindex accounts. Please try again.');
+      } finally {
+          setReindexing(false);
+      }
   };
 
   const getPrimaryProfile = (account: Account) => {
@@ -118,20 +145,45 @@ export const Accounts = () => {
             { label: 'Accounts', active: true }
         ]}
         action={
-            <Button
-              variant="contained"
-              startIcon={<PersonAddIcon />}
-              onClick={handleOpenModal}
-              sx={{
-                bgcolor: '#0f172a',
-                '&:hover': { bgcolor: '#334155' },
-                textTransform: 'none',
-                borderRadius: '8px',
-                px: 3
-              }}
-            >
-              Add Client
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+                <Tooltip title="Update search index for all accounts">
+                    <span>
+                        <Button
+                          variant="outlined"
+                          startIcon={reindexing ? <CircularProgress size={20} color="inherit" /> : <SyncIcon />}
+                          onClick={handleReindex}
+                          disabled={reindexing}
+                          sx={{
+                            borderColor: '#cbd5e1',
+                            color: '#475569',
+                            textTransform: 'none',
+                            borderRadius: '8px',
+                            px: 3,
+                            '&:hover': {
+                                borderColor: '#94a3b8',
+                                bgcolor: '#f8fafc'
+                            }
+                          }}
+                        >
+                          {reindexing ? 'Reindexing...' : 'Reindex'}
+                        </Button>
+                    </span>
+                </Tooltip>
+                <Button
+                  variant="contained"
+                  startIcon={<PersonAddIcon />}
+                  onClick={handleOpenModal}
+                  sx={{
+                    bgcolor: '#0f172a',
+                    '&:hover': { bgcolor: '#334155' },
+                    textTransform: 'none',
+                    borderRadius: '8px',
+                    px: 3
+                  }}
+                >
+                  Add Client
+                </Button>
+            </Box>
         }
       />
 

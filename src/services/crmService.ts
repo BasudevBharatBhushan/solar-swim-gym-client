@@ -79,4 +79,9 @@ export const crmService = {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/cron/reindex-all', {}, options);
   },
+
+  reindexAccounts: async (locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/accounts/reindex', {}, options);
+  },
 };

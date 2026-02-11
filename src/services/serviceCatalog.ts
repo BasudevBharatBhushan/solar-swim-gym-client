@@ -10,6 +10,7 @@ export interface Service {
   is_active?: boolean;
   is_addon_only?: boolean;
   image_url?: string;
+  LessonRegistrationFee?: number;
   packs?: ServicePack[];
 }
 

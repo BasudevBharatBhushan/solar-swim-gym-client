@@ -25,6 +25,7 @@ interface LocalService {
   is_active: boolean;
   is_addon_only?: boolean;
   image_url?: string;
+  LessonRegistrationFee?: number;
 }
 
 // ----------------------------------------------------------------------
@@ -80,8 +81,8 @@ const ServiceListItem = memo(({
 
 
 const ServiceBasicInfo = memo(({
-    name, description, type, serviceType, isActive, imageUrl, isCreating,
-    onNameChange, onDescriptionChange, onTypeChange, onServiceTypeChange, onActiveChange, onSave, onImageUpload
+    name, description, type, serviceType, isActive, imageUrl, lessonRegistrationFee, isCreating,
+    onNameChange, onDescriptionChange, onTypeChange, onServiceTypeChange, onActiveChange, onLessonRegistrationFeeChange, onSave, onImageUpload
 }: any) => {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
@@ -247,22 +248,58 @@ const ServiceBasicInfo = memo(({
                             </TextField>
                         </Grid>
 
-                        <Grid size={{ xs: 12 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#f8fafc', p: 1.5, px: 2, borderRadius: 2, border: '1px solid #f1f5f9', mt: 0.5 }}>
-                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#64748b', fontSize: '0.875rem' }}>Published Status</Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 800, mr: 1.5, color: isActive ? '#10b981' : '#94a3b8', letterSpacing: '0.05em' }}>
-                                        {isActive ? 'ACTIVE' : 'INACTIVE'}
-                                    </Typography>
-                                    <Switch 
-                                        checked={isActive} 
-                                        onChange={(e) => onActiveChange(e.target.checked)} 
-                                        sx={{
-                                            '& .MuiSwitch-switchBase.Mui-checked': { color: '#10b981' },
-                                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#10b981' }
-                                        }}
-                                    />
-                                </Box>
+                        <Grid size={{ xs: 6 }}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, mb: 1, display: 'block', letterSpacing: '0.02em' }}>
+                                Lesson Registration Fee
+                            </Typography>
+                            <TextField 
+                                fullWidth 
+                                type="number"
+                                value={lessonRegistrationFee} 
+                                onChange={(e) => onLessonRegistrationFeeChange(parseFloat(e.target.value) || 0)} 
+                                size="small"
+                                InputProps={{
+                                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                }}
+                                sx={{ 
+                                    '& .MuiOutlinedInput-root': { 
+                                        bgcolor: '#f8fafc', 
+                                        borderRadius: '8px',
+                                        '& fieldset': { borderColor: '#f1f5f9' },
+                                        '& input': { fontWeight: 500 }
+                                    } 
+                                }}
+                            />
+                        </Grid>
+
+                        <Grid size={{ xs: 6 }}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, mb: 1, display: 'block', letterSpacing: '0.02em' }}>
+                                Published Status
+                            </Typography>
+                            <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'space-between', 
+                                bgcolor: '#f8fafc', 
+                                p: 1.5, 
+                                px: 2, 
+                                borderRadius: '8px', 
+                                border: '1px solid #f1f5f9', 
+                                height: '40px',
+                                boxSizing: 'border-box'
+                            }}>
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: isActive ? '#10b981' : '#94a3b8', letterSpacing: '0.05em' }}>
+                                    {isActive ? 'ACTIVE' : 'INACTIVE'}
+                                </Typography>
+                                <Switch 
+                                    checked={isActive} 
+                                    onChange={(e) => onActiveChange(e.target.checked)} 
+                                    size="small"
+                                    sx={{
+                                        '& .MuiSwitch-switchBase.Mui-checked': { color: '#10b981' },
+                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#10b981' }
+                                    }}
+                                />
                             </Box>
                         </Grid>
                     </Grid>
@@ -409,6 +446,7 @@ export const Services = () => {
     const [serviceCategory, setServiceCategory] = useState('TRAINING');
     const [serviceActive, setServiceActive] = useState(true);
     const [serviceImageUrl, setServiceImageUrl] = useState<string>('');
+    const [serviceLessonRegistrationFee, setServiceLessonRegistrationFee] = useState<number>(0);
 
     // Packs State
     const [packs, setPacks] = useState<ServicePack[]>([]);
@@ -471,6 +509,7 @@ export const Services = () => {
         setServiceCategory(service.service_type || 'TRAINING');
         setServiceActive(service.is_active !== false);
         setServiceImageUrl(service.image_url || '');
+        setServiceLessonRegistrationFee(service.LessonRegistrationFee || 0);
         setSelectedPack(null);
         
         // Fetch child data
@@ -487,6 +526,7 @@ export const Services = () => {
         setServiceCategory('TRAINING');
         setServiceActive(true);
         setServiceImageUrl('');
+        setServiceLessonRegistrationFee(0);
         setPacks([]);
     };
 
@@ -502,6 +542,7 @@ export const Services = () => {
                 type: serviceType,
                 service_type: serviceCategory,
                 is_active: serviceActive,
+                LessonRegistrationFee: serviceLessonRegistrationFee,
                 // image_url is not part of upsert payload usually, managed via distinct endpoint, but if backend supports it...
                 // Assuming backend doesn't take image_url in upsert, or ignores it.
             };
@@ -640,12 +681,14 @@ export const Services = () => {
                                 serviceType={serviceCategory} 
                                 isActive={serviceActive} 
                                 imageUrl={serviceImageUrl} 
+                                lessonRegistrationFee={serviceLessonRegistrationFee}
                                 isCreating={isCreatingService}
                                 onNameChange={setServiceName} 
                                 onDescriptionChange={setServiceDesc}
                                 onTypeChange={setServiceType} 
                                 onServiceTypeChange={setServiceCategory} 
                                 onActiveChange={setServiceActive}
+                                onLessonRegistrationFeeChange={setServiceLessonRegistrationFee}
                                 onSave={handleSaveService}
                                 onImageUpload={handleImageUpload}
                             />

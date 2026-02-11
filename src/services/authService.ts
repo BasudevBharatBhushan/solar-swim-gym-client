@@ -25,7 +25,11 @@ export const authService = {
 
   // User Registration (with family members)
   registerUser: async (registrationData: any) => {
-    // registrationData structure: { location_id, primary_profile, family_members }
+    // registrationData structure: { 
+    //   location_id, 
+    //   primary_profile: { ..., signed_waiver_id? }, 
+    //   family_members: [{ ..., signed_waiver_id? }] 
+    // }
     return apiClient.post('/auth/user/register', registrationData);
   },
 

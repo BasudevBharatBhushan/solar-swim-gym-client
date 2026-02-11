@@ -22,11 +22,15 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMe
 
 
   const calculateAge = (dob: string | null) => {
-      if (!dob) return null;
-      const birthDate = new Date(dob);
-      const ageDifMs = Date.now() - birthDate.getTime();
-      const ageDate = new Date(ageDifMs);
-      return Math.abs(ageDate.getUTCFullYear() - 1970);
+    if (!dob) return 0;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
   };
 
   const getAgeProfileLabel = (dob: string | null) => {

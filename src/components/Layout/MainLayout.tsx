@@ -60,124 +60,131 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           gap: 1.5, 
           zIndex: 10 
         }}>
-          {/* Location Selector for Super Admin */}
-          {role === 'SUPERADMIN' && (
-             <FormControl size="small" sx={{ minWidth: 200 }}>
-                <Select
-                  value={currentLocationId || ''}
-                  onChange={(e) => setCurrentLocationId(e.target.value)}
-                  displayEmpty
-                  renderValue={(selected) => {
-                    if (!selected) return (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <LocationOnIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                        <Typography color="text.secondary" variant="body2" sx={{ fontSize: '0.875rem' }}>
-                          Select Location
-                        </Typography>
-                      </Box>
-                    );
-                    const loc = locations.find(l => l.location_id === selected);
-                    return (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <LocationOnIcon sx={{ fontSize: 18, color: '#1976d2' }} />
-                            <Typography variant="body2" sx={{ 
-                              fontWeight: 500, 
-                              color: '#1e293b',
-                              fontSize: '0.875rem'
-                            }}>
-                                {loc?.name}
-                            </Typography>
-                        </Box>
-                    );
-                  }}
-                  sx={{ 
-                      bgcolor: '#ffffff',
-                      borderRadius: '8px',
-                      height: '38px',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                      transition: 'all 0.2s ease',
-                      '& .MuiSelect-select': { 
-                          py: 0,
-                          px: 1.5,
-                          display: 'flex',
-                          alignItems: 'center',
-                          height: '38px',
-                          boxSizing: 'border-box'
-                      },
-                      '& .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#e2e8f0',
-                          borderWidth: '1px'
-                      },
-                      '&:hover': {
-                          boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-                          '& .MuiOutlinedInput-notchedOutline': {
-                              borderColor: '#cbd5e1'
-                          }
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                          borderColor: '#1976d2',
-                          borderWidth: '1px'
-                      }
-                  }}
-                  MenuProps={{
-                      PaperProps: {
-                          sx: {
-                              mt: 0.5,
-                              borderRadius: '8px',
-                              boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
-                              maxHeight: 400,
-                              border: '1px solid #e2e8f0'
-                          }
-                      }
-                  }}
-                >
-                  <MenuItem value="" disabled sx={{ display: 'none' }}>Select Location</MenuItem>
-                  {locations.map((loc: Location) => (
-                    <MenuItem 
-                        key={loc.location_id} 
-                        value={loc.location_id}
-                        sx={{ 
-                            py: 1.25, 
-                            px: 2,
-                            borderBottom: '1px solid #f1f5f9', 
-                            '&:last-child': { borderBottom: 0 },
-                            '&.Mui-selected': {
-                                bgcolor: '#eff6ff',
-                                '&:hover': { bgcolor: '#dbeafe' }
-                            },
-                            '&:hover': {
-                                bgcolor: '#f8fafc'
-                            }
-                        }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, width: '100%' }}>
-                        <LocationOnIcon sx={{ fontSize: 20, color: '#1976d2', mt: 0.25 }} />
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="body2" sx={{ 
-                            fontWeight: 600, 
-                            color: '#1e293b', 
-                            mb: 0.25,
-                            fontSize: '0.875rem'
-                          }}>
-                            {loc.name}
-                          </Typography>
-                          {loc.address && (
-                            <Typography variant="caption" sx={{ 
-                              display: 'block', 
-                              lineHeight: 1.4,
-                              color: '#64748b',
-                              fontSize: '0.75rem'
-                            }}>
-                              {loc.address}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-             </FormControl>
-          )}
+          {/* Location Selector */}
+          <FormControl size="small" sx={{ minWidth: 200 }}>
+             <Select
+               value={currentLocationId || ''}
+               onChange={(e) => setCurrentLocationId(e.target.value as string)}
+               disabled={role !== 'SUPERADMIN'}
+               displayEmpty
+               renderValue={(selected) => {
+                 if (!selected) return (
+                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                     <LocationOnIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+                     <Typography color="text.secondary" variant="body2" sx={{ fontSize: '0.875rem' }}>
+                       Select Location
+                     </Typography>
+                   </Box>
+                 );
+                 const loc = locations.find(l => l.location_id === selected);
+                 return (
+                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                         <LocationOnIcon sx={{ fontSize: 18, color: role === 'SUPERADMIN' ? '#1976d2' : '#64748b' }} />
+                         <Typography variant="body2" sx={{ 
+                           fontWeight: 500, 
+                           color: '#1e293b',
+                           fontSize: '0.875rem'
+                         }}>
+                             {loc?.name || 'Select Location'}
+                         </Typography>
+                     </Box>
+                 );
+               }}
+               sx={{ 
+                   bgcolor: role === 'SUPERADMIN' ? '#ffffff' : '#f8fafc',
+                   borderRadius: '8px',
+                   height: '38px',
+                   boxShadow: role === 'SUPERADMIN' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                   transition: 'all 0.2s ease',
+                   '&.Mui-disabled': {
+                       bgcolor: '#f1f5f9',
+                       cursor: 'not-allowed',
+                       borderColor: '#e2e8f0',
+                       '& .MuiOutlinedInput-notchedOutline': {
+                           borderColor: '#e2e8f0'
+                       }
+                   },
+                   '& .MuiSelect-select': { 
+                       py: 0,
+                       px: 1.5,
+                       display: 'flex',
+                       alignItems: 'center',
+                       height: '38px',
+                       boxSizing: 'border-box'
+                   },
+                   '& .MuiOutlinedInput-notchedOutline': {
+                       borderColor: '#e2e8f0',
+                       borderWidth: '1px'
+                   },
+                   '&:hover': role === 'SUPERADMIN' ? {
+                       boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                       '& .MuiOutlinedInput-notchedOutline': {
+                           borderColor: '#cbd5e1'
+                       }
+                   } : {},
+                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                       borderColor: '#1976d2',
+                       borderWidth: '1px'
+                   }
+               }}
+               MenuProps={{
+                   PaperProps: {
+                       sx: {
+                           mt: 0.5,
+                           borderRadius: '8px',
+                           boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+                           maxHeight: 400,
+                           border: '1px solid #e2e8f0'
+                       }
+                   }
+               }}
+             >
+               <MenuItem value="" disabled sx={{ display: 'none' }}>Select Location</MenuItem>
+               {locations.map((loc: Location) => (
+                 <MenuItem 
+                     key={loc.location_id} 
+                     value={loc.location_id}
+                     sx={{ 
+                         py: 1.25, 
+                         px: 2,
+                         borderBottom: '1px solid #f1f5f9', 
+                         '&:last-child': { borderBottom: 0 },
+                         '&.Mui-selected': {
+                             bgcolor: '#eff6ff',
+                             '&:hover': { bgcolor: '#dbeafe' }
+                         },
+                         '&:hover': {
+                             bgcolor: '#f8fafc'
+                         }
+                     }}
+                 >
+                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, width: '100%' }}>
+                     <LocationOnIcon sx={{ fontSize: 20, color: '#1976d2', mt: 0.25 }} />
+                     <Box sx={{ flex: 1 }}>
+                       <Typography variant="body2" sx={{ 
+                         fontWeight: 600, 
+                         color: '#1e293b', 
+                         mb: 0.25,
+                         fontSize: '0.875rem'
+                       }}>
+                         {loc.name}
+                       </Typography>
+                       {loc.address && (
+                         <Typography variant="caption" sx={{ 
+                           display: 'block', 
+                           lineHeight: 1.4,
+                           color: '#64748b',
+                           fontSize: '0.75rem'
+                         }}>
+                           {loc.address}
+                         </Typography>
+                       )}
+                     </Box>
+                   </Box>
+                 </MenuItem>
+               ))}
+             </Select>
+          </FormControl>
 
           <Button 
             onClick={handleLogout}

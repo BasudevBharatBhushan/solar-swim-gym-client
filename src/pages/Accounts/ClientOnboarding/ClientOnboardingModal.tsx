@@ -9,13 +9,17 @@ import {
   StepLabel,
   Button,
   Box,
-  Typography
+  Typography,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { ProfileStep } from './Steps/ProfileStep';
 import { FamilyStep } from './Steps/FamilyStep';
 import { ReviewStep } from './Steps/ReviewStep';
+import { WaiverSigningStep } from './Steps/WaiverSigningStep';
 import { authService } from '../../../services/authService';
 import { useAuth } from '../../../context/AuthContext';
+
 
 interface ClientOnboardingModalProps {
   open: boolean;
@@ -23,12 +27,15 @@ interface ClientOnboardingModalProps {
   onSuccess: () => void;
 }
 
-const steps = ['Profile', 'Family Details', 'Review'];
+const steps = ['Profile', 'Family Details', 'Waiver Signing', 'Review'];
 
 export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess }) => {
   const [activeStep, setActiveStep] = useState(0);
-  const { currentLocationId } = useAuth();
+  const { currentLocationId, locations } = useAuth();
   
+  const currentLocation = locations.find(loc => loc.location_id === currentLocationId);
+  const locationName = currentLocation ? currentLocation.name : 'Zalexy';
+
   // Form Data State
   const [profileData, setProfileData] = useState({
     first_name: '',
@@ -36,13 +43,34 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     email: '',
     mobile: '',
     date_of_birth: null,
-    family_count: 1
+    family_count: 1,
+    // ... other fields
   });
 
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [signedWaivers, setSignedWaivers] = useState<Record<string, string>>({});
+  const [allSigned, setAllSigned] = useState(false);
 
   const [errors, setErrors] = useState<any>({});
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'error' | 'success' | 'warning' | 'info' }>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+
+  const showToast = (message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'error') => {
+    setToast({ open: true, message, severity });
+  };
+
+  const handleCloseToast = () => {
+    setToast(prev => ({ ...prev, open: false }));
+  };
+
+  // Debugging state sync
+  React.useEffect(() => {
+    console.log("Parent signedWaivers state updated:", signedWaivers);
+  }, [signedWaivers]);
 
   const updateProfileData = (key: string, value: any) => {
     setProfileData(prev => ({ ...prev, [key]: value }));
@@ -64,9 +92,12 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
   const validateFamily = () => {
       // Basic check: Ensure names are filled if a member entry exists
-      // We can iterate and check, but for now we'll allow empty to mean "ignore" or enforce "first name required"
-      // Logic could be added here if we want strict validation on family members
       return true;
+  };
+  
+  const validateWaivers = () => {
+      console.log("Validating Waivers. Step reported allSigned:", allSigned, "Signatures:", signedWaivers);
+      return allSigned;
   };
 
   const handleNext = () => {
@@ -75,6 +106,16 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     }
     if (activeStep === 1) {
         if (!validateFamily()) return;
+        
+        // Filter empty family members before proceeding to waiver step?
+        // Or keep them but only require waivers for valid ones. 
+        // Logic in WaiverStep handles the list passed to it.
+    }
+    if (activeStep === 2) {
+        if (!validateWaivers()) {
+            showToast("Please sign all waivers to proceed.", "warning");
+            return;
+        }
     }
     
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
@@ -101,11 +142,9 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 waiver_program_id: (profileData as any).waiver_program_id,
                 case_manager_name: (profileData as any).case_manager_name,
                 case_manager_email: (profileData as any).case_manager_email,
-                // These are placeholders as they might be required by backend validation but not in UI yet
-                // emergency_contact_name: "",
-                // emergency_contact_phone: ""
+                signed_waiver_id: signedWaivers['primary']
               },
-              family_members: validFamilyMembers.map(m => ({
+              family_members: validFamilyMembers.map((m, idx) => ({
                   first_name: m.first_name,
                   last_name: m.last_name,
                   date_of_birth: m.date_of_birth,
@@ -115,7 +154,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                   case_manager_email: m.case_manager_email || undefined,
                   guardian_name: m.guardian_name || undefined,
                   guardian_mobile: m.guardian_mobile || undefined,
-                  emergency_contact_phone: m.emergency_phone || undefined
+                  emergency_contact_phone: m.emergency_phone || undefined,
+                  signed_waiver_id: signedWaivers[`family_${idx}`]
               }))
           };
 
@@ -137,9 +177,10 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
             family_count: 1
           });
           setFamilyMembers([]);
-      } catch (error) {
+          setSignedWaivers({});
+      } catch (error: any) {
           console.error("Registration failed", error);
-          alert("Failed to create account. Please check the console or try again.");
+          showToast(error.message || "Failed to create account. Please try again.", "error");
       } finally {
           setLoading(false);
       }
@@ -160,6 +201,17 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
             />
         );
       case 2:
+          // Filter valid members to pass to WaiverStep
+          const validMembers = familyMembers.filter(m => m.first_name && m.last_name);
+          return (
+            <WaiverSigningStep 
+                primaryProfile={profileData}
+                familyMembers={validMembers}
+                onWaiversSigned={setSignedWaivers}
+                onAllSigned={setAllSigned}
+            />
+          );
+      case 3:
         return <ReviewStep primaryProfile={profileData} familyMembers={familyMembers} />;
       default:
         return <Typography>Unknown step</Typography>;
@@ -167,9 +219,9 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
       <DialogTitle sx={{ textAlign: 'center', pb: 0 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Join Zalexy</Typography>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>Join {locationName}</Typography>
       </DialogTitle>
       
       <DialogContent sx={{ mt: 2 }}>
@@ -184,6 +236,17 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
         <Box sx={{ minHeight: '300px', p: 1 }}>
             {renderStepContent(activeStep)}
         </Box>
+
+        <Snackbar 
+            open={toast.open} 
+            autoHideDuration={6000} 
+            onClose={handleCloseToast}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+            <Alert onClose={handleCloseToast} severity={toast.severity} variant="filled" sx={{ width: '100%' }}>
+                {toast.message}
+            </Alert>
+        </Snackbar>
       </DialogContent>
 
       <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>

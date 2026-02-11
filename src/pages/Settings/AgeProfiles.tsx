@@ -18,7 +18,10 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  Stack
+  Stack,
+  FormControlLabel,
+  Checkbox,
+  Chip
 } from '@mui/material';
 import { EditOutlined, DeleteOutline, Add, InfoOutlined } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
@@ -56,7 +59,8 @@ export const AgeProfiles = () => {
     setCurrentProfile(profile || { 
       name: '', 
       min_age: '', 
-      max_age: ''
+      max_age: '',
+      accept_guardian_information: false
     });
     setOpenDialog(true);
   };
@@ -71,7 +75,8 @@ export const AgeProfiles = () => {
       const payload: any = {
         name: currentProfile.name,
         min_age: parseFloat(currentProfile.min_age),
-        max_age: parseFloat(currentProfile.max_age)
+        max_age: parseFloat(currentProfile.max_age),
+        accept_guardian_information: currentProfile.accept_guardian_information || false
       };
 
       if (currentProfile.age_group_id) {
@@ -142,6 +147,7 @@ export const AgeProfiles = () => {
               <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }}>Profile Name</TableCell>
               <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }} align="center">Min Age</TableCell>
               <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }} align="center">Max Age</TableCell>
+              <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }} align="center">Guardian Info</TableCell>
               <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase' }} align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -153,6 +159,13 @@ export const AgeProfiles = () => {
                 </TableCell>
                 <TableCell align="center">{row.min_age}</TableCell>
                 <TableCell align="center">{row.max_age}</TableCell>
+                <TableCell align="center">
+                    {row.accept_guardian_information ? (
+                        <Chip label="Required" size="small" color="primary" variant="outlined" />
+                    ) : (
+                        <span style={{ color: '#ccc' }}>-</span>
+                    )}
+                </TableCell>
 
                 <TableCell align="right">
                   <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ mr: 1, color: 'text.secondary' }}>
@@ -166,7 +179,7 @@ export const AgeProfiles = () => {
             ))}
             {data.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                   No age profiles found.
                 </TableCell>
               </TableRow>
@@ -211,17 +224,27 @@ export const AgeProfiles = () => {
                         label="Min Age" 
                         type="number" 
                         fullWidth 
-                        value={currentProfile.min_age || ''}
+                        value={currentProfile.min_age ?? ''}
                         onChange={(e) => setCurrentProfile({...currentProfile, min_age: e.target.value})}
                     />
                     <TextField 
                         label="Max Age" 
                         type="number" 
                         fullWidth 
-                        value={currentProfile.max_age || ''}
+                        value={currentProfile.max_age ?? ''}
                         onChange={(e) => setCurrentProfile({...currentProfile, max_age: e.target.value})}
                     />
                 </Stack>
+                
+                <FormControlLabel
+                    control={
+                        <Checkbox
+                            checked={currentProfile.accept_guardian_information || false}
+                            onChange={(e) => setCurrentProfile({...currentProfile, accept_guardian_information: e.target.checked})}
+                        />
+                    }
+                    label="Accept Guardian Information"
+                />
 
             </Stack>
         </DialogContent>

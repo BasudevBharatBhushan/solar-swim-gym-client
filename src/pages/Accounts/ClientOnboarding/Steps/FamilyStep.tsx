@@ -70,16 +70,20 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
   };
 
   const calculateAge = (dob: string | null) => {
-      if (!dob) return null;
-      const birthDate = new Date(dob);
-      const ageDifMs = Date.now() - birthDate.getTime();
-      const ageDate = new Date(ageDifMs);
-      return Math.abs(ageDate.getUTCFullYear() - 1970);
+    if (!dob) return 0;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
   };
 
   const getAgeProfile = (dob: string | null) => {
       const age = calculateAge(dob);
-      if (age === null) return null;
+      if (dob === null) return null;
       return ageGroups.find(g => {
           const min = g.min_age ?? 0;
           const max = g.max_age ?? 999;

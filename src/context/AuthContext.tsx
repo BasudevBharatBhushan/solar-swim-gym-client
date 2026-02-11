@@ -31,12 +31,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 
   // Global Location State
-  const [locations, setLocationsState] = useState<Location[]>([]);
+  const [locations, setLocationsState] = useState<Location[]>(() => {
+    const savedLocations = sessionStorage.getItem('locations');
+    return savedLocations ? JSON.parse(savedLocations) : [];
+  });
   const [currentLocationId, setCurrentLocationIdState] = useState<string | null>(
     sessionStorage.getItem('currentLocationId')
   );
 
   const setLocations = (newLocations: Location[]) => {
+    sessionStorage.setItem('locations', JSON.stringify(newLocations));
     setLocationsState(newLocations);
   };
 
@@ -55,6 +59,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setRole(newRole);
     setLoginId(newLoginId);
     setUserParams(newParams);
+
+    // If the login response includes location details, set them
+    if (newParams.location && newParams.location_id) {
+        const userLocation: Location = {
+            location_id: newParams.location_id,
+            name: newParams.location.name,
+            address: newParams.location.address
+        };
+        setLocations([userLocation]);
+        setCurrentLocationId(newParams.location_id);
+    }
   };
 
   const logout = () => {
@@ -63,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     sessionStorage.removeItem('loginId');
     sessionStorage.removeItem('userParams');
     sessionStorage.removeItem('currentLocationId');
+    sessionStorage.removeItem('locations');
 
     setToken(null);
     setRole(null);
