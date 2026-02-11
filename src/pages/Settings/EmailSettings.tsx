@@ -108,7 +108,7 @@ export const EmailSettings = () => {
                 title="Email Settings"
                 description="Configure your SMTP server and email automation preferences to ensure reliable student communications and reliable notification delivery."
                 breadcrumbs={[
-                    { label: 'Settings', href: '/settings' },
+                    { label: 'Settings', href: '/admin/settings' },
                     { label: 'Email SMTP', active: true }
                 ]}
             />

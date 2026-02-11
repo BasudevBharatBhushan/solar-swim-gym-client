@@ -486,3 +486,21 @@ Stored signed waivers linked to profiles.
 
 **RLS Policy**: Filter by `location_id`.
 
+---
+## **8. Utility & Configuration**
+
+### **Table: `dropdown_values`**
+Stores configurable dropdown values for various modules.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `dropdown_id` | `UUID` | Unique identifier. | **PK**, Default: `gen_random_uuid()` |
+| `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
+| `module` | `TEXT` | Module name (e.g., "Services"). | `NOT NULL` |
+| `label` | `TEXT` | Field label (e.g., "Category"). | `NOT NULL` |
+| `value` | `TEXT` | The value (e.g., "Training"). | `NOT NULL` |
+| `created_at` | `TIMESTAMPTZ`| Record creation timestamp. | Default: `now()` |
+| `updated_at` | `TIMESTAMPTZ`| Record update timestamp. | Default: `now()` |
+
+**RLS Policy**: Filter by `location_id`.
+

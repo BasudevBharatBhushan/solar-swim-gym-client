@@ -682,6 +682,213 @@
                         }
                     },
                     "response": []
+                },
+                {
+                    "name": "Dropdown Values",
+                    "item": [
+                        {
+                            "name": "Get All Dropdown Values",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-location-id",
+                                        "value": "{{lastLocationId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/dropdown-values",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "dropdown-values"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get Filtered Dropdown Values",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-location-id",
+                                        "value": "{{lastLocationId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/dropdown-values?module=Services&label=Category",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "dropdown-values"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "module",
+                                            "value": "Services"
+                                        },
+                                        {
+                                            "key": "label",
+                                            "value": "Category"
+                                        }
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Upsert Dropdown Value",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{adminToken}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "x-location-id",
+                                        "value": "{{lastLocationId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"module\": \"Services\",\n    \"label\": \"Category\",\n    \"value\": \"Training\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/dropdown-values/upsert",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "dropdown-values",
+                                        "upsert"
+                                    ]
+                                }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Delete Dropdown Value",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{adminToken}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "x-location-id",
+                                        "value": "{{lastLocationId}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/dropdown-values/:id",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "dropdown-values",
+                                        ":id"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "{{lastDropdownId}}"
+                                        }
+                                    ]
+                                }
+                            },
+                            "response": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Waiver Templates",
+            "item": [
+                {
+                    "name": "Get All Waiver Templates",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/waiver-templates",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "waiver-templates"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Waiver Template by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/waiver-templates/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "waiver-templates",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "{{lastWaiverTemplateId}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Upsert Waiver Template",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"ageprofile_id\": \"{{lastAgeGroupId}}\",\n    \"subterm_id\": \"{{lastTermId}}\",\n    \"base_price_id\": \"{{lastBasePriceId}}\",\n    \"membership_category_id\": \"{{lastCategoryId}}\",\n    \"service_id\": \"{{lastServiceId}}\",\n    \"content\": \"This is a sample waiver template content string.\",\n    \"is_active\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/waiver-templates/upsert",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "waiver-templates",
+                                "upsert"
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         },
@@ -830,7 +1037,7 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson\",\n    \"description\": \"Group swimming lesson for beginners\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false\n}",
+                            "raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson\",\n    \"description\": \"Group swimming lesson for beginners\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false,\n    \"LessonRegistrationFee\": 25.00\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -856,7 +1063,7 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"service_id\": \"{{lastServiceId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson Updated\",\n    \"description\": \"Updated description\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false\n}",
+                            "raw": "{\n    \"service_id\": \"{{lastServiceId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Swimming Lesson Updated\",\n    \"description\": \"Updated description\",\n    \"service_type\": \"class\",\n    \"is_addon_only\": false,\n    \"LessonRegistrationFee\": 30.00\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1554,6 +1761,89 @@
                     "response": []
                 }
             ]
+        },
+        {
+            "name": "Signed Waivers",
+            "item": [
+                {
+                    "name": "Upload Signature",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "file",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/signed-waivers/signature",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "signed-waivers",
+                                "signature"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Upsert Signed Waiver",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"profile_id\": \"{{lastProfileId}}\",\n    \"waiver_template_id\": \"{{lastWaiverTemplateId}}\",\n    \"waiver_type\": \"SERVICE\",\n    \"content\": \"<html>Signed Content</html>\",\n    \"signature_url\": \"https://example.com/sig.png\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/signed-waivers/upsert",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "signed-waivers",
+                                "upsert"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Signed Waivers by Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/signed-waivers?profile_id={{lastProfileId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "signed-waivers"
+                            ],
+                            "query": [
+                                {
+                                    "key": "profile_id",
+                                    "value": "{{lastProfileId}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
         }
     ],
     "auth": {
@@ -1586,6 +1876,7 @@
                     "    if (jsonData.membership_program_id) pm.environment.set(\"lastMembershipProgramId\", jsonData.membership_program_id);",
                     "    if (jsonData.account_id) pm.environment.set(\"lastAccountId\", jsonData.account_id);",
                     "    if (jsonData.profile_id) pm.environment.set(\"lastProfileId\", jsonData.profile_id);",
+                    "    if (jsonData.signed_waiver_id) pm.environment.set(\"lastSignedWaiverId\", jsonData.signed_waiver_id);",
                     "}"
                 ]
             }

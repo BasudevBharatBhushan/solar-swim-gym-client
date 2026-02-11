@@ -125,7 +125,7 @@ export const AgeProfiles = () => {
         title="Age Profiles Management" 
         description="Define and manage age ranges for membership subscriptions."
         breadcrumbs={[
-            { label: 'Settings', href: '/settings' },
+            { label: 'Settings', href: '/admin/settings' },
             { label: 'Age Profiles', active: true }
         ]}
         action={
@@ -135,7 +135,7 @@ export const AgeProfiles = () => {
                 onClick={() => handleOpenDialog()}
                 sx={{ px: 3 }}
             >
-                Add New Profile
+                Add New Age Profile
             </Button>
         }
       />
@@ -208,7 +208,7 @@ export const AgeProfiles = () => {
         aria-labelledby="age-profile-dialog-title"
       >
         <DialogTitle id="age-profile-dialog-title">
-          {currentProfile.age_group_id ? 'Edit Profile' : 'Add New Profile'}
+          {currentProfile.age_group_id ? 'Edit Age Profile' : 'Add New Age Profile'}
         </DialogTitle>
         <DialogContent dividers>
             <Stack spacing={3} sx={{ mt: 1 }}>
@@ -243,7 +243,7 @@ export const AgeProfiles = () => {
                             onChange={(e) => setCurrentProfile({...currentProfile, accept_guardian_information: e.target.checked})}
                         />
                     }
-                    label="Accept Guardian Information"
+                    label="Require Guardian Information"
                 />
 
             </Stack>

@@ -87,10 +87,7 @@ export const Accounts = () => {
   const handleCloseModal = () => setIsModalOpen(false);
   
   const handleSuccess = async () => {
-      // Refresh list
-      fetchAccounts();
-      handleCloseModal();
-      
+      setLoading(true);
       // Trigger Reindex as requested
       try {
           console.log('Triggering automatic reindex after adding client...');
@@ -98,6 +95,15 @@ export const Accounts = () => {
       } catch (error) {
           console.error('Failed to trigger automatic reindex', error);
       }
+
+      // Refresh list
+      // Reset to first page to see the new client
+      if (page !== 0) {
+          setPage(0); 
+      } else {
+          fetchAccounts();
+      }
+      handleCloseModal();
   };
 
   const handleReindex = async () => {

@@ -170,7 +170,7 @@ export const DiscountCodes = () => {
                 title="Discount Code Management"
                 description="Create, monitor, and manage promotional offers for swim programs."
                 breadcrumbs={[
-                    { label: 'Settings', href: '/settings' },
+                    { label: 'Settings', href: '/admin/settings' },
                     { label: 'Discount Codes', active: true }
                 ]}
                 action={
@@ -201,8 +201,8 @@ export const DiscountCodes = () => {
 
             <Grid container spacing={3}>
                 {/* Left Column: List */}
-                <Grid size={{ xs: 12, md: 8 }}>
-                    <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #E0E0E0', minHeight: 600 }}>
+                <Grid size={{ xs: 12, md: 8 }} sx={{ display: 'flex' }}>
+                    <Paper sx={{ flex: 1, p: 2, borderRadius: 2, border: '1px solid #E0E0E0', minHeight: 400 }}>
                         {/* Toolbar */}
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Tabs 
@@ -320,8 +320,8 @@ export const DiscountCodes = () => {
                 </Grid>
 
                 {/* Right Column: Define/Edit Discount */}
-                <Grid size={{ xs: 12, md: 4 }}>
-                    <Paper sx={{ p: 3, borderRadius: 2, border: '1px solid #E0E0E0' }}>
+                <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
+                    <Paper sx={{ flex: 1, p: 3, borderRadius: 2, border: '1px solid #E0E0E0', minHeight: 400 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
                             <Box sx={{ bgcolor: '#42A5F5', borderRadius: '50%', color: 'white', p: 0.5, display: 'flex' }}>
                                 {editingDiscountId ? <Edit sx={{ fontSize: 20 }} /> : <Add sx={{ fontSize: 20 }} />}

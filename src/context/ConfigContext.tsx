@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { configService } from '../services/configService';
+import { dropdownService, DropdownValue } from '../services/dropdownService';
 import { useAuth } from './AuthContext';
 
 // Types
@@ -20,6 +21,7 @@ export interface SubscriptionTerm {
   duration_months?: number;
   payment_mode?: 'RECURRING' | 'PAY_IN_FULL';
   recurrence_unit?: string;
+  recurrence_unit_value?: number;
 }
 
 export interface WaiverProgram {
@@ -33,11 +35,13 @@ interface ConfigContextType {
   ageGroups: AgeGroup[];
   subscriptionTerms: SubscriptionTerm[];
   waiverPrograms: WaiverProgram[];
+  dropdownValues: DropdownValue[];
   loading: boolean;
   error: string | null;
   refreshAgeGroups: () => Promise<void>;
   refreshSubscriptionTerms: () => Promise<void>;
   refreshWaiverPrograms: () => Promise<void>;
+  refreshDropdownValues: () => Promise<void>;
   refreshAll: () => Promise<void>;
 }
 
@@ -48,12 +52,13 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([]);
   const [subscriptionTerms, setSubscriptionTerms] = useState<SubscriptionTerm[]>([]);
   const [waiverPrograms, setWaiverPrograms] = useState<WaiverProgram[]>([]);
+  const [dropdownValues, setDropdownValues] = useState<DropdownValue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
 
   // Fetch Age Groups
-  const refreshAgeGroups = async () => {
+  const refreshAgeGroups = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -65,10 +70,10 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Fetch Subscription Terms
-  const refreshSubscriptionTerms = async () => {
+  const refreshSubscriptionTerms = useCallback(async () => {
     if (!currentLocationId) {
       setSubscriptionTerms([]);
       return;
@@ -85,34 +90,50 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentLocationId]);
 
   // Fetch Waiver Programs
-  const refreshWaiverPrograms = async () => {
+  const refreshWaiverPrograms = useCallback(async () => {
     try {
       const data = await configService.getWaiverPrograms(currentLocationId || undefined);
       setWaiverPrograms(data || []);
     } catch (err: any) {
       console.error('Error fetching waiver programs:', err);
     }
-  };
+  }, [currentLocationId]);
 
-  // Refresh both
-  const refreshAll = async () => {
+  // Fetch Dropdown Values
+  const refreshDropdownValues = useCallback(async () => {
+    if (!currentLocationId) {
+      setDropdownValues([]);
+      return;
+    }
+    try {
+      const data = await dropdownService.getAll(currentLocationId);
+      setDropdownValues(data || []);
+    } catch (err: any) {
+      console.error('Error fetching dropdown values:', err);
+      // Don't block the UI for this, just log it
+    }
+  }, [currentLocationId]);
+
+  // Refresh all
+  const refreshAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       await Promise.all([
         refreshAgeGroups(),
         refreshSubscriptionTerms(),
-        refreshWaiverPrograms()
+        refreshWaiverPrograms(),
+        refreshDropdownValues()
       ]);
     } catch (err: any) {
       setError(err.message || 'Failed to refresh configuration');
     } finally {
       setLoading(false);
     }
-  };
+  }, [refreshAgeGroups, refreshSubscriptionTerms, refreshWaiverPrograms, refreshDropdownValues]);
 
   // Initial load when location changes
   useEffect(() => {
@@ -123,11 +144,13 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     ageGroups,
     subscriptionTerms,
     waiverPrograms,
+    dropdownValues,
     loading,
     error,
     refreshAgeGroups,
     refreshSubscriptionTerms,
     refreshWaiverPrograms,
+    refreshDropdownValues,
     refreshAll
   };
 

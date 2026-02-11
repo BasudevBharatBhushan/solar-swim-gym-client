@@ -93,10 +93,10 @@ export const WaiverPrograms = () => {
     return (
         <Box sx={{ width: '100%' }}>
             <PageHeader 
-                title="State Waiver Programs" 
+                title="Regional Center Programs" 
                 description="Manage government or partner-funded waiver programs available at this location."
                 breadcrumbs={[
-                    { label: 'Settings', href: '/' },
+                    { label: 'Settings', href: '/admin/settings' },
                     { label: 'Waiver Programs', active: true }
                 ]}
                 action={

@@ -11,9 +11,19 @@ interface WaiverPreviewProps {
   agreed: boolean;
   onAgreeChange: (checked: boolean) => void;
   signatureComponent?: React.ReactNode;
+  hideCheckbox?: boolean;
+  fullHeight?: boolean;
 }
 
-export const WaiverPreview: React.FC<WaiverPreviewProps> = ({ content, data, agreed, onAgreeChange, signatureComponent }) => {
+export const WaiverPreview: React.FC<WaiverPreviewProps> = ({ 
+  content, 
+  data, 
+  agreed, 
+  onAgreeChange, 
+  signatureComponent,
+  hideCheckbox = false,
+  fullHeight = false
+}) => {
   // Variable replacement and HTML split
   const processContent = () => {
     let html = content;
@@ -55,20 +65,31 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({ content, data, agr
 
   return (
     <Box>
-      <Card variant="outlined" sx={{ maxHeight: 400, overflowY: 'auto', p: 3, mb: 2, backgroundColor: '#f8fafc' }}>
+      <Card 
+        variant="outlined" 
+        sx={{ 
+            maxHeight: fullHeight ? 'none' : 400, 
+            overflowY: fullHeight ? 'visible' : 'auto', 
+            p: 3, 
+            mb: hideCheckbox ? 0 : 2, 
+            backgroundColor: '#f8fafc' 
+        }}
+      >
         {processContent()}
       </Card>
       
-      <FormControlLabel
-        control={
-          <Checkbox 
-            checked={agreed} 
-            onChange={(e) => onAgreeChange(e.target.checked)} 
-            color="primary"
-          />
-        }
-        label="I have read and agree to the terms above"
-      />
+      {!hideCheckbox && (
+        <FormControlLabel
+          control={
+            <Checkbox 
+              checked={agreed} 
+              onChange={(e) => onAgreeChange(e.target.checked)} 
+              color="primary"
+            />
+          }
+          label="I have read and agree to the terms above"
+        />
+      )}
     </Box>
   );
 };

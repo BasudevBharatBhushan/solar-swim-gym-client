@@ -14,28 +14,24 @@ import { DiscountCodes } from './pages/Settings/DiscountCodes';
 import { EmailSettings } from './pages/Settings/EmailSettings';
 import { WaiverPrograms } from './pages/Settings/WaiverPrograms';
 import { WaiverTemplates } from './pages/Settings/WaiverTemplates';
+import { DropdownValues } from './pages/Settings/DropdownValues';
 import { MainLayout } from './components/Layout/MainLayout';
 import { Leads } from './pages/Leads/Leads';
 import { Accounts } from './pages/Accounts/Accounts';
 import { AccountDetail } from './pages/Accounts/AccountDetail';
 import { Marketplace } from './pages/Marketplace/Marketplace';
-import { Typography } from '@mui/material';
 import { ActivateAccount } from './pages/ActivateAccount';
 import { UserLogin } from './pages/UserLogin';
 import { UserPortalLayout } from './components/Layout/UserPortalLayout';
 import { MyAccount } from './pages/Portal/MyAccount';
-
-
-
 import { LayoutProvider } from './context/LayoutContext';
-
 import { StaffManagement } from './pages/Settings/StaffManagement';
 import { AdminActivation } from './pages/AdminActivation';
 
-// Placeholder Component
-const Placeholder = ({ title }: { title: string }) => (
-  <Typography variant="h4">{title} (Coming Soon)</Typography>
-);
+
+
+import { ComingSoon } from './components/Common/ComingSoon';
+import { CreditCard, AccountBox, Subscriptions } from '@mui/icons-material';
 
 function App() {
   return (
@@ -72,15 +68,17 @@ function App() {
             <Route path="/admin/accounts" element={<MainLayout><Accounts /></MainLayout>} />
             <Route path="/admin/accounts/:accountId" element={<MainLayout><AccountDetail /></MainLayout>} />
             <Route path="/admin/accounts/:accountId/marketplace" element={<MainLayout><Marketplace /></MainLayout>} />
-            <Route path="/admin/profiles" element={<MainLayout><Placeholder title="Profiles" /></MainLayout>} />
+            <Route path="/admin/profiles" element={<MainLayout><ComingSoon title="Profiles" icon={<AccountBox sx={{ fontSize: 60, color: '#3b82f6' }} />} breadcrumbs={[{ label: 'System', href: '/admin' }, { label: 'Profiles', active: true }]} /></MainLayout>} />
             <Route path="/admin/staff" element={<MainLayout><StaffManagement /></MainLayout>} />
-            <Route path="/admin/subscription" element={<MainLayout><Placeholder title="Subscription" /></MainLayout>} />
+            <Route path="/admin/subscription" element={<MainLayout><ComingSoon title="Subscription" icon={<Subscriptions sx={{ fontSize: 60, color: '#3b82f6' }} />} breadcrumbs={[{ label: 'System', href: '/admin' }, { label: 'Subscription', active: true }]} /></MainLayout>} />
+            <Route path="/admin/billing" element={<MainLayout><ComingSoon title="Billing" icon={<CreditCard sx={{ fontSize: 60, color: '#3b82f6' }} />} breadcrumbs={[{ label: 'Settings', href: '/admin/settings' }, { label: 'Billing', active: true }]} /></MainLayout>} />
             <Route path="/admin/services" element={<MainLayout><Services /></MainLayout>} />
             <Route path="/admin/memberships"  element={<MainLayout><Memberships /></MainLayout>} />
             <Route path="/admin/discounts" element={<MainLayout><DiscountCodes /></MainLayout>} />
             <Route path="/admin/email-settings" element={<MainLayout><EmailSettings /></MainLayout>} />
             <Route path="/admin/settings/waiver-programs" element={<MainLayout><WaiverPrograms /></MainLayout>} />
             <Route path="/admin/settings/waiver-templates" element={<MainLayout><WaiverTemplates /></MainLayout>} />
+            <Route path="/admin/settings/dropdown-values" element={<MainLayout><DropdownValues /></MainLayout>} />
 
              {/* Catch all */}
             <Route path="*" element={<Navigate to="/admin/login" replace />} />

@@ -65,10 +65,11 @@ const menuItems: MenuItem[] = [
       { text: 'Services', icon: <Pool />, path: '/admin/services' },
       { text: 'Base Plan', icon: <MonetizationOn />, path: '/admin/settings/base-plan' },
       { text: 'Membership', icon: <Loyalty />, path: '/admin/memberships' },
-      { text: 'State Waiver Program', icon: <Description />, path: '/admin/settings/waiver-programs' },
+      { text: 'Regional Center Program', icon: <Description />, path: '/admin/settings/waiver-programs' },
       { text: 'Discount Codes', icon: <LocalOffer />, path: '/admin/discounts' },
       { text: 'Waiver Templates', icon: <Assignment />, path: '/admin/settings/waiver-templates' },
       { text: 'Email Settings', icon: <Email />, path: '/admin/email-settings' },
+      { text: 'Dropdown Values', icon: <Assignment />, path: '/admin/settings/dropdown-values' },
       { text: 'Billing', icon: <CreditCard />, path: '/admin/billing' },
     ]
   }

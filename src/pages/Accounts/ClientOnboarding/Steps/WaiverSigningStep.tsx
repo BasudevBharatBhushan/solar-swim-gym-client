@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Button, CircularProgress, Alert, Grid, List, ListItem, ListItemButton } from '@mui/material';
+import { Box, Typography, Button, CircularProgress, Alert, Grid, List, ListItem, ListItemButton, Checkbox, FormControlLabel } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // For signed status
 import { configService } from '../../../../services/configService';
 import { useAuth } from '../../../../context/AuthContext';
@@ -26,6 +26,7 @@ interface MemberState {
     agreed: boolean;
     loading: boolean;
     error: string | null;
+    guardianName?: string;
 }
 
 export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryProfile, familyMembers, onWaiversSigned, onAllSigned }) => {
@@ -75,12 +76,14 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                     { 
                         id: 'primary', 
                         name: `${primaryProfile.first_name} ${primaryProfile.last_name}`, 
-                        age: calculateAge(primaryProfile.date_of_birth)
+                        age: calculateAge(primaryProfile.date_of_birth),
+                        guardianName: primaryProfile.guardian_name || ''
                     },
                     ...familyMembers.map((m, idx) => ({ 
                         id: `family_${idx}`, 
                         name: `${m.first_name} ${m.last_name}`, 
-                        age: calculateAge(m.date_of_birth)
+                        age: calculateAge(m.date_of_birth),
+                        guardianName: m.guardian_name || ''
                     }))
                 ];
 
@@ -120,7 +123,8 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                             signatureUrl: null,
                             agreed: false,
                             loading: false,
-                            error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`
+                            error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`,
+                            guardianName: m.guardianName
                         };
                     });
                 });
@@ -178,6 +182,8 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                 
                 let content = member.waiverTemplate!.content;
                 content = content.replace(/\[FullName\]/g, member.name);
+                content = content.replace(/\[GuardianName\]/g, member.guardianName || 'N/A');
+                content = content.replace(/\[CurrentDate\]/g, new Date().toLocaleDateString());
                 
                 const response = await waiverService.upsertSignedWaiver({
                     profile_id: null,
@@ -309,9 +315,9 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
             </Grid>
 
             {/* Right Content: Waiver - Contracts */}
-            <Grid size={{ xs: 8, md: 9 }} sx={{ height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', bgcolor: '#fff' }}>
-                <Box sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Grid size={{ xs: 8, md: 9 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff', overflow: 'hidden' }}>
+                <Box sx={{ p: 3, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
                             {currentMember.isSigned ? "Waiver Signed" : "Review & Sign Waiver"}
                         </Typography>
@@ -322,7 +328,9 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                             </Box>
                         )}
                     </Box>
-                    
+                </Box>
+
+                <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
                     {currentMember.error && (
                         <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{currentMember.error}</Alert>
                     )}
@@ -335,86 +343,64 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                         </Alert>
                     )}
                     
-                    <Box sx={{ flex: 1, minHeight: 0 }}>
+                    <Box sx={{ minHeight: 0 }}>
                         {currentMember.waiverTemplate ? (
-                            <>
-                                <WaiverPreview 
-                                    content={currentMember.waiverTemplate.content}
-                                    data={{ 
-                                        first_name: currentMember.name.split(' ')[0], 
-                                        last_name: currentMember.name.split(' ').slice(1).join(' '),
-                                    }}
-                                    agreed={currentMember.agreed}
-                                    onAgreeChange={handleAgreeChange}
-                                    signatureComponent={
-                                        !currentMember.isSigned ? (
-                                            <SignaturePad 
-                                                key={activeTab} 
-                                                ref={signaturePadRef}
-                                                onEnd={() => updateMemberState(activeTab, { error: null })} 
-                                                width={500}
-                                                height={150}
-                                            />
-                                        ) : currentMember.signatureUrl ? (
-                                            <Box sx={{ 
-                                                p: 2, 
-                                                border: '1px solid #e2e8f0', 
-                                                borderRadius: 2, 
-                                                bgcolor: '#f8fafc',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                gap: 1
-                                            }}>
-                                                <Typography variant="caption" color="success.main" fontWeight={700} sx={{ mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                    Digital Signature Captured
-                                                </Typography>
-                                                <Box sx={{ bgcolor: '#fff', p: 1, borderRadius: 1, border: '1px solid #e2e8f0' }}>
-                                                    <img 
-                                                        src={currentMember.signatureUrl} 
-                                                        alt="Signature" 
-                                                        style={{ 
-                                                            maxWidth: '100%', 
-                                                            height: 'auto',
-                                                            maxHeight: '120px',
-                                                            display: 'block'
-                                                        }} 
-                                                    />
-                                                </Box>
+                            <WaiverPreview 
+                                content={currentMember.waiverTemplate.content}
+                                data={{ 
+                                    first_name: currentMember.name.split(' ')[0], 
+                                    last_name: currentMember.name.split(' ').slice(1).join(' '),
+                                    guardian_name: currentMember.guardianName
+                                }}
+                                agreed={currentMember.agreed}
+                                onAgreeChange={handleAgreeChange}
+                                hideCheckbox={true}
+                                fullHeight={true}
+                                signatureComponent={
+                                    !currentMember.isSigned ? (
+                                        <SignaturePad 
+                                            key={activeTab} 
+                                            ref={signaturePadRef}
+                                            onEnd={() => updateMemberState(activeTab, { error: null })} 
+                                            width={500}
+                                            height={150}
+                                        />
+                                    ) : currentMember.signatureUrl ? (
+                                        <Box sx={{ 
+                                            p: 2, 
+                                            border: '1px solid #e2e8f0', 
+                                            borderRadius: 2, 
+                                            bgcolor: '#f8fafc',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: 1
+                                        }}>
+                                            <Typography variant="caption" color="success.main" fontWeight={700} sx={{ mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Digital Signature Captured
+                                            </Typography>
+                                            <Box sx={{ bgcolor: '#fff', p: 1, borderRadius: 1, border: '1px solid #e2e8f0' }}>
+                                                <img 
+                                                    src={currentMember.signatureUrl} 
+                                                    alt="Signature" 
+                                                    style={{ 
+                                                        maxWidth: '100%', 
+                                                        height: 'auto',
+                                                        maxHeight: '120px',
+                                                        display: 'block'
+                                                    }} 
+                                                />
                                             </Box>
-                                        ) : (
-                                            <Box sx={{ p: 3, bgcolor: 'success.50', borderRadius: 2, textAlign: 'center', border: '1px dashed', borderColor: 'success.300' }}>
-                                                <Typography variant="body2" color="success.main" fontWeight={700}>
-                                                    ✓ Signature confirmed
-                                                </Typography>
-                                            </Box>
-                                        )
-                                    }
-                                />
-
-                                {!currentMember.isSigned && (
-                                    <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #e2e8f0', textAlign: 'right' }}>
-                                        <Button
-                                            variant="contained"
-                                            onClick={handleSign}
-                                            disabled={!currentMember.agreed || currentMember.loading}
-                                            sx={{ 
-                                                px: 4, 
-                                                py: 1.2, 
-                                                borderRadius: 2,
-                                                fontWeight: 700,
-                                                textTransform: 'none',
-                                                boxShadow: 'none',
-                                                '&:hover': {
-                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                                                }
-                                            }}
-                                        >
-                                            {currentMember.loading ? 'Signing...' : 'Complete & Sign Waiver'}
-                                        </Button>
-                                    </Box>
-                                )}
-                            </>
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ p: 3, bgcolor: 'success.50', borderRadius: 2, textAlign: 'center', border: '1px dashed', borderColor: 'success.300' }}>
+                                            <Typography variant="body2" color="success.main" fontWeight={700}>
+                                                ✓ Signature confirmed
+                                            </Typography>
+                                        </Box>
+                                    )
+                                }
+                            />
                         ) : (
                             <Alert severity="warning" sx={{ borderRadius: 2 }}>
                                 No waiver template available for this profile (Age Group: {currentMember.ageGroupName}).
@@ -422,6 +408,63 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                         )}
                     </Box>
                 </Box>
+
+                {!currentMember.isSigned && currentMember.waiverTemplate && (
+                    <Box sx={{ 
+                        p: 3, 
+                        borderTop: '1px solid #e2e8f0', 
+                        bgcolor: '#f8fafc',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 2,
+                        zIndex: 10
+                    }}>
+                        <FormControlLabel
+                            control={
+                                <Checkbox 
+                                    checked={currentMember.agreed} 
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleAgreeChange(e.target.checked)} 
+                                    color="primary"
+                                    sx={{ '& .MuiSvgIcon-root': { fontSize: 32 } }}
+                                />
+                            }
+                            label={
+                                <Typography 
+                                    variant="body1" 
+                                    sx={{ fontWeight: 700, color: currentMember.agreed ? 'primary.main' : 'text.primary' }}
+                                >
+                                    I have read and agree to all terms above
+                                </Typography>
+                            }
+                        />
+                        <Button
+                            variant="contained"
+                            size="large"
+                            onClick={handleSign}
+                            disabled={!currentMember.agreed || currentMember.loading}
+                            sx={{ 
+                                px: 6, 
+                                py: 2, 
+                                borderRadius: 3,
+                                fontWeight: 800,
+                                fontSize: '1.1rem',
+                                textTransform: 'none',
+                                boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
+                                '&:hover': {
+                                    boxShadow: '0 6px 20px rgba(0,118,255,0.23)',
+                                    transform: 'translateY(-1px)'
+                                },
+                                '&:active': {
+                                    transform: 'translateY(0)'
+                                },
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            {currentMember.loading ? 'Signing...' : 'Complete & Sign Waiver'}
+                        </Button>
+                    </Box>
+                )}
             </Grid>
         </Grid>
     );

@@ -341,12 +341,12 @@ export const BasePlan = () => {
   if (!currentLocationId) return <Alert severity="warning">Please select a location.</Alert>;
 
   return (
-    <Box sx={{ p: 3, height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ p: 3 }}>
         <PageHeader 
             title="Base Plans & Pricing" 
             description="Manage base plans, pricing matrices, and bundled services."
             breadcrumbs={[
-                { label: 'Settings', href: '/settings' },
+                { label: 'Settings', href: '/admin/settings' },
                 { label: 'Base Plans & Pricing', active: true }
             ]}
             action={
@@ -368,10 +368,10 @@ export const BasePlan = () => {
             }
         />
         
-        <Grid container spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+        <Grid container spacing={3}>
             {/* Left Column: Plan List */}
-            <Grid size={{ xs: 12, md: 3 }} sx={{ height: '100%' }}>
-                <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
+            <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
+                <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
                     <Box sx={{ p: 2, bgcolor: '#fff', borderBottom: '1px solid #f0f4f8' }}>
                         <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>
                             BASE PLANS
@@ -439,8 +439,8 @@ export const BasePlan = () => {
             </Grid>
 
             {/* Right Column: Details & Editing */}
-            <Grid size={{ xs: 12, md: 9 }} sx={{ height: '100%' }}>
-                <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
+            <Grid size={{ xs: 12, md: 8 }} sx={{ display: 'flex' }}>
+                <Paper sx={{ flex: 1, minHeight: 400, display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
                     {selectedProfile ? (
                         <>
                              {/* Header Section */}
@@ -489,7 +489,7 @@ export const BasePlan = () => {
                              </Box>
 
                              {/* Content Scrollable */}
-                             <Box sx={{ flex: 1, overflowY: 'auto', p: 4, bgcolor: '#f8fafc' }}>
+                             <Box sx={{ flex: 1, overflowY: 'auto', p: 4 }}>
                                  
                                  {/* Section 1: Pricing Configuration */}
                                  <Paper elevation={0} sx={{ p: 4, mb: 4, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
@@ -511,7 +511,9 @@ export const BasePlan = () => {
                                                  : existingPrice?.price;
                                              
                                              const isRecurring = term.payment_mode === 'RECURRING';
+                                             const unitValue = term.recurrence_unit_value || 1;
                                              const unit = isRecurring ? (term.recurrence_unit || 'Month') : '';
+                                             const cycleText = isRecurring ? `${unitValue} ${unit.toLowerCase()}${unitValue > 1 ? 's' : ''}` : '';
 
                                              return (
                                                  <Grid size={{ xs: 12, sm: 4 }} key={term.subscription_term_id}>
@@ -532,7 +534,7 @@ export const BasePlan = () => {
                                                                 disableUnderline: true,
                                                                 sx: { borderRadius: 2, bgcolor: '#f1f5f9' }
                                                             }}
-                                                            helperText={isRecurring ? `Recurring every ${unit.toLowerCase()}` : 'Pay in full'}
+                                                             helperText={isRecurring ? `Recurring every ${cycleText}` : 'Pay in full'}
                                                          />
                                                      ) : (
                                                          <Paper elevation={0} sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #f1f5f9' }}>
@@ -544,7 +546,7 @@ export const BasePlan = () => {
                                                              </Typography>
                                                              {isRecurring && priceValue !== undefined && (
                                                                  <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600, mt: 0.5, display: 'block' }}>
-                                                                     / {unit.toLowerCase()}
+                                                                     / {cycleText}
                                                                  </Typography>
                                                              )}
                                                          </Paper>

@@ -23,7 +23,8 @@ import {
   Chip,
   FormControl,
   InputLabel,
-  Select
+  Select,
+  Grid
 } from '@mui/material';
 import { EditOutlined, DeleteOutline, Add } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
@@ -63,7 +64,13 @@ export const SubscriptionTerms = () => {
   }, [currentLocationId]);
 
   const handleOpenDialog = (term?: any) => {
-    setCurrentTerm(term || { name: '', duration_months: '', payment_mode: 'RECURRING', recurrence_unit: 'MONTH' });
+    setCurrentTerm(term || { 
+        name: '', 
+        duration_months: '', 
+        payment_mode: 'RECURRING', 
+        recurrence_unit: 'MONTH',
+        recurrence_unit_value: 1
+    });
     setOpenDialog(true);
   };
 
@@ -117,7 +124,7 @@ export const SubscriptionTerms = () => {
         title={`Subscription Terms`}
         description="Define and manage subscription durations and payment modes."
         breadcrumbs={[
-            { label: 'Settings', href: '/settings' },
+            { label: 'Settings', href: '/admin/settings' },
             { label: 'Subscription', active: true }
         ]}
         action={
@@ -126,7 +133,7 @@ export const SubscriptionTerms = () => {
                 startIcon={<Add />} 
                 onClick={() => handleOpenDialog()}
             >
-                Add Row
+                Add Subscription Term
             </Button>
         }
       />
@@ -169,7 +176,9 @@ export const SubscriptionTerms = () => {
                     />
                 </TableCell>
                 <TableCell align="center">
-                    {row.payment_mode === 'RECURRING' ? `Every ${row.recurrence_unit ? (row.recurrence_unit.charAt(0).toUpperCase() + row.recurrence_unit.slice(1).toLowerCase()) : 'Month'}` : '-'}
+                    {row.payment_mode === 'RECURRING' 
+                        ? `Every ${row.recurrence_unit_value || 1} ${row.recurrence_unit ? (row.recurrence_unit.charAt(0).toUpperCase() + row.recurrence_unit.slice(1).toLowerCase()) : 'Month'}${ (row.recurrence_unit_value || 1) > 1 ? 's' : ''}` 
+                        : '-'}
                 </TableCell>
                 <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -228,20 +237,34 @@ export const SubscriptionTerms = () => {
                 </TextField>
 
                 {currentTerm.payment_mode === 'RECURRING' && (
-                    <FormControl fullWidth>
-                        <InputLabel id="recurrence-unit-label">Every</InputLabel>
-                        <Select
-                            labelId="recurrence-unit-label"
-                            label="Every"
-                            value={currentTerm.recurrence_unit || 'MONTH'}
-                            onChange={(e) => setCurrentTerm({...currentTerm, recurrence_unit: e.target.value})}
-                        >
-                            <MenuItem value="DAY">Day</MenuItem>
-                            <MenuItem value="WEEK">Week</MenuItem>
-                            <MenuItem value="MONTH">Month</MenuItem>
-                            <MenuItem value="YEAR">Year</MenuItem>
-                        </Select>
-                    </FormControl>
+                    <Grid container spacing={2}>
+                        <Grid size={{ xs: 4, sm: 3 }}>
+                            <TextField 
+                                label="Every" 
+                                type="number"
+                                fullWidth
+                                value={currentTerm.recurrence_unit_value || 1}
+                                onChange={(e) => setCurrentTerm({...currentTerm, recurrence_unit_value: parseInt(e.target.value) || 1})}
+                                InputProps={{ inputProps: { min: 1 } }}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 8, sm: 9 }}>
+                            <FormControl fullWidth>
+                                <InputLabel id="recurrence-unit-label">Unit</InputLabel>
+                                <Select
+                                    labelId="recurrence-unit-label"
+                                    label="Unit"
+                                    value={currentTerm.recurrence_unit || 'MONTH'}
+                                    onChange={(e) => setCurrentTerm({...currentTerm, recurrence_unit: e.target.value})}
+                                >
+                                    <MenuItem value="DAY">Day</MenuItem>
+                                    <MenuItem value="WEEK">Week</MenuItem>
+                                    <MenuItem value="MONTH">Month</MenuItem>
+                                    <MenuItem value="YEAR">Year</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                    </Grid>
                 )}
             </Stack>
         </DialogContent>

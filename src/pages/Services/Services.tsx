@@ -1,4 +1,4 @@
-import { useEffect, useState, memo, useCallback } from 'react';
+import { useEffect, useState, memo, useCallback, useMemo } from 'react';
 import { 
   Box, Button, Typography, Paper, TextField, MenuItem, Alert, Snackbar, Grid, InputAdornment, Chip, Switch, Dialog, DialogTitle, 
   DialogContent, DialogActions, IconButton, List, ListItemText,
@@ -12,7 +12,7 @@ import { serviceCatalog, ServicePack, ServicePrice } from '../../services/servic
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
-import { dropdownOptions } from '../../lib/dropdownOptions';
+
 
 // Types
 interface LocalService {
@@ -35,55 +35,117 @@ interface LocalService {
 const ServiceListItem = memo(({ 
   service, 
   isSelected, 
-  onClick 
+  onClick,
+  categories = [],
+  types = []
 }: { 
   service: LocalService, 
   isSelected: boolean, 
-  onClick: (s: LocalService) => void 
-}) => (
-    <Box 
-        onClick={() => onClick(service)}
-        sx={{
-            p: 2,
-            borderBottom: '1px solid',
-            borderColor: '#f1f5f9',
-            cursor: 'pointer',
-            bgcolor: isSelected ? '#eff6ff' : 'transparent',
-            '&:hover': { bgcolor: isSelected ? '#eff6ff' : '#f8fafc' },
-            transition: 'all 0.2s',
-            position: 'relative'
-        }}
-    >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: isSelected ? '#3b82f6' : '#1e293b', fontSize: '0.875rem' }}>
-                {service.name}
+  onClick: (s: LocalService) => void,
+  categories?: { value: string, label: string }[],
+  types?: { value: string, label: string }[]
+}) => {
+    const categoryLabel = categories.find(opt => opt.value.trim().toLowerCase() === service.service_type?.trim().toLowerCase())?.label || service.service_type;
+    const typeLabel = types.find(opt => opt.value.trim().toLowerCase() === service.type?.trim().toLowerCase())?.label || service.type;
+
+    return (
+        <Box 
+            onClick={() => onClick(service)}
+            sx={{
+                p: 2,
+                borderBottom: '1px solid',
+                borderColor: '#f1f5f9',
+                cursor: 'pointer',
+                bgcolor: isSelected ? '#eff6ff' : 'transparent',
+                '&:hover': { bgcolor: isSelected ? '#eff6ff' : '#f8fafc' },
+                transition: 'all 0.2s',
+                position: 'relative'
+            }}
+        >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: isSelected ? '#3b82f6' : '#1e293b', fontSize: '0.875rem' }}>
+                    {service.name}
+                </Typography>
+                <Chip 
+                    label={service.is_active ? "ACTIVE" : "INACTIVE"} 
+                    size="small" 
+                    sx={{ 
+                        height: 18, 
+                        fontSize: '0.65rem', 
+                        fontWeight: 800,
+                        bgcolor: service.is_active ? '#ecfdf5' : '#fef2f2', 
+                        color: service.is_active ? '#10b981' : '#ef4444',
+                        borderRadius: '4px',
+                        '& .MuiChip-label': { px: 1 }
+                    }} 
+                />
+            </Box>
+            
+            <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
+                <Chip 
+                    label={categoryLabel?.toUpperCase() || (service.service_type || 'TRAINING').toUpperCase()} 
+                    size="small" 
+                    sx={{ 
+                        height: 16, 
+                        fontSize: '0.6rem', 
+                        fontWeight: 700,
+                        bgcolor: '#f1f5f9',
+                        color: '#64748b',
+                        borderRadius: '4px',
+                        '& .MuiChip-label': { px: 1 }
+                    }} 
+                />
+                <Chip 
+                    label={typeLabel?.toUpperCase() || (service.type || 'GROUP').toUpperCase()} 
+                    size="small" 
+                    sx={{ 
+                        height: 16, 
+                        fontSize: '0.6rem', 
+                        fontWeight: 700,
+                        bgcolor: '#f1f5f9',
+                        color: '#64748b',
+                        borderRadius: '4px',
+                        '& .MuiChip-label': { px: 1 }
+                    }} 
+                />
+            </Box>
+
+            <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.75rem', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {service.description || 'No description'}
             </Typography>
-            <Chip 
-                label={service.is_active ? "ACTIVE" : "INACTIVE"} 
-                size="small" 
-                sx={{ 
-                    height: 18, 
-                    fontSize: '0.65rem', 
-                    fontWeight: 800,
-                    bgcolor: service.is_active ? '#ecfdf5' : '#fef2f2', 
-                    color: service.is_active ? '#10b981' : '#ef4444',
-                    borderRadius: '4px',
-                    '& .MuiChip-label': { px: 1 }
-                }} 
-            />
         </Box>
-        <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.75rem', lineHeight: 1.4 }}>
-            {service.description || 'No description'}
-        </Typography>
-    </Box>
-));
+    );
+});
 
 
+
+interface ServiceBasicInfoProps {
+    name: string;
+    description: string;
+    type: string;
+    serviceType: string;
+    isActive: boolean;
+    imageUrl?: string;
+    lessonRegistrationFee: number;
+    isCreating: boolean;
+    onNameChange: (val: string) => void;
+    onDescriptionChange: (val: string) => void;
+    onTypeChange: (val: string) => void;
+    onServiceTypeChange: (val: string) => void;
+    onActiveChange: (val: boolean) => void;
+    onLessonRegistrationFeeChange: (val: number) => void;
+    onSave: () => void;
+    onImageUpload: (file: File) => void;
+    categories?: { value: string, label: string }[];
+    types?: { value: string, label: string }[];
+}
 
 const ServiceBasicInfo = memo(({
     name, description, type, serviceType, isActive, imageUrl, lessonRegistrationFee, isCreating,
-    onNameChange, onDescriptionChange, onTypeChange, onServiceTypeChange, onActiveChange, onLessonRegistrationFeeChange, onSave, onImageUpload
-}: any) => {
+    onNameChange, onDescriptionChange, onTypeChange, onServiceTypeChange, onActiveChange, onLessonRegistrationFeeChange, onSave, onImageUpload,
+    categories = [],
+    types = []
+}: ServiceBasicInfoProps) => {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
             onImageUpload(event.target.files[0]);
@@ -91,7 +153,7 @@ const ServiceBasicInfo = memo(({
     };
 
     return (
-        <Paper elevation={0} sx={{ mb: 3, borderRadius: 1, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        <Paper elevation={0} sx={{ borderRadius: 1, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
             <Box sx={{ p: 2, bgcolor: '#ffffff', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.secondary' }}>
                     {isCreating ? 'New Service' : 'Service Details'}
@@ -105,7 +167,7 @@ const ServiceBasicInfo = memo(({
                     </Button>
                 </Box>
             </Box>
-            <Grid container spacing={5} sx={{ p: 4 }}>
+            <Grid container spacing={3} sx={{ p: 3 }}>
                 {/* Image Section */}
                 <Grid size={{ xs: 12, md: 4 }}>
                     <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 800, mb: 1.5, display: 'block', letterSpacing: '0.02em' }}>
@@ -223,7 +285,7 @@ const ServiceBasicInfo = memo(({
                                     } 
                                 }}
                             >
-                                {dropdownOptions.serviceCategory.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                                {categories.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
                             </TextField>
                         </Grid>
                         <Grid size={{ xs: 6 }}>
@@ -244,7 +306,7 @@ const ServiceBasicInfo = memo(({
                                     } 
                                 }}
                             >
-                                {dropdownOptions.serviceType.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                                {types.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
                             </TextField>
                         </Grid>
 
@@ -345,7 +407,7 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
     };
 
     return (
-        <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#64748b', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
@@ -432,7 +494,25 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
 
 export const Services = () => {
     const { currentLocationId } = useAuth();
-    const { ageGroups } = useConfig();
+    const { ageGroups, dropdownValues } = useConfig();
+
+    const serviceCategories = useMemo(() => {
+        return (dropdownValues || [])
+            .filter(v => 
+                v.module?.trim().toLowerCase() === 'services' && 
+                v.label?.trim().toUpperCase() === 'CATEGORY'
+            )
+            .map(v => ({ value: v.value, label: v.value }));
+    }, [dropdownValues]);
+
+    const serviceTypes = useMemo(() => {
+        return (dropdownValues || [])
+            .filter(v => 
+                v.module?.trim().toLowerCase() === 'services' && 
+                v.label?.trim().toUpperCase() === 'TYPE'
+            )
+            .map(v => ({ value: v.value, label: v.value }));
+    }, [dropdownValues]);
     
     // Services State
     const [services, setServices] = useState<LocalService[]>([]);
@@ -442,8 +522,8 @@ export const Services = () => {
     // Service Form State
     const [serviceName, setServiceName] = useState('');
     const [serviceDesc, setServiceDesc] = useState('');
-    const [serviceType, setServiceType] = useState('GROUP');
-    const [serviceCategory, setServiceCategory] = useState('TRAINING');
+    const [serviceType, setServiceType] = useState('Group');
+    const [serviceCategory, setServiceCategory] = useState('Training');
     const [serviceActive, setServiceActive] = useState(true);
     const [serviceImageUrl, setServiceImageUrl] = useState<string>('');
     const [serviceLessonRegistrationFee, setServiceLessonRegistrationFee] = useState<number>(0);
@@ -505,8 +585,12 @@ export const Services = () => {
         setIsCreatingService(false);
         setServiceName(service.name);
         setServiceDesc(service.description || '');
-        setServiceType(service.type || 'GROUP');
-        setServiceCategory(service.service_type || 'TRAINING');
+        // Match case-insensitively with dynamic options if possible
+        const matchedType = serviceTypes.find(opt => opt.value.toLowerCase() === service.type?.toLowerCase())?.value;
+        const matchedCategory = serviceCategories.find(opt => opt.value.toLowerCase() === service.service_type?.toLowerCase())?.value;
+
+        setServiceType(matchedType || service.type || 'Group');
+        setServiceCategory(matchedCategory || service.service_type || 'Training');
         setServiceActive(service.is_active !== false);
         setServiceImageUrl(service.image_url || '');
         setServiceLessonRegistrationFee(service.LessonRegistrationFee || 0);
@@ -522,8 +606,8 @@ export const Services = () => {
         setIsCreatingService(true);
         setServiceName('');
         setServiceDesc('');
-        setServiceType('GROUP');
-        setServiceCategory('TRAINING');
+        setServiceType(serviceTypes[0]?.value || 'Group');
+        setServiceCategory(serviceCategories[0]?.value || 'Training');
         setServiceActive(true);
         setServiceImageUrl('');
         setServiceLessonRegistrationFee(0);
@@ -650,13 +734,13 @@ export const Services = () => {
             <PageHeader 
                 title="Service Management" 
                 description="Manage service catalog, packs, and pricing."
-                breadcrumbs={[{ label: 'Settings', href: '/settings' }, { label: 'Services', active: true }]}
+                breadcrumbs={[{ label: 'Settings', href: '/admin/settings' }, { label: 'Services', active: true }]}
             />
 
             <Grid container spacing={3}>
                 {/* Left Panel: Services List (3 cols) */}
-                <Grid size={{ xs: 12, md: 3, lg: 3 }}>
-                    <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, height: 'calc(100vh - 160px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Grid size={{ xs: 12, md: 3, lg: 3 }} sx={{ display: 'flex', flexDirection: 'column' }}>
+                    <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <Box sx={{ p: 2, bgcolor: '#ffffff', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#64748b', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
                                 SERVICES
@@ -664,7 +748,16 @@ export const Services = () => {
                             <IconButton size="small" onClick={handleCreateService} sx={{ color: '#3b82f6' }}><AddIcon fontSize="small" /></IconButton> 
                         </Box>
                         <Box sx={{ flex: 1, overflowY: 'auto' }}>
-                            {services.map(s => <ServiceListItem key={s.service_id || s.id || Math.random()} service={s} isSelected={selectedService === s} onClick={handleSelectService} />)}
+                            {services.map(s => (
+                                <ServiceListItem 
+                                    key={s.service_id || s.id || Math.random()} 
+                                    service={s} 
+                                    isSelected={selectedService === s} 
+                                    onClick={handleSelectService}
+                                    categories={serviceCategories}
+                                    types={serviceTypes}
+                                />
+                            ))}
                         </Box>
                     </Paper>
                 </Grid>
@@ -691,14 +784,16 @@ export const Services = () => {
                                 onLessonRegistrationFeeChange={setServiceLessonRegistrationFee}
                                 onSave={handleSaveService}
                                 onImageUpload={handleImageUpload}
+                                categories={serviceCategories}
+                                types={serviceTypes}
                             />
                         </Grid>
 
                         {selectedService && !isCreatingService && (
                             <>
                                 {/* Service Packs (Left half of bottom) */}
-                                <Grid size={{ xs: 12, md: 6 }}>
-                                    <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', height: '100%' }}>
+                                <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
+                                     <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', height: '100%', width: '100%' }}>
                                         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
                                             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#64748b', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
                                                 SERVICE PACKS
@@ -753,7 +848,7 @@ export const Services = () => {
                                                                             ) : pack.duration_days ? (
                                                                                 <Chip label={`${pack.duration_days} DAYS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
                                                                             ) : null}
-                                                                            {pack.is_waiver_free_allowed && <Chip label="WAIVER FREE" size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fff7ed', color: '#c2410c', borderRadius: '4px' }} />}
+                                                                            {pack.is_waiver_free_allowed && <Chip label="WAIVER EXEMPT" size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fff7ed', color: '#c2410c', borderRadius: '4px' }} />}
                                                                         </Box>
                                                                     }
                                                                 />
@@ -777,7 +872,7 @@ export const Services = () => {
                                 </Grid>
 
                                 {/* Pack Prices (Right half of bottom) */}
-                                <Grid size={{ xs: 12, md: 6 }}>
+                                <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
                                     {selectedPack ? (
                                         <PricingPanel 
                                             pack={selectedPack} 
@@ -785,7 +880,7 @@ export const Services = () => {
                                             onSave={handleSavePackPrices} 
                                         />
                                     ) : (
-                                        <Paper sx={{ p: 3, textAlign: 'center', color: '#94a3b8', bgcolor: '#f8fafc', border: '1px dashed #e2e8f0', borderRadius: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                         <Paper sx={{ p: 3, textAlign: 'center', color: '#94a3b8', bgcolor: '#f8fafc', border: '1px dashed #e2e8f0', borderRadius: 2, height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             Select a Service Pack to manage prices.
                                         </Paper>
                                     )}
@@ -891,8 +986,8 @@ export const Services = () => {
                         <Grid size={{ xs: 12 }} sx={{ mt: 2 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fff7ed', p: 2.5, px: 3, borderRadius: 2, border: '1px solid #ffedd5' }}>
                                 <Box>
-                                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#9a3412', fontSize: '0.875rem', mb: 0.5 }}>Waiver Free Allowed</Typography>
-                                    <Typography variant="caption" sx={{ color: '#c2410c', fontWeight: 500 }}>Allow this pack to be used with state waiver programs</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#9a3412', fontSize: '0.875rem', mb: 0.5 }}>Waiver Exempt Allowed</Typography>
+                                    <Typography variant="caption" sx={{ color: '#c2410c', fontWeight: 500 }}>Allow this pack to be used with regional center programs</Typography>
                                 </Box>
                                 <Switch 
                                     checked={packIsWaiverFreeAllowed} 

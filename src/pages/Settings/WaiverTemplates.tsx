@@ -27,8 +27,16 @@ import {
     Gavel, 
     Loyalty, 
     CardMembership,
-    Info
+    Info,
+    Visibility
 } from '@mui/icons-material';
+import { 
+    Dialog, 
+    DialogTitle, 
+    DialogContent, 
+    DialogActions 
+} from '@mui/material';
+import { WaiverPreview } from '../../components/Waiver/WaiverPreview';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import { useConfig } from '../../context/ConfigContext';
@@ -74,6 +82,7 @@ export const WaiverTemplates = () => {
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // --- Categories ---
   const categories = useMemo(() => [
@@ -242,7 +251,7 @@ export const WaiverTemplates = () => {
             title="Waiver Templates" 
             description="Manage legal waivers and disclaimers for services, memberships, and plans."
             breadcrumbs={[
-                { label: 'Settings', href: '/settings' },
+                { label: 'Settings', href: '/admin/settings' },
                 { label: 'Waiver Templates', active: true }
             ]}
         />
@@ -396,7 +405,7 @@ export const WaiverTemplates = () => {
                                 </Box>
                                 
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, ml: 3 }}>
-                                    <Tooltip title="Use [name] to insert the user's name dynamically, [date] for current date.">
+                                    <Tooltip title="Use dynamic variables to insert participant's name, guardian name, and current date dynamically.">
                                         <IconButton 
                                             size="small" 
                                             sx={{ 
@@ -409,6 +418,25 @@ export const WaiverTemplates = () => {
                                             <Info />
                                         </IconButton>
                                     </Tooltip>
+                                    <Button 
+                                        variant="outlined" 
+                                        startIcon={<Visibility />} 
+                                        onClick={() => setIsPreviewOpen(true)}
+                                        sx={{ 
+                                            textTransform: 'none', 
+                                            fontWeight: 700, 
+                                            borderRadius: 2,
+                                            borderColor: '#e2e8f0',
+                                            color: '#64748b',
+                                            px: 3,
+                                            '&:hover': { 
+                                                bgcolor: '#f1f5f9',
+                                                borderColor: '#cbd5e1'
+                                            }
+                                        }}
+                                    >
+                                        Preview
+                                    </Button>
                                     <Button 
                                         variant="contained" 
                                         startIcon={<Save />} 
@@ -441,7 +469,7 @@ export const WaiverTemplates = () => {
                          {/* Instructions Banner */}
                          <Alert severity="info" icon={<Info fontSize="inherit" />} sx={{ mx: 3, mt: 3, mb: 1, borderRadius: 2 }}>
                             <Typography variant="caption" fontWeight={600} sx={{ color: '#1e293b !important' }}>
-                                Dynamic Variables: Use <code>[name]</code> to insert the participant's name. Use <code>[date]</code> for current date.
+                                 Dynamic Variables: Use <code>[FullName]</code>, <code>[GuardianName]</code> to insert the participant's name. Use <code>[AcceptSignature]</code> to accept signature. Use <code>[CurrentDate]</code> for current date.
                             </Typography>
                         </Alert>
 
@@ -516,6 +544,71 @@ export const WaiverTemplates = () => {
                 {feedback?.message}
             </Alert>
         </Snackbar>
+
+        <Dialog 
+            open={isPreviewOpen} 
+            onClose={() => setIsPreviewOpen(false)}
+            maxWidth="md"
+            fullWidth
+            PaperProps={{
+                sx: { borderRadius: 3 }
+            }}
+        >
+            <DialogTitle sx={{ 
+                bgcolor: '#f8fafc', 
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+            }}>
+                <Visibility sx={{ color: '#64748b' }} />
+                <Typography variant="h6" fontWeight={800}>Template Preview</Typography>
+            </DialogTitle>
+            <DialogContent sx={{ p: 4, mt: 2 }}>
+                <Typography variant="caption" sx={{ color: '#94a3b8', mb: 3, display: 'block' }}>
+                    This is a preview of how the waiver will appear to users. Dynamic variables have been replaced with sample data.
+                </Typography>
+                <WaiverPreview 
+                    content={editorContent}
+                    data={{
+                        first_name: 'John',
+                        last_name: 'Doe',
+                        guardian_name: 'Jane Doe'
+                    }}
+                    agreed={false}
+                    onAgreeChange={() => {}}
+                    signatureComponent={
+                        <Box sx={{ 
+                            height: 100, 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            bgcolor: '#f8fafc',
+                            border: '1px dashed #cbd5e1',
+                            borderRadius: 1,
+                            color: '#94a3b8'
+                        }}>
+                            Signature Pad Placeholder
+                        </Box>
+                    }
+                />
+            </DialogContent>
+            <DialogActions sx={{ p: 3, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
+                <Button 
+                    onClick={() => setIsPreviewOpen(false)}
+                    variant="contained"
+                    sx={{ 
+                        bgcolor: '#0f172a', 
+                        fontWeight: 700, 
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        px: 4
+                    }}
+                >
+                    Close Preview
+                </Button>
+            </DialogActions>
+        </Dialog>
     </Box>
   );
 };

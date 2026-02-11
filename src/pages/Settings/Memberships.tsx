@@ -499,62 +499,55 @@ export const Memberships = () => {
   return (
     <Box sx={{ p: 3 }}>
         <PageHeader 
-            title="Membership Programs" 
+            title={activeProgram ? activeProgram.name : "Membership Programs"}
             description="Manage membership tiers, fees, and eligibility rules."
             breadcrumbs={[
-                { label: 'Settings', href: '/settings' },
+                { label: 'Settings', href: '/admin/settings' },
                 { label: 'Memberships', active: true }
             ]}
+            titleSx={activeProgram ? { 
+                textTransform: 'uppercase', 
+                color: '#1e40af', 
+                fontWeight: 900, 
+                letterSpacing: '-0.01em',
+                fontSize: '2.2rem'
+            } : undefined}
             action={
-                <Button variant="contained" startIcon={<Add />} onClick={() => setOpenCreateProgram(true)}>
-                    New Program
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                    <FormControl sx={{ minWidth: 250, bgcolor: 'white' }} size="small">
+                        <InputLabel>Select Program</InputLabel>
+                        <Select
+                            value={activeProgram ? selectedProgramId : ''}
+                            label="Select Program"
+                            onChange={(e) => handleProgramChange(e.target.value as string)}
+                        >
+                            {programs.map(p => (
+                                <MenuItem key={p.membership_program_id} value={p.membership_program_id}>{p.name}</MenuItem>
+                            ))}
+                            {programs.length === 0 && <MenuItem disabled>No Programs Available</MenuItem>}
+                        </Select>
+                    </FormControl>
+                    <Button 
+                        variant="contained" 
+                        startIcon={<Add />} 
+                        onClick={() => setOpenCreateProgram(true)}
+                        sx={{ whiteSpace: 'nowrap' }}
+                    >
+                        New Program
+                    </Button>
+                </Box>
             }
         />
 
-        {/* Program Selector */}
-        <Box sx={{ mb: 4, mt: 2 }}>
-             <FormControl sx={{ minWidth: 300, bgcolor: 'white' }} size="small">
-                 <InputLabel>Select Program</InputLabel>
-                 <Select
-                    value={activeProgram ? selectedProgramId : ''}
-                    label="Select Program"
-                    onChange={(e) => handleProgramChange(e.target.value)}
-                 >
-                     {programs.map(p => (
-                          <MenuItem key={p.membership_program_id} value={p.membership_program_id}>{p.name}</MenuItem>
-                     ))}
-                     {programs.length === 0 && <MenuItem disabled>No Programs Available</MenuItem>}
-                 </Select>
-             </FormControl>
 
-        </Box>
-        {activeProgram && (
-             <Box sx={{ mb: 4 }}>
-                 <Typography 
-                    variant="h3" 
-                    sx={{ 
-                        textTransform: 'uppercase', 
-                        color: '#1e40af', 
-                        fontWeight: 900, 
-                        letterSpacing: '-0.01em',
-                        fontSize: '2.5rem',
-                        lineHeight: 1.2,
-                        mb: 1
-                    }}
-                 >
-                     {activeProgram.name}
-                 </Typography>
-             </Box>
-        )}
 
         {loading ? (
              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>
         ) : activeProgram ? (
              <Grid container spacing={3}>
                  {/* Left Column: Categories List (4/12) */}
-                 <Grid size={{ xs: 12, md: 4 }} sx={{ height: '100%' }}>
-                     <Paper sx={{ height: '100%', borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                 <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
+                     <Paper sx={{ flex: 1, borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                          <Box sx={{ p: 2, bgcolor: '#fff', borderBottom: '1px solid #f0f4f8' }}>
                              <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>
                                  CATEGORIES
@@ -638,8 +631,8 @@ export const Memberships = () => {
                  </Grid>
 
                  {/* Right Column: Configuration (8/12) */}
-                 <Grid size={{ xs: 12, md: 8 }}>
-                     <Paper sx={{ minHeight: 400, borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                 <Grid size={{ xs: 12, md: 8 }} sx={{ display: 'flex' }}>
+                     <Paper sx={{ flex: 1, minHeight: 400, borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                          {activeCategory || (selectedCategoryId === 'new' && draftCategory) ? (
                              <>
                                  {/* Header */}
