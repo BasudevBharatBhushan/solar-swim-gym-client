@@ -1,5 +1,6 @@
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useCallback, useEffect } from 'react';
 import { Box, Typography, Button, CssBaseline, Select, MenuItem, FormControl } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { Sidebar } from './Sidebar';
 import { useAuth, Location } from '../../context/AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
@@ -25,27 +26,60 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         headers: { Authorization: `Bearer ${token}` }
       })
       .then(res => {
-        setLocations(res.data);
+        const fetchedLocations = res.data as Location[];
+        setLocations(fetchedLocations);
         // Set default location if not set
-        if (!currentLocationId && res.data.length > 0) {
+        if (!currentLocationId && fetchedLocations.length > 0) {
             // TODO: will change later - static location preselect
             const targetId = "490f7013-a95d-4664-b750-1ecbb98bd463";
-            const targetExists = res.data.find((l: any) => l.location_id === targetId);
-            setCurrentLocationId(targetExists ? targetId : res.data[0].location_id);
+            const targetExists = fetchedLocations.find((l) => l.location_id === targetId);
+            setCurrentLocationId(targetExists ? targetId : fetchedLocations[0].location_id);
         }
       })
       .catch(err => console.error("Failed to fetch locations", err));
     }
   }, [isAuthenticated, role, locations.length, token, currentLocationId, setLocations, setCurrentLocationId]);
 
+  const handleLogout = useCallback(() => {
+    logout();
+    navigate('/admin/login');
+  }, [logout, navigate]);
+
+  const handleLocationChange = useCallback((e: SelectChangeEvent<string>) => {
+    setCurrentLocationId(e.target.value as string);
+  }, [setCurrentLocationId]);
+
+  const renderLocationValue = useCallback((selected: unknown) => {
+    if (!selected) return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <LocationOnIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+        <Typography color="text.secondary" variant="body2" sx={{ fontSize: '0.875rem' }}>
+          Select Location
+        </Typography>
+      </Box>
+    );
+    const loc = locations.find(l => l.location_id === selected);
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <LocationOnIcon sx={{ fontSize: 18, color: role === 'SUPERADMIN' ? '#1976d2' : '#64748b' }} />
+        <Typography variant="body2" sx={{ 
+          fontWeight: 500, 
+          color: '#1e293b',
+          fontSize: '0.875rem'
+        }}>
+          {loc?.name || 'Select Location'}
+        </Typography>
+      </Box>
+    );
+  }, [locations, role]);
+
+  const handleLogoutClick = useCallback(() => {
+    handleLogout();
+  }, [handleLogout]);
+
   if (!isAuthenticated) {
     return <Navigate to="/admin/login" />;
   }
-
-  const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
-  };
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -67,32 +101,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           <FormControl size="small" sx={{ minWidth: 200 }}>
              <Select
                value={currentLocationId || ''}
-               onChange={(e) => setCurrentLocationId(e.target.value as string)}
+               onChange={handleLocationChange}
                disabled={role !== 'SUPERADMIN'}
                displayEmpty
-               renderValue={(selected) => {
-                 if (!selected) return (
-                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                     <LocationOnIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-                     <Typography color="text.secondary" variant="body2" sx={{ fontSize: '0.875rem' }}>
-                       Select Location
-                     </Typography>
-                   </Box>
-                 );
-                 const loc = locations.find(l => l.location_id === selected);
-                 return (
-                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                         <LocationOnIcon sx={{ fontSize: 18, color: role === 'SUPERADMIN' ? '#1976d2' : '#64748b' }} />
-                         <Typography variant="body2" sx={{ 
-                           fontWeight: 500, 
-                           color: '#1e293b',
-                           fontSize: '0.875rem'
-                         }}>
-                             {loc?.name || 'Select Location'}
-                         </Typography>
-                     </Box>
-                 );
-               }}
+               renderValue={renderLocationValue}
                sx={{ 
                    bgcolor: role === 'SUPERADMIN' ? '#ffffff' : '#f8fafc',
                    borderRadius: '8px',
@@ -190,7 +202,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
           </FormControl>
 
           <Button 
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             startIcon={<LogoutIcon sx={{ fontSize: 16 }} />}
             sx={{ 
                 height: '38px',

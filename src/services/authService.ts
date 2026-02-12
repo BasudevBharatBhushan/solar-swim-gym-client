@@ -1,9 +1,24 @@
 import { apiClient, setToken, removeToken } from './apiClient';
+import type { UserParams } from '../context/AuthContext';
+
+interface AuthResponse {
+  token?: string;
+  user?: UserParams;
+  staff?: UserParams;
+  profile?: UserParams;
+  [key: string]: unknown;
+}
+
+interface RegistrationData {
+  location_id?: string;
+  primary_profile?: Record<string, unknown>;
+  family_members?: Array<Record<string, unknown>>;
+}
 
 export const authService = {
   // Staff Authentication
   loginStaff: async (email: string, password: string) => {
-    const data = await apiClient.post('/auth/staff/login', { email, password });
+    const data = await apiClient.post<AuthResponse>('/auth/staff/login', { email, password });
     if (data.token) {
       setToken(data.token);
     }
@@ -12,7 +27,7 @@ export const authService = {
 
   // User Authentication
   loginUser: async (email: string, password: string) => {
-    const data = await apiClient.post('/auth/user/login', { email, password });
+    const data = await apiClient.post<AuthResponse>('/auth/user/login', { email, password });
     if (data.token) {
       setToken(data.token);
     }
@@ -24,7 +39,7 @@ export const authService = {
   },
 
   // User Registration (with family members)
-  registerUser: async (registrationData: any) => {
+  registerUser: async (registrationData: RegistrationData) => {
     // registrationData structure: { 
     //   location_id, 
     //   primary_profile: { ..., signed_waiver_id? }, 
@@ -45,7 +60,7 @@ export const authService = {
 
   // Switch Location (Superadmin)
   switchLocation: async (locationId: string) => {
-    const data = await apiClient.post('/auth/switch-location', { location_id: locationId });
+    const data = await apiClient.post<AuthResponse>('/auth/switch-location', { location_id: locationId });
     if (data.token) {
       setToken(data.token);
     }

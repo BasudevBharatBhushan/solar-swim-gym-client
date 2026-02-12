@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import React, { useRef, useState, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { Box, Button, Paper } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 
@@ -24,6 +24,13 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(({
   const [ctx, setCtx] = useState<CanvasRenderingContext2D | null>(null);
   const [hasSignature, setHasSignature] = useState(false);
 
+  const clearCanvas = useCallback(() => {
+    if (ctx && canvasRef.current) {
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      setHasSignature(false);
+    }
+  }, [ctx]);
+
   useImperativeHandle(ref, () => ({
     clear: () => clearCanvas(),
     getCanvas: () => canvasRef.current,
@@ -43,20 +50,7 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(({
     }
   }, []);
 
-  const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsDrawing(true);
-    draw(e);
-  };
-
-  const stopDrawing = () => {
-    if (isDrawing) {
-        setIsDrawing(false);
-        if (ctx) ctx.beginPath();
-        if (onEnd) onEnd();
-    }
-  };
-
-  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+  const draw = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (!isDrawing || !ctx || !canvasRef.current) return;
 
     e.preventDefault();
@@ -79,14 +73,20 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(({
     ctx.beginPath();
     ctx.moveTo(x, y);
     setHasSignature(true);
-  };
+  }, [ctx, isDrawing]);
 
-  const clearCanvas = () => {
-    if (ctx && canvasRef.current) {
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      setHasSignature(false);
+  const startDrawing = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    setIsDrawing(true);
+    draw(e);
+  }, [draw]);
+
+  const stopDrawing = useCallback(() => {
+    if (isDrawing) {
+        setIsDrawing(false);
+        if (ctx) ctx.beginPath();
+        if (onEnd) onEnd();
     }
-  };
+  }, [ctx, isDrawing, onEnd]);
 
   return (
     <Box>

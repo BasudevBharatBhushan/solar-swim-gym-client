@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Box, Grid, CircularProgress, Typography, Paper, Tabs, Tab } from '@mui/material';
 import { crmService } from '../../services/crmService';
 import { AccountSummary } from '../Accounts/components/AccountSummary';
@@ -6,10 +6,22 @@ import { ProfileList } from '../Accounts/components/ProfileList';
 import { ProfileDetail } from '../Accounts/components/ProfileDetail';
 import { SubscriptionsTab } from '../Accounts/components/SubscriptionsTab';
 import { useAuth } from '../../context/AuthContext';
+import type { Account, Profile } from '../../types';
+
+type PortalAccount = Account & { primary_profile?: Profile };
+
+type AccountDetailsResponse = Partial<PortalAccount> & {
+    account_id: string;
+    profile?: Profile[];
+};
+
+const getErrorMessage = (error: unknown): string => {
+    return error instanceof Error ? error.message : '';
+};
 
 export const MyAccount = () => {
     const { userParams, currentLocationId } = useAuth();
-    const [account, setAccount] = useState<any>(null);
+    const [account, setAccount] = useState<PortalAccount | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -41,36 +53,42 @@ export const MyAccount = () => {
                 // Let's assume for now.
                 
                 const response = await crmService.getAccountDetails(userParams.account_id, currentLocationId || undefined);
-                const data = response.data || response;
+                const data = (response.data || response) as AccountDetailsResponse;
                 
-                const normalizedData = {
-                    ...data,
+                const normalizedData: PortalAccount = {
+                    account_id: data.account_id,
+                    location_id: data.location_id || currentLocationId || '',
+                    status: data.status || 'ACTIVE',
+                    created_at: data.created_at || new Date().toISOString(),
                     profiles: data.profiles || data.profile || []
                 };
                 
                 setAccount(normalizedData);
                 setSelectedProfileId(null);
 
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error("Failed to fetch account details", err);
                 
                 // Fallback: If fetch fails (likely permission), verify if we can show partial data from userParams
                 if (userParams && userParams.account_id === userParams.account_id) {
-                     const fallbackData = {
+                     const fallbackData: PortalAccount = {
                         account_id: userParams.account_id,
+                        location_id: currentLocationId || '',
+                        status: 'ACTIVE',
+                        created_at: new Date().toISOString(),
                         profiles: [{
-                            profile_id: userParams.profile_id,
+                            profile_id: userParams.profile_id || '',
                             first_name: userParams.first_name,
                             last_name: userParams.last_name,
                              date_of_birth: userParams.date_of_birth,
                              is_primary: userParams.is_primary,
-                             email: userParams.email
+                             email: userParams.email || null
                         }]
                      };
                      setAccount(fallbackData);
                      // Don't show error if we have fallback
                 } else {
-                    setError("Failed to load your account. " + (err.message || ''));
+                    setError(`Failed to load your account. ${getErrorMessage(err)}`);
                 }
             } finally {
                 setLoading(false);
@@ -80,13 +98,13 @@ export const MyAccount = () => {
         fetchAccount();
     }, [userParams, currentLocationId]);
 
-    const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
-    };
+    }, []);
 
-    const handleProfileSelect = (profileId: string) => {
+    const handleProfileSelect = useCallback((profileId: string | null) => {
         setSelectedProfileId(profileId);
-    };
+    }, []);
 
     if (loading) {
         return (
@@ -104,7 +122,7 @@ export const MyAccount = () => {
         );
     }
 
-    const selectedProfile = account.profiles?.find((p: any) => p.profile_id === selectedProfileId);
+    const selectedProfile = account.profiles?.find((p) => p.profile_id === selectedProfileId);
 
     return (
         <Box>

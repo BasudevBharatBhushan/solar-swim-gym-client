@@ -40,46 +40,74 @@ export interface Session {
     expiry_date: string;
 }
 
+type JsonObject = Record<string, unknown>;
+
+export interface ServiceListResponse {
+  data?: Service[];
+  services?: Service[];
+}
+
+export interface ServiceUpsertResponse {
+  service_id?: string;
+  id?: string;
+  data?: {
+    service_id?: string;
+    id?: string;
+  };
+}
+
+export interface ServiceImageUploadResponse {
+  image_url?: string;
+}
+
+export interface ServicePackListResponse {
+  data?: ServicePack[];
+}
+
+export interface ServicePriceListResponse {
+  data?: ServicePrice[];
+}
+
 export const serviceCatalog = {
   // Get all services (Metadata only now)
-  getServices: async (locationId?: string) => {
+  getServices: async (locationId?: string): Promise<Service[] | ServiceListResponse> => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get('/services', {}, options);
+    return apiClient.get<Service[] | ServiceListResponse>('/services', {}, options);
   },
 
   // Create or Update Service (Metadata)
-  upsertService: async (serviceData: any, locationId?: string) => {
+  upsertService: async (serviceData: JsonObject, locationId?: string): Promise<ServiceUpsertResponse> => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.post('/services', serviceData, options);
+    return apiClient.post<ServiceUpsertResponse>('/services', serviceData, options);
   },
 
-  uploadServiceImage: async (serviceId: string, locationId: string, file: File) => {
+  uploadServiceImage: async (serviceId: string, locationId: string, file: File): Promise<ServiceImageUploadResponse> => {
     const formData = new FormData();
     formData.append('image', file);
-    return apiClient.upload(`/services/${serviceId}/image`, formData, {
+    return apiClient.upload<ServiceImageUploadResponse>(`/services/${serviceId}/image`, formData, {
         headers: { 'x-location-id': locationId }
     });
   },
 
   // --- Packs ---
-  getServicePacks: async (serviceId: string, locationId?: string) => {
+  getServicePacks: async (serviceId: string, locationId?: string): Promise<ServicePack[] | ServicePackListResponse> => {
       const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-      return apiClient.get(`/services/${serviceId}/service-packs`, {}, options);
+      return apiClient.get<ServicePack[] | ServicePackListResponse>(`/services/${serviceId}/service-packs`, {}, options);
   },
 
-  upsertServicePack: async (packData: any, locationId?: string) => {
+  upsertServicePack: async (packData: JsonObject, locationId?: string) => {
       // packData should include service_id
       const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
       return apiClient.post('/service-packs/upsert', packData, options);
   },
 
   // --- Prices ---
-  getPackPrices: async (servicePackId: string, locationId?: string) => {
+  getPackPrices: async (servicePackId: string, locationId?: string): Promise<ServicePrice[] | ServicePriceListResponse> => {
       const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-      return apiClient.get(`/service-packs/${servicePackId}/prices`, {}, options);
+      return apiClient.get<ServicePrice[] | ServicePriceListResponse>(`/service-packs/${servicePackId}/prices`, {}, options);
   },
 
-  upsertServicePrice: async (priceData: any, locationId?: string) => {
+  upsertServicePrice: async (priceData: JsonObject, locationId?: string) => {
       const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
       return apiClient.post('/service-packs/prices/upsert', priceData, options);
   },
@@ -90,7 +118,7 @@ export const serviceCatalog = {
       return apiClient.get('/sessions', {}, options);
   },
 
-  upsertSession: async (sessionData: any, locationId?: string) => {
+  upsertSession: async (sessionData: JsonObject, locationId?: string) => {
       const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
       return apiClient.post('/sessions/upsert', sessionData, options);
   }

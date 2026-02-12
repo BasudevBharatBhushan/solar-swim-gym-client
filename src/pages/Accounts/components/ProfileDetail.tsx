@@ -1,7 +1,8 @@
 import { Box, Paper, Typography, Grid, Divider } from '@mui/material';
+import type { Profile } from '../../../types';
 
 interface ProfileDetailProps {
-  profile: any;
+  profile: Profile | null;
   accountId?: string;
 }
 

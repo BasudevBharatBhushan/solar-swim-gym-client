@@ -21,7 +21,7 @@ export interface MembershipRule {
     maxAdult?: number;
     minSenior?: number;
     maxSenior?: number;
-    [key: string]: any;
+    [key: string]: unknown;
   }; 
   message?: string;
 }
@@ -57,6 +57,10 @@ export interface MembershipProgram {
   is_active?: boolean;
 }
 
+interface MembershipServicesUpsertPayload extends Omit<MembershipService, 'membership_service_id'> {
+  membership_service_id?: string;
+}
+
 
 export const membershipService = {
   // Fetch memberships
@@ -83,13 +87,13 @@ export const membershipService = {
   // Upsert Services (Generic)
   // Payload: { service_id, membership_program_id: ownerId, ... }
   // The backend maps 'membership_program_id' to the correct column based on the ownerId type.
-  upsertServices: async (services: MembershipService[], locationId?: string): Promise<any> => {
+  upsertServices: async (services: MembershipService[], locationId?: string): Promise<MembershipService[]> => {
     const payload = services.map(s => {
         // We clean up the object to match the expected payload
-        const { membership_service_id, service_name, ...rest } = s;
+        const { membership_service_id, ...rest } = s;
         
         // Only include ID if it's truthy (update), else exclude key completely for insert
-        const cleanObj: any = { ...rest };
+        const cleanObj: MembershipServicesUpsertPayload = { ...rest };
         if (membership_service_id) {
             cleanObj.membership_service_id = membership_service_id;
         }
@@ -107,7 +111,7 @@ export const membershipService = {
   },
 
   // Deprecated alias: Use upsertServices
-  upsertMembershipServices: async (services: MembershipService[]): Promise<any> => {
+  upsertMembershipServices: async (services: MembershipService[]): Promise<MembershipService[]> => {
       return membershipService.upsertServices(services);
   }
 };

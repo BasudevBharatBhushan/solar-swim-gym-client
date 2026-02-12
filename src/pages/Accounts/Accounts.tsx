@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Box, 
   Button, 
@@ -23,6 +23,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import SyncIcon from '@mui/icons-material/Sync';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useNavigate } from 'react-router-dom';
+import type { ChipProps } from '@mui/material/Chip';
 import { ClientOnboardingModal } from './ClientOnboarding/ClientOnboardingModal';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { crmService } from '../../services/crmService';
@@ -47,8 +48,9 @@ export const Accounts = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [reindexing, setReindexing] = useState(false);
+  type AccountSearchResult = Account & { profile?: Account['profiles'] };
 
-  const fetchAccounts = async () => {
+  const fetchAccounts = useCallback(async () => {
     if (!currentLocationId) return;
     setLoading(true);
     try {
@@ -59,8 +61,8 @@ export const Accounts = () => {
         sort: 'created_at',
         order: 'desc',
         locationId: currentLocationId
-      });
-      const normalizedResults = (response.results || []).map((acc: any) => ({
+      }) as { results?: AccountSearchResult[]; total?: number };
+      const normalizedResults = (response.results || []).map((acc) => ({
         ...acc,
         profiles: acc.profiles || acc.profile || []
       }));
@@ -71,22 +73,22 @@ export const Accounts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentLocationId, searchQuery, page, rowsPerPage]);
 
   useEffect(() => {
     fetchAccounts();
-  }, [page, rowsPerPage, currentLocationId]);
+  }, [fetchAccounts]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     setPage(0); // Reset to first page
     fetchAccounts();
-  };
+  }, [fetchAccounts]);
 
-  const handleOpenModal = () => setIsModalOpen(true);
-  const handleCloseModal = () => setIsModalOpen(false);
+  const handleOpenModal = useCallback(() => setIsModalOpen(true), []);
+  const handleCloseModal = useCallback(() => setIsModalOpen(false), []);
   
-  const handleSuccess = async () => {
+  const handleSuccess = useCallback(async () => {
       setLoading(true);
       // Trigger Reindex as requested
       try {
@@ -104,9 +106,9 @@ export const Accounts = () => {
           fetchAccounts();
       }
       handleCloseModal();
-  };
+  }, [currentLocationId, page, fetchAccounts, handleCloseModal]);
 
-  const handleReindex = async () => {
+  const handleReindex = useCallback(async () => {
       if (!currentLocationId || reindexing) return;
       setReindexing(true);
       try {
@@ -119,7 +121,31 @@ export const Accounts = () => {
       } finally {
           setReindexing(false);
       }
-  };
+  }, [currentLocationId, reindexing, fetchAccounts]);
+  const handleSearchQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearchQuery(e.target.value);
+  }, []);
+  const handleRefresh = useCallback(() => {
+      fetchAccounts();
+  }, [fetchAccounts]);
+  const handleAccountRowClick = useCallback((e: React.MouseEvent<HTMLTableRowElement>) => {
+      const accountId = e.currentTarget.dataset.accountId;
+      if (!accountId) return;
+      navigate(`/admin/accounts/${accountId}`);
+  }, [navigate]);
+  const handleAccountActionClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation();
+      const accountId = e.currentTarget.dataset.accountId;
+      if (!accountId) return;
+      navigate(`/admin/accounts/${accountId}`);
+  }, [navigate]);
+  const handlePageChange = useCallback((_event: unknown, newPage: number) => {
+      setPage(newPage);
+  }, []);
+  const handleRowsPerPageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setRowsPerPage(parseInt(e.target.value, 10));
+      setPage(0);
+  }, []);
 
   const getPrimaryProfile = (account: Account) => {
       if (!account.profiles || account.profiles.length === 0) return { name: 'Unknown', email: '-' };
@@ -132,7 +158,7 @@ export const Accounts = () => {
       };
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): ChipProps['color'] => {
       switch(status) {
           case 'ACTIVE': return 'success';
           case 'PENDING': return 'warning';
@@ -199,7 +225,7 @@ export const Accounts = () => {
                 size="small"
                 placeholder="Search by name, email..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearchQueryChange}
                 sx={{ flexGrow: 1 }}
                 InputProps={{
                     startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
@@ -208,7 +234,7 @@ export const Accounts = () => {
             <Button type="submit" variant="outlined" sx={{ borderRadius: '8px' }}>
                 Search
             </Button>
-            <IconButton onClick={fetchAccounts} title="Refresh">
+            <IconButton onClick={handleRefresh} title="Refresh">
                 <RefreshIcon />
             </IconButton>
         </Box>
@@ -244,9 +270,10 @@ export const Accounts = () => {
                     return (
                         <TableRow 
                             key={account.account_id}
+                            data-account-id={account.account_id}
                             hover
                             sx={{ cursor: 'pointer', '&:last-child td, &:last-child th': { border: 0 } }}
-                            onClick={() => navigate(`/admin/accounts/${account.account_id}`)}
+                            onClick={handleAccountRowClick}
                         >
                             <TableCell>
                                 <Typography variant="subtitle2" fontWeight={600}>
@@ -260,7 +287,7 @@ export const Accounts = () => {
                                 <Chip 
                                     label={account.status} 
                                     size="small" 
-                                    color={getStatusColor(account.status) as any}
+                                    color={getStatusColor(account.status)}
                                     variant="outlined" 
                                 />
                             </TableCell>
@@ -271,7 +298,7 @@ export const Accounts = () => {
                                 <Chip label={account.profiles?.length || 0} size="small" />
                             </TableCell>
                             <TableCell align="right">
-                                <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/admin/accounts/${account.account_id}`); }}>
+                                <IconButton size="small" data-account-id={account.account_id} onClick={handleAccountActionClick}>
                                     <ArrowForwardIcon fontSize="small" />
                                 </IconButton>
                             </TableCell>
@@ -287,11 +314,8 @@ export const Accounts = () => {
             count={total}
             rowsPerPage={rowsPerPage}
             page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-            }}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
         />
       </TableContainer>
 

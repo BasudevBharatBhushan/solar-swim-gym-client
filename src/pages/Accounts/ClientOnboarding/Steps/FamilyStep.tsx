@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -16,29 +16,16 @@ import {
   Chip,
   Avatar,
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { Person, ChildCare, ContentCopy, Star, ContactEmergency } from '@mui/icons-material';
 import { useConfig } from '../../../../context/ConfigContext';
-
-interface FamilyMember {
-    first_name: string;
-    last_name: string;
-    date_of_birth: string | null;
-    email?: string;
-    // Waiver / Program
-    waiver_program_id?: string | null;
-    case_manager_name?: string;
-    case_manager_email?: string;
-    // Minor Fields
-    guardian_name?: string;
-    guardian_mobile?: string;
-    emergency_phone?: string;
-}
+import type { OnboardingFamilyMember, OnboardingProfileData } from '../types';
 
 interface FamilyStepProps {
-  data: FamilyMember[];
-  updateData: (members: FamilyMember[]) => void;
-  primaryData: any;
-  updatePrimaryData: (key: string, value: any) => void;
+  data: OnboardingFamilyMember[];
+  updateData: (members: OnboardingFamilyMember[]) => void;
+  primaryData: OnboardingProfileData;
+  updatePrimaryData: (key: keyof OnboardingProfileData, value: string | number | null) => void;
   expectedCount: number;
 }
 
@@ -61,13 +48,37 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
               updateData(data.slice(0, needed));
           }
       }
-  }, [expectedCount, data.length]);
+  }, [expectedCount, data, updateData]);
 
-  const handleChange = (index: number, field: keyof FamilyMember, value: any) => {
+  const handleChange = useCallback((index: number, field: keyof OnboardingFamilyMember, value: string | null) => {
       const updated = [...data];
       updated[index] = { ...updated[index], [field]: value };
       updateData(updated);
-  };
+  }, [data, updateData]);
+
+  const handlePrimaryInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+      const field = event.currentTarget.dataset.field;
+      if (!field) return;
+      updatePrimaryData(field, event.target.value);
+  }, [updatePrimaryData]);
+
+  const handlePrimaryWaiverChange = useCallback((event: SelectChangeEvent<string>) => {
+      updatePrimaryData('waiver_program_id', event.target.value);
+  }, [updatePrimaryData]);
+
+  const handleMemberInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+      const indexValue = event.currentTarget.dataset.memberIndex;
+      const field = event.currentTarget.dataset.field as keyof FamilyMember | undefined;
+      if (indexValue === undefined || !field) return;
+      handleChange(Number(indexValue), field, event.target.value);
+  }, [handleChange]);
+
+  const handleMemberWaiverChange = useCallback((event: SelectChangeEvent<string>) => {
+      const target = event.target as HTMLInputElement;
+      const indexValue = target.dataset.memberIndex;
+      if (indexValue === undefined) return;
+      handleChange(Number(indexValue), 'waiver_program_id', event.target.value);
+  }, [handleChange]);
 
   const calculateAge = (dob: string | null) => {
     if (!dob) return 0;
@@ -96,7 +107,7 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
       return age !== null && age < 18;
   };
 
-  const copyPrimaryToGuardian = (index: number) => {
+  const copyPrimaryToGuardian = useCallback((index: number) => {
       const updated = [...data];
       updated[index] = {
           ...updated[index],
@@ -104,7 +115,13 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
           guardian_mobile: primaryData.mobile
       };
       updateData(updated);
-  };
+  }, [data, primaryData.first_name, primaryData.last_name, primaryData.mobile, updateData]);
+
+  const handleCopyPrimaryClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+      const indexValue = event.currentTarget.dataset.memberIndex;
+      if (indexValue === undefined) return;
+      copyPrimaryToGuardian(Number(indexValue));
+  }, [copyPrimaryToGuardian]);
 
   return (
     <Box>
@@ -189,7 +206,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     fullWidth
                                     required
                                     value={primaryData.first_name || ''}
-                                    onChange={(e) => updatePrimaryData('first_name', e.target.value)}
+                                    onChange={handlePrimaryInputChange}
+                                    inputProps={{ 'data-field': 'first_name' }}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
@@ -201,7 +219,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     fullWidth
                                     required
                                     value={primaryData.last_name || ''}
-                                    onChange={(e) => updatePrimaryData('last_name', e.target.value)}
+                                    onChange={handlePrimaryInputChange}
+                                    inputProps={{ 'data-field': 'last_name' }}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
@@ -213,7 +232,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     fullWidth
                                     required
                                     value={primaryData.date_of_birth || ''}
-                                    onChange={(e) => updatePrimaryData('date_of_birth', e.target.value)}
+                                    onChange={handlePrimaryInputChange}
+                                    inputProps={{ 'data-field': 'date_of_birth' }}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
@@ -224,7 +244,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     size="small"
                                     fullWidth
                                     value={primaryData.mobile || ''}
-                                    onChange={(e) => updatePrimaryData('mobile', e.target.value)}
+                                    onChange={handlePrimaryInputChange}
+                                    inputProps={{ 'data-field': 'mobile' }}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
@@ -236,7 +257,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     fullWidth
                                     required
                                     value={primaryData.email || ''}
-                                    onChange={(e) => updatePrimaryData('email', e.target.value)}
+                                    onChange={handlePrimaryInputChange}
+                                    inputProps={{ 'data-field': 'email' }}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
@@ -248,12 +270,12 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     <Select
                                         labelId="primary-waiver-label"
                                         value={waiverPrograms.some(p => p.waiver_program_id === primaryData.waiver_program_id) ? primaryData.waiver_program_id : ''}
-                                        onChange={(e: any) => updatePrimaryData('waiver_program_id', e.target.value)}
+                                        onChange={handlePrimaryWaiverChange}
                                         label="Waiver Program (Optional)"
                                         displayEmpty
                                     >
                                         <MenuItem value=""><em>None / Private Pay</em></MenuItem>
-                                        {waiverPrograms.filter(p => p.is_active).map((p: any) => (
+                                        {waiverPrograms.filter(p => p.is_active).map((p) => (
                                             <MenuItem key={p.waiver_program_id} value={p.waiver_program_id}>
                                                 {p.name}
                                             </MenuItem>
@@ -278,7 +300,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                             fullWidth
                                             required
                                             value={primaryData.case_manager_name || ''}
-                                            onChange={(e) => updatePrimaryData('case_manager_name', e.target.value)}
+                                            onChange={handlePrimaryInputChange}
+                                            inputProps={{ 'data-field': 'case_manager_name' }}
                                             slotProps={{ inputLabel: { shrink: true } }}
                                         />
                                     </Grid>
@@ -290,7 +313,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                             fullWidth
                                             required
                                             value={primaryData.case_manager_email || ''}
-                                            onChange={(e) => updatePrimaryData('case_manager_email', e.target.value)}
+                                            onChange={handlePrimaryInputChange}
+                                            inputProps={{ 'data-field': 'case_manager_email' }}
                                             slotProps={{ inputLabel: { shrink: true } }}
                                         />
                                     </Grid>
@@ -367,7 +391,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 fullWidth
                                 required
                                 value={member.first_name || ''}
-                                onChange={(e) => handleChange(index, 'first_name', e.target.value)}
+                                onChange={handleMemberInputChange}
+                                inputProps={{ 'data-member-index': index, 'data-field': 'first_name' }}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -379,7 +404,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 fullWidth
                                 required
                                 value={member.last_name || ''}
-                                onChange={(e) => handleChange(index, 'last_name', e.target.value)}
+                                onChange={handleMemberInputChange}
+                                inputProps={{ 'data-member-index': index, 'data-field': 'last_name' }}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -391,7 +417,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 fullWidth
                                 required
                                 value={member.date_of_birth || ''}
-                                onChange={(e) => handleChange(index, 'date_of_birth', e.target.value)}
+                                onChange={handleMemberInputChange}
+                                inputProps={{ 'data-member-index': index, 'data-field': 'date_of_birth' }}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -404,7 +431,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 type="email"
                                 fullWidth
                                 value={member.email || ''}
-                                onChange={(e) => handleChange(index, 'email', e.target.value)}
+                                onChange={handleMemberInputChange}
+                                inputProps={{ 'data-member-index': index, 'data-field': 'email' }}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -416,12 +444,13 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 <Select
                                     labelId={`waiver-label-${index}`}
                                     value={waiverPrograms.some(p => p.waiver_program_id === member.waiver_program_id) ? member.waiver_program_id : ''}
-                                    onChange={(e: any) => handleChange(index, 'waiver_program_id', e.target.value)}
+                                    onChange={handleMemberWaiverChange}
                                     label="Waiver Program (Optional)"
                                     displayEmpty
+                                    inputProps={{ 'data-member-index': index }}
                                 >
                                     <MenuItem value=""><em>None / Private Pay</em></MenuItem>
-                                    {waiverPrograms.filter(p => p.is_active).map((p: any) => (
+                                    {waiverPrograms.filter(p => p.is_active).map((p) => (
                                         <MenuItem key={p.waiver_program_id} value={p.waiver_program_id}>
                                             {p.name}
                                         </MenuItem>
@@ -446,7 +475,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                         fullWidth
                                         required
                                         value={member.case_manager_name || ''}
-                                        onChange={(e) => handleChange(index, 'case_manager_name', e.target.value)}
+                                        onChange={handleMemberInputChange}
+                                        inputProps={{ 'data-member-index': index, 'data-field': 'case_manager_name' }}
                                         slotProps={{ inputLabel: { shrink: true } }}
                                     />
                                 </Grid>
@@ -458,7 +488,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                         fullWidth
                                         required
                                         value={member.case_manager_email || ''}
-                                        onChange={(e) => handleChange(index, 'case_manager_email', e.target.value)}
+                                        onChange={handleMemberInputChange}
+                                        inputProps={{ 'data-member-index': index, 'data-field': 'case_manager_email' }}
                                         slotProps={{ inputLabel: { shrink: true } }}
                                     />
                                 </Grid>
@@ -478,7 +509,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                                 variant="outlined"
                                                 size="small" 
                                                 startIcon={<ContentCopy fontSize="inherit" />} 
-                                                onClick={() => copyPrimaryToGuardian(index)}
+                                                onClick={handleCopyPrimaryClick}
+                                                data-member-index={index}
                                                 sx={{ fontSize: '0.65rem', textTransform: 'none', py: 0.5, borderRadius: 1.5 }}
                                             >
                                                 Copy Primary Info
@@ -495,7 +527,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                                 fullWidth
                                                 required
                                                 value={member.guardian_name || ''}
-                                                onChange={(e) => handleChange(index, 'guardian_name', e.target.value)}
+                                                onChange={handleMemberInputChange}
+                                                inputProps={{ 'data-member-index': index, 'data-field': 'guardian_name' }}
                                                 slotProps={{ inputLabel: { shrink: true } }}
                                             />
                                         </Grid>
@@ -507,7 +540,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                                 fullWidth
                                                 required
                                                 value={member.guardian_mobile || ''}
-                                                onChange={(e) => handleChange(index, 'guardian_mobile', e.target.value)}
+                                                onChange={handleMemberInputChange}
+                                                inputProps={{ 'data-member-index': index, 'data-field': 'guardian_mobile' }}
                                                 slotProps={{ inputLabel: { shrink: true } }}
                                             />
                                         </Grid>
@@ -519,7 +553,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                                 fullWidth
                                                 required
                                                 value={member.emergency_phone || ''}
-                                                onChange={(e) => handleChange(index, 'emergency_phone', e.target.value)}
+                                                onChange={handleMemberInputChange}
+                                                inputProps={{ 'data-member-index': index, 'data-field': 'emergency_phone' }}
                                                 slotProps={{ inputLabel: { shrink: true } }}
                                             />
                                         </Grid>

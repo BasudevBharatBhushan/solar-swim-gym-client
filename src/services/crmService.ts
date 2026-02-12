@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+type JsonObject = Record<string, unknown>;
 
 export const crmService = {
   // Leads
@@ -26,7 +27,7 @@ export const crmService = {
     return apiClient.get('/leads/search', queryParams, options);
   },
 
-  upsertLead: async (leadData: any, locationId?: string) => {
+  upsertLead: async (leadData: JsonObject, locationId?: string) => {
     // leadData: { lead_id?, ... }
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/leads', leadData, options);
@@ -68,7 +69,7 @@ export const crmService = {
   },
 
   // Upsert Profiles (Manual modification of Profiles within an existing Account)
-  upsertAccountProfiles: async (accountData: any, locationId?: string) => {
+  upsertAccountProfiles: async (accountData: JsonObject, locationId?: string) => {
     // accountData: { account_id, location_id, primary_profile, family_members }
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/accounts/upsert', accountData, options);

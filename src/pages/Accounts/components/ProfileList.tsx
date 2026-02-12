@@ -2,17 +2,29 @@
 import { List, ListItemButton, ListItemText, ListItemAvatar, Avatar, Paper, Typography, Box } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import StarIcon from '@mui/icons-material/Star';
+import { useCallback } from 'react';
 import { useConfig } from '../../../context/ConfigContext';
 import { getAgeGroupName } from '../../../lib/ageUtils';
+import type { Profile } from '../../../types';
 
 interface ProfileListProps {
-  profiles: any[];
+  profiles: Profile[];
   selectedProfileId: string | null;
-  onSelectProfile: (profileId: string) => void;
+  onSelectProfile: (profileId: string | null) => void;
 }
 
 export const ProfileList = ({ profiles, selectedProfileId, onSelectProfile }: ProfileListProps) => {
   const { ageGroups } = useConfig();
+
+  const handleSelectAll = useCallback(() => {
+    onSelectProfile(null);
+  }, [onSelectProfile]);
+
+  const handleSelectProfileClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const profileId = event.currentTarget.dataset.profileId;
+    if (!profileId) return;
+    onSelectProfile(profileId);
+  }, [onSelectProfile]);
 
   // Sort: primary first
   const sortedProfiles = [...profiles].sort((a, b) => {
@@ -31,7 +43,7 @@ export const ProfileList = ({ profiles, selectedProfileId, onSelectProfile }: Pr
       <List sx={{ p: 0 }}>
         <ListItemButton
           selected={selectedProfileId === null}
-          onClick={() => onSelectProfile(null as any)}
+          onClick={handleSelectAll}
           sx={{
             borderBottom: '1px solid #f1f5f9',
             '&.Mui-selected': {
@@ -56,7 +68,8 @@ export const ProfileList = ({ profiles, selectedProfileId, onSelectProfile }: Pr
           <ListItemButton
             key={profile.profile_id}
             selected={selectedProfileId === profile.profile_id}
-            onClick={() => onSelectProfile(profile.profile_id)}
+            onClick={handleSelectProfileClick}
+            data-profile-id={profile.profile_id}
             sx={{
               borderBottom: '1px solid #f1f5f9',
               '&.Mui-selected': {

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
     Box, 
@@ -40,12 +40,25 @@ import { PageHeader } from '../../components/Common/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { basePriceService, BasePrice } from '../../services/basePriceService';
 import { membershipService, MembershipProgram } from '../../services/membershipService';
-import { serviceCatalog, Service } from '../../services/serviceCatalog';
+import { serviceCatalog, Service, ServicePack } from '../../services/serviceCatalog';
 import { billingService } from '../../services/billingService';
 import { crmService } from '../../services/crmService';
 import { useConfig } from '../../context/ConfigContext';
 import { getAgeGroupName } from '../../lib/ageUtils';
+import type { Profile } from '../../types';
 
+interface ServicePackPrice {
+    price: string | number;
+    is_default?: boolean;
+}
+
+interface ServicePackWithPrices extends ServicePack {
+    prices?: ServicePackPrice[];
+}
+
+interface MarketplaceService extends Service {
+    packs?: ServicePackWithPrices[];
+}
 
 interface CartItem {
     id: string; // unique key
@@ -55,7 +68,7 @@ interface CartItem {
     price: number;
     description?: string;
     // Metadata for creation
-    metadata?: any;
+    metadata?: unknown;
     coverage?: { profile_id: string; name: string; age_group?: string }[];
 }
 
@@ -73,7 +86,7 @@ export const Marketplace = () => {
     const [loading, setLoading] = useState(true);
     const [basePrices, setBasePrices] = useState<BasePrice[]>([]);
     const [membershipPrograms, setMembershipPrograms] = useState<MembershipProgram[]>([]);
-    const [services, setServices] = useState<Service[]>([]);
+    const [services, setServices] = useState<MarketplaceService[]>([]);
 
     // UI States
     const [tabValue, setTabValue] = useState(0);
@@ -81,7 +94,7 @@ export const Marketplace = () => {
     const [submitting, setSubmitting] = useState(false);
     
     // Account Context (for coverage selection)
-    const [profiles, setProfiles] = useState<any[]>([]);
+    const [profiles, setProfiles] = useState<Profile[]>([]);
     const [primaryProfileId, setPrimaryProfileId] = useState<string | null>(null);
 
     // Coverage Dialog States
@@ -107,7 +120,7 @@ export const Marketplace = () => {
                         return 0;
                     });
                     setProfiles(profs);
-                    const primary = profs.find((p: any) => p.is_primary);
+                    const primary = profs.find((p: Profile) => p.is_primary);
                     setPrimaryProfileId(primary ? primary.profile_id : (profs[0]?.profile_id || null));
                 } catch (err) {
                     console.warn("Marketplace: Failed to fetch account details. Using current user fallback.", err);
@@ -135,8 +148,8 @@ export const Marketplace = () => {
                 setMembershipPrograms(mpData || []);
                 
                 // Enrich services with packs and prices
-                const rawServices = Array.isArray(servicesData) ? servicesData : (servicesData.data || []);
-                const enrichedServices = await Promise.all(rawServices.map(async (s: any) => {
+                const rawServices = (Array.isArray(servicesData) ? servicesData : (servicesData.data || [])) as MarketplaceService[];
+                const enrichedServices = await Promise.all(rawServices.map(async (s) => {
                     const serviceId = s.service_id;
                     const serviceName = s.name || s.service_name || 'Unnamed Service';
                     
@@ -144,16 +157,16 @@ export const Marketplace = () => {
                         const packsRes = await serviceCatalog.getServicePacks(serviceId, currentLocationId);
                         const packs = Array.isArray(packsRes) ? packsRes : (packsRes.data || []);
                         
-                        const enrichedPacks = await Promise.all(packs.map(async (p: any) => {
+                        const enrichedPacks = await Promise.all((packs as ServicePackWithPrices[]).map(async (p) => {
                             try {
                                 const pricesRes = await serviceCatalog.getPackPrices(p.service_pack_id, currentLocationId);
-                                return { ...p, prices: Array.isArray(pricesRes) ? pricesRes : (pricesRes.data || []) };
-                            } catch (err) {
+                                return { ...p, prices: (Array.isArray(pricesRes) ? pricesRes : (pricesRes.data || [])) as ServicePackPrice[] };
+                            } catch {
                                 return { ...p, prices: [] };
                             }
                         }));
                         return { ...s, name: serviceName, packs: enrichedPacks };
-                    } catch (err) {
+                    } catch {
                         return { ...s, name: serviceName, packs: [] };
                     }
                 }));
@@ -166,25 +179,25 @@ export const Marketplace = () => {
             }
         };
         loadData();
-    }, [currentLocationId, accountId]);
+    }, [currentLocationId, accountId, userParams]);
 
-    const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
         setTabValue(newValue);
-    };
+    }, []);
 
-    const isInCart = (id: string) => cart.some(i => i.id === id);
+    const isInCart = useCallback((id: string) => cart.some(i => i.id === id), [cart]);
 
-    const openCoverageDialog = (item: CartItem) => {
+    const openCoverageDialog = useCallback((item: CartItem) => {
         if (isInCart(item.id)) {
-            removeFromCart(item.id);
+            setCart(prev => prev.filter(i => i.id !== item.id));
             return;
         }
         setPendingItem(item);
         setSelectedProfileIds(primaryProfileId ? [primaryProfileId] : []);
         setCoverageDialogOpen(true);
-    };
+    }, [isInCart, primaryProfileId]);
 
-    const handleConfirmCoverage = () => {
+    const handleConfirmCoverage = useCallback(() => {
         if (pendingItem && selectedProfileIds.length > 0) {
             const coverage = selectedProfileIds.map(id => {
                 const profile = profiles.find(p => p.profile_id === id);
@@ -200,13 +213,13 @@ export const Marketplace = () => {
 
         setCoverageDialogOpen(false);
         setPendingItem(null);
-    };
+    }, [pendingItem, profiles, selectedProfileIds, ageGroups]);
 
-    const removeFromCart = (id: string) => {
+    const removeFromCart = useCallback((id: string) => {
         setCart(prev => prev.filter(i => i.id !== id));
-    };
+    }, []);
 
-    const handleCheckout = async () => {
+    const handleCheckout = useCallback(async () => {
         if (!accountId || !currentLocationId) return;
         setSubmitting(true);
         try {
@@ -233,7 +246,85 @@ export const Marketplace = () => {
         } finally {
             setSubmitting(false);
         }
-    };
+    }, [accountId, cart, currentLocationId, navigate, isMember]);
+
+    const handleBackClick = useCallback(() => {
+        navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`);
+    }, [accountId, isMember, navigate]);
+
+    const handleCloseCoverageDialog = useCallback(() => {
+        setCoverageDialogOpen(false);
+    }, []);
+
+    const handleCoverageProfileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const profileId = event.currentTarget.dataset.profileId;
+        if (!profileId) return;
+        if (event.target.checked) {
+            setSelectedProfileIds(prev => [...prev, profileId]);
+        } else {
+            setSelectedProfileIds(prev => prev.filter(id => id !== profileId));
+        }
+    }, []);
+
+    const handleRemoveCartClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+        const itemId = event.currentTarget.dataset.itemId;
+        if (!itemId) return;
+        removeFromCart(itemId);
+    }, [removeFromCart]);
+
+    const handleBaseCoverageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const basePriceId = event.currentTarget.dataset.basePriceId;
+        if (!basePriceId) return;
+        const bp = basePrices.find(item => item.base_price_id === basePriceId);
+        if (!bp) return;
+        openCoverageDialog({
+            id: bp.base_price_id!,
+            type: 'BASE',
+            referenceId: bp.base_price_id!,
+            name: bp.name,
+            price: bp.price,
+            description: `${bp.age_group_name || ''} - ${bp.role || ''}`,
+            metadata: bp
+        });
+    }, [basePrices, openCoverageDialog]);
+
+    const handleMembershipCoverageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const categoryId = event.currentTarget.dataset.categoryId;
+        if (!categoryId) return;
+        const category = membershipPrograms.flatMap(mp => mp.categories).find(cat => cat.category_id === categoryId);
+        if (!category) return;
+        const totalFees = category.fees?.reduce((sum, f) => sum + f.amount, 0) || 0;
+        openCoverageDialog({
+            id: category.category_id!,
+            type: 'MEMBERSHIP',
+            referenceId: category.category_id!,
+            name: category.name,
+            price: totalFees,
+            description: `${category.fees?.map(f => f.fee_type).join(', ') || 'Membership Fees'}`,
+            metadata: category
+        });
+    }, [membershipPrograms, openCoverageDialog]);
+
+    const handleServiceCoverageChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const servicePackId = event.currentTarget.dataset.servicePackId;
+        if (!servicePackId) return;
+        for (const service of services) {
+            const pack = service.packs?.find((p) => p.service_pack_id === servicePackId);
+            if (!pack) continue;
+            const priceObj = pack.prices?.find((pr) => pr.is_default) || pack.prices?.[0];
+            const price = priceObj ? parseFloat(String(priceObj.price)) : 0;
+            openCoverageDialog({
+                id: pack.service_pack_id!,
+                type: 'SERVICE',
+                referenceId: pack.service_pack_id!,
+                name: `${service.name} - ${pack.name}`,
+                price: price,
+                description: pack.description || '',
+                metadata: { service, pack, priceObj }
+            });
+            return;
+        }
+    }, [openCoverageDialog, services]);
 
     if (loading) {
         return (
@@ -259,7 +350,7 @@ export const Marketplace = () => {
                 action={
                     <Button 
                         startIcon={<ArrowBackIcon />} 
-                        onClick={() => navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`)}
+                        onClick={handleBackClick}
                         variant="outlined"
                     >
                         Back
@@ -376,14 +467,8 @@ export const Marketplace = () => {
                                                                 <TableCell align="center">
                                                                     <Checkbox 
                                                                         checked={isInCart(bp.base_price_id!)}
-                                                                        onChange={() => openCoverageDialog({
-                                                                            id: bp.base_price_id!,
-                                                                            type: 'BASE',
-                                                                            referenceId: bp.base_price_id!,
-                                                                            name: `${bp.name} (${bp.age_group_name})`,
-                                                                            price: bp.price,
-                                                                            metadata: { subscription_term_id: bp.subscription_term_id }
-                                                                        })}
+                                                                        onChange={handleBaseCoverageChange}
+                                                                        inputProps={{ 'data-base-price-id': bp.base_price_id || '' }}
                                                                     />
                                                                 </TableCell>
                                                             </TableRow>
@@ -461,13 +546,8 @@ export const Marketplace = () => {
                                                                 <TableCell align="center">
                                                                     <Checkbox 
                                                                         checked={isInCart(cat.category_id!)}
-                                                                        onChange={() => openCoverageDialog({
-                                                                            id: cat.category_id!,
-                                                                            type: 'MEMBERSHIP',
-                                                                            referenceId: cat.category_id!,
-                                                                            name: `${mp.name} - ${cat.name}`,
-                                                                            price: total
-                                                                        })}
+                                                                        onChange={handleMembershipCoverageChange}
+                                                                        inputProps={{ 'data-category-id': cat.category_id || '' }}
                                                                     />
                                                                 </TableCell>
                                                             </TableRow>
@@ -548,9 +628,9 @@ export const Marketplace = () => {
                                                     </Typography>
                                                     
                                                     <Stack spacing={1.5}>
-                                                        {s.packs!.map((p: any) => {
+                                                        {s.packs!.map((p) => {
                                                             const minPrice = p.prices && p.prices.length > 0 
-                                                                ? Math.min(...p.prices.map((pr: any) => parseFloat(pr.price)))
+                                                                ? Math.min(...p.prices.map((pr) => parseFloat(String(pr.price))))
                                                                 : 0;
                                                             
                                                             return (
@@ -602,16 +682,8 @@ export const Marketplace = () => {
                                                                         <Checkbox 
                                                                             size="small"
                                                                             checked={isInCart(p.service_pack_id)}
-                                                                            onChange={() => openCoverageDialog({
-                                                                                id: p.service_pack_id!,
-                                                                                type: 'SERVICE',
-                                                                                referenceId: p.service_pack_id!,
-                                                                                name: `${s.name} - ${p.name}`,
-                                                                                price: minPrice,
-                                                                                metadata: {
-                                                                                    subscription_term_id: p.prices?.[0]?.subscription_term_id
-                                                                                }
-                                                                            })}
+                                                                            onChange={handleServiceCoverageChange}
+                                                                            inputProps={{ 'data-service-pack-id': p.service_pack_id || '' }}
                                                                         />
                                                                     </Box>
                                                                 </Box>
@@ -690,7 +762,8 @@ export const Marketplace = () => {
                                         }}>
                                             <IconButton 
                                                 size="small" 
-                                                onClick={() => removeFromCart(item.id)}
+                                                onClick={handleRemoveCartClick}
+                                                data-item-id={item.id}
                                                 sx={{ position: 'absolute', top: 8, right: 8, color: 'text.disabled' }}
                                             >
                                                 <Typography variant="caption" sx={{ fontSize: '14px' }}>×</Typography>
@@ -759,7 +832,7 @@ export const Marketplace = () => {
             {/* Coverage Selection Dialog */}
             <Dialog 
                 open={coverageDialogOpen} 
-                onClose={() => setCoverageDialogOpen(false)}
+                onClose={handleCloseCoverageDialog}
                 maxWidth="xs"
                 fullWidth
                 PaperProps={{ sx: { borderRadius: 3, p: 1 } }}
@@ -776,13 +849,8 @@ export const Marketplace = () => {
                                 control={
                                     <Checkbox 
                                         checked={selectedProfileIds.includes(profile.profile_id)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setSelectedProfileIds(prev => [...prev, profile.profile_id]);
-                                            } else {
-                                                setSelectedProfileIds(prev => prev.filter(id => id !== profile.profile_id));
-                                            }
-                                        }}
+                                        onChange={handleCoverageProfileChange}
+                                        inputProps={{ 'data-profile-id': profile.profile_id }}
                                     />
                                 }
                                 label={
@@ -804,7 +872,7 @@ export const Marketplace = () => {
                     </FormGroup>
                 </DialogContent>
                 <DialogActions sx={{ p: 3 }}>
-                    <Button onClick={() => setCoverageDialogOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>
+                    <Button onClick={handleCloseCoverageDialog} color="inherit" sx={{ fontWeight: 600 }}>
                         Cancel
                     </Button>
                     <Button 

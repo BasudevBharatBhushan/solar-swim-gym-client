@@ -23,7 +23,6 @@ if (typeof sessionStorage === "undefined" || sessionStorage === null) {
 import { authService } from '../src/services/authService';
 import { crmService } from '../src/services/crmService';
 import { configService } from '../src/services/configService';
-import { billingService } from '../src/services/billingService';
 
 // ANSI Color Codes
 const colors = {
@@ -37,8 +36,6 @@ const colors = {
 
 async function runTests() {
   console.log(`${colors.header}Starting CRM & Billing verification...${colors.reset}`);
-  
-  const timestamp = Date.now();
   let locationId: string | undefined;
 
   // 1. Authentication
@@ -81,7 +78,7 @@ async function runTests() {
       console.log(`${colors.success}✔ Search 'test' returned ${Array.isArray(accounts) ? accounts.length : 'unknown'} results${colors.reset}`);
 
       // Search with sorting
-      const sortRes = await crmService.searchAccounts({
+      await crmService.searchAccounts({
           sort: "created_at",
           order: "desc",
           size: 1,
@@ -106,3 +103,4 @@ async function runTests() {
 }
 
 runTests();
+

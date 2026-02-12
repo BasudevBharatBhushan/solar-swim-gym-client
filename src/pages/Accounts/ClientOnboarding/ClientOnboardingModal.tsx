@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -19,6 +19,7 @@ import { ReviewStep } from './Steps/ReviewStep';
 import { WaiverSigningStep } from './Steps/WaiverSigningStep';
 import { authService } from '../../../services/authService';
 import { useAuth } from '../../../context/AuthContext';
+import type { OnboardingErrors, OnboardingFamilyMember, OnboardingProfileData } from './types';
 
 
 interface ClientOnboardingModalProps {
@@ -37,7 +38,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const locationName = currentLocation ? currentLocation.name : 'Zalexy';
 
   // Form Data State
-  const [profileData, setProfileData] = useState({
+  const [profileData, setProfileData] = useState<OnboardingProfileData>({
     first_name: '',
     last_name: '',
     email: '',
@@ -47,11 +48,11 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     // ... other fields
   });
 
-  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
+  const [familyMembers, setFamilyMembers] = useState<OnboardingFamilyMember[]>([]);
   const [signedWaivers, setSignedWaivers] = useState<Record<string, string>>({});
   const [allSigned, setAllSigned] = useState(false);
 
-  const [errors, setErrors] = useState<any>({});
+  const [errors, setErrors] = useState<OnboardingErrors>({});
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'error' | 'success' | 'warning' | 'info' }>({
     open: false,
@@ -59,28 +60,30 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     severity: 'info'
   });
 
-  const showToast = (message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'error') => {
+  const showToast = useCallback((message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'error') => {
     setToast({ open: true, message, severity });
-  };
+  }, []);
 
-  const handleCloseToast = () => {
+  const handleCloseToast = useCallback(() => {
     setToast(prev => ({ ...prev, open: false }));
-  };
+  }, []);
 
   // Debugging state sync
   React.useEffect(() => {
     console.log("Parent signedWaivers state updated:", signedWaivers);
   }, [signedWaivers]);
 
-  const updateProfileData = (key: string, value: any) => {
+  const updateProfileData = useCallback((key: keyof OnboardingProfileData, value: string | number | null) => {
     setProfileData(prev => ({ ...prev, [key]: value }));
-    if (errors[key]) {
-        setErrors((prev: any) => ({ ...prev, [key]: undefined }));
-    }
-  };
+    setErrors(prev => (prev[key] ? { ...prev, [key]: undefined } : prev));
+  }, []);
 
-  const validateProfile = () => {
-    const newErrors: any = {};
+  const handlePrimaryDataUpdate = useCallback((key: keyof OnboardingProfileData, value: string | number | null) => {
+    updateProfileData(key, value);
+  }, [updateProfileData]);
+
+  const validateProfile = useCallback(() => {
+    const newErrors: OnboardingErrors = {};
     if (!profileData.first_name) newErrors.first_name = 'First name is required';
     if (!profileData.last_name) newErrors.last_name = 'Last name is required';
     if (!profileData.email) newErrors.email = 'Email is required';
@@ -88,19 +91,19 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [profileData.date_of_birth, profileData.email, profileData.first_name, profileData.last_name]);
 
-  const validateFamily = () => {
+  const validateFamily = useCallback(() => {
       // Basic check: Ensure names are filled if a member entry exists
       return true;
-  };
+  }, []);
   
-  const validateWaivers = () => {
+  const validateWaivers = useCallback(() => {
       console.log("Validating Waivers. Step reported allSigned:", allSigned, "Signatures:", signedWaivers);
       return allSigned;
-  };
+  }, [allSigned, signedWaivers]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (activeStep === 0) {
         if (!validateProfile()) return;
     }
@@ -119,13 +122,13 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     }
     
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
-  };
+  }, [activeStep, showToast, validateFamily, validateProfile, validateWaivers]);
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
+  }, []);
 
-  const handleFinish = async () => {
+  const handleFinish = useCallback(async () => {
       setLoading(true);
       try {
           // Filter out empty family members if any
@@ -139,9 +142,9 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 email: profileData.email,
                 date_of_birth: profileData.date_of_birth,
                 mobile: profileData.mobile,
-                waiver_program_id: (profileData as any).waiver_program_id,
-                case_manager_name: (profileData as any).case_manager_name,
-                case_manager_email: (profileData as any).case_manager_email,
+                waiver_program_id: profileData.waiver_program_id,
+                case_manager_name: profileData.case_manager_name,
+                case_manager_email: profileData.case_manager_email,
                 signed_waiver_id: signedWaivers['primary']
               },
               family_members: validFamilyMembers.map((m, idx) => ({
@@ -178,13 +181,14 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           });
           setFamilyMembers([]);
           setSignedWaivers({});
-      } catch (error: any) {
+      } catch (error: unknown) {
           console.error("Registration failed", error);
-          showToast(error.message || "Failed to create account. Please try again.", "error");
+          const message = error instanceof Error ? error.message : "Failed to create account. Please try again.";
+          showToast(message, "error");
       } finally {
           setLoading(false);
       }
-  };
+  }, [currentLocationId, familyMembers, onClose, onSuccess, profileData, showToast, signedWaivers]);
 
   const renderStepContent = (step: number) => {
     switch (step) {
@@ -196,21 +200,22 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 data={familyMembers} 
                 updateData={setFamilyMembers} 
                 primaryData={profileData}
-                updatePrimaryData={(key: string, value: any) => updateProfileData(key, value)}
+                updatePrimaryData={handlePrimaryDataUpdate}
                 expectedCount={Math.max(1, profileData.family_count)}
             />
         );
-      case 2:
-          // Filter valid members to pass to WaiverStep
-          const validMembers = familyMembers.filter(m => m.first_name && m.last_name);
-          return (
-            <WaiverSigningStep 
-                primaryProfile={profileData}
-                familyMembers={validMembers}
-                onWaiversSigned={setSignedWaivers}
-                onAllSigned={setAllSigned}
-            />
-          );
+      case 2: {
+        // Filter valid members to pass to WaiverStep
+        const validMembers = familyMembers.filter(m => m.first_name && m.last_name);
+        return (
+          <WaiverSigningStep
+            primaryProfile={profileData}
+            familyMembers={validMembers}
+            onWaiversSigned={setSignedWaivers}
+            onAllSigned={setAllSigned}
+          />
+        );
+      }
       case 3:
         return <ReviewStep primaryProfile={profileData} familyMembers={familyMembers} />;
       default:

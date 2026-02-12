@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Container,
   Paper,
@@ -26,6 +26,13 @@ import { staffService } from '../services/staffService';
 // Assuming we have a logo asset similar to ActivateAccount
 import logo from '../assets/logo.png'; 
 
+type ValidateActivationResponse = {
+  error?: string;
+  message?: string;
+  email?: string;
+  staff?: { email?: string };
+};
+
 export const AdminActivation = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -45,6 +52,28 @@ export const AdminActivation = () => {
   const [activated, setActivated] = useState(false);
 
   // Extract token and validate on mount
+  const validateToken = useCallback(async (tokenValue: string) => {
+    try {
+      const data = await staffService.validateActivationToken(tokenValue);
+      // Adjust based on actual API response structure for Admin Validation
+      // The user prompt said: "Use when: Staff clicks the email link. Returns staff details if valid."
+      const response = data as ValidateActivationResponse;
+      if (response && !response.error) { 
+        setIsValid(true);
+        // If data contains staff details, set email
+        if (response.email) setAdminEmail(response.email);
+        else if (response.staff?.email) setAdminEmail(response.staff.email);
+      } else {
+        setError(response.message || 'Invalid or expired activation link');
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to validate token.';
+      setError(errorMessage);
+    } finally {
+      setIsValidating(false);
+    }
+  }, []);
+
   useEffect(() => {
     const tokenFromUrl = searchParams.get('token');
     
@@ -56,30 +85,9 @@ export const AdminActivation = () => {
     
     setToken(tokenFromUrl);
     validateToken(tokenFromUrl);
-  }, [searchParams]);
+  }, [searchParams, validateToken]);
 
-  const validateToken = async (tokenValue: string) => {
-    try {
-      const data = await staffService.validateActivationToken(tokenValue);
-      // Adjust based on actual API response structure for Admin Validation
-      // The user prompt said: "Use when: Staff clicks the email link. Returns staff details if valid."
-      if (data && !data.error) { 
-        setIsValid(true);
-        // If data contains staff details, set email
-        if ((data as any).email) setAdminEmail((data as any).email);
-        else if ((data as any).staff?.email) setAdminEmail((data as any).staff.email);
-      } else {
-        setError((data as any).message || 'Invalid or expired activation link');
-      }
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to validate token.';
-      setError(errorMessage);
-    } finally {
-      setIsValidating(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (password.length < 8) {
@@ -109,7 +117,23 @@ export const AdminActivation = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [confirmPassword, navigate, password, token]);
+
+  const handleNavigateAdminLogin = useCallback(() => {
+    navigate('/admin/login');
+  }, [navigate]);
+
+  const handlePasswordChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(event.target.value);
+  }, []);
+
+  const handleConfirmPasswordChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmPassword(event.target.value);
+  }, []);
+
+  const handleTogglePassword = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
 
   const renderContent = () => {
     if (isValidating) {
@@ -136,7 +160,7 @@ export const AdminActivation = () => {
             </Typography>
             <Button
               variant="contained"
-              onClick={() => navigate('/admin/login')}
+              onClick={handleNavigateAdminLogin}
               size="large"
             >
               Go to Admin Login
@@ -159,7 +183,7 @@ export const AdminActivation = () => {
             </Typography>
             <Button
               variant="outlined"
-              onClick={() => navigate('/admin/login')}
+              onClick={handleNavigateAdminLogin}
             >
               Back to Login
             </Button>
@@ -194,7 +218,7 @@ export const AdminActivation = () => {
               label="New Password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               fullWidth
               required
               InputProps={{
@@ -205,7 +229,7 @@ export const AdminActivation = () => {
                 ),
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                    <IconButton onClick={handleTogglePassword} edge="end">
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
                   </InputAdornment>
@@ -217,7 +241,7 @@ export const AdminActivation = () => {
               label="Confirm Password"
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={handleConfirmPasswordChange}
               fullWidth
               required
               InputProps={{

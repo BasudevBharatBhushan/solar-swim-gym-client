@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Drawer,
   List,
@@ -84,13 +84,27 @@ export const Sidebar = () => {
   // Using a map key approach: "Settings", "Settings-Subscription Setting"
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
 
-  const handleClick = (text: string) => {
+  const handleClick = useCallback((text: string) => {
     setOpenItems((prev) => ({ ...prev, [text]: !prev[text] }));
-  };
+  }, []);
 
-  const handleNavigate = (path: string) => {
+  const handleNavigate = useCallback((path: string) => {
     navigate(path);
-  };
+  }, [navigate]);
+
+  const handleMenuItemClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const text = event.currentTarget.dataset.itemText;
+    const path = event.currentTarget.dataset.itemPath;
+    const hasChildren = event.currentTarget.dataset.hasChildren === 'true';
+
+    if (hasChildren && text) {
+      handleClick(text);
+      return;
+    }
+    if (path) {
+      handleNavigate(path);
+    }
+  }, [handleClick, handleNavigate]);
 
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     if (item.roleVerified && !item.roleVerified(role)) {
@@ -143,13 +157,10 @@ export const Sidebar = () => {
         <ListItem disablePadding sx={{ display: 'block' }}>
           <ListItemButton
             selected={isSelected && !hasChildren} // Only highlight leaf nodes or handle parents differently
-            onClick={() => {
-              if (hasChildren) {
-                handleClick(item.text);
-              } else if (item.path) {
-                handleNavigate(item.path);
-              }
-            }}
+            onClick={handleMenuItemClick}
+            data-item-text={item.text}
+            data-item-path={item.path}
+            data-has-children={hasChildren ? 'true' : 'false'}
             sx={{ 
                 pl: level * 2 + 2, // Indent based on level
                 minHeight: 48,

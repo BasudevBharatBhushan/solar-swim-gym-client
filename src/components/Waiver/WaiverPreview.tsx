@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Box, Card, Checkbox, FormControlLabel, Typography } from '@mui/material';
 
 interface WaiverPreviewProps {
@@ -24,6 +24,10 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
   hideCheckbox = false,
   fullHeight = false
 }) => {
+  const handleAgreeChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    onAgreeChange(event.target.checked);
+  }, [onAgreeChange]);
+
   // Variable replacement and HTML split
   const processContent = () => {
     let html = content;
@@ -83,7 +87,7 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
           control={
             <Checkbox 
               checked={agreed} 
-              onChange={(e) => onAgreeChange(e.target.checked)} 
+              onChange={handleAgreeChange} 
               color="primary"
             />
           }

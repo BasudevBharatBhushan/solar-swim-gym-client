@@ -1,3 +1,9 @@
+interface AgeGroupLike {
+  name: string;
+  min_age?: number;
+  max_age?: number;
+}
+
 export const calculateAge = (dob: string | Date): number => {
   const birthDate = new Date(dob);
   const today = new Date();
@@ -9,7 +15,7 @@ export const calculateAge = (dob: string | Date): number => {
   return age;
 };
 
-export const getAgeGroupName = (dob: string | Date, ageGroups: any[]): string => {
+export const getAgeGroupName = (dob: string | Date, ageGroups: AgeGroupLike[]): string => {
   if (!dob) return 'No Age Group';
   const age = calculateAge(dob);
   

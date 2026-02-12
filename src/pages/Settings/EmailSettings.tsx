@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -16,10 +16,28 @@ import {
   Alert,
   Snackbar
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { Visibility, VisibilityOff, Construction, Email } from '@mui/icons-material';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { emailConfigService, EmailConfig } from '../../services/emailConfigService';
 import { useAuth } from '../../context/AuthContext';
+
+const getErrorMessage = (err: unknown, fallback: string): string => {
+    if (err instanceof Error && err.message) {
+        return err.message;
+    }
+    return fallback;
+};
+
+const INITIAL_CONFIG: Partial<EmailConfig> = {
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_username: '',
+    smtp_password: '',
+    is_secure: false,
+    sender_email: '',
+    is_active: false
+};
 
 export const EmailSettings = () => {
     const { currentLocationId: locationId } = useAuth();
@@ -28,28 +46,10 @@ export const EmailSettings = () => {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     
-    const INITIAL_CONFIG: Partial<EmailConfig> = {
-        smtp_host: '',
-        smtp_port: 587,
-        smtp_username: '',
-        smtp_password: '', // Usually empty on load for security, or masked
-        is_secure: false,
-        sender_email: '',
-        is_active: false
-    };
-
     // Config State
     const [config, setConfig] = useState<Partial<EmailConfig>>(INITIAL_CONFIG);
 
-    useEffect(() => {
-        if (locationId) {
-            fetchConfig();
-        } else {
-            setConfig(INITIAL_CONFIG);
-        }
-    }, [locationId]);
-
-    const fetchConfig = async () => {
+    const fetchConfig = useCallback(async () => {
         if (!locationId) return;
         setLoading(true);
         try {
@@ -63,20 +63,28 @@ export const EmailSettings = () => {
             } else {
                 setConfig(INITIAL_CONFIG);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Failed to load email config", err);
             setConfig(INITIAL_CONFIG);
             // Don't show error immediately on load if it's just 404 (not configured yet)
         } finally {
             setLoading(false);
         }
-    };
+    }, [locationId]);
 
-    const handleChange = (field: keyof EmailConfig, value: any) => {
-        setConfig({ ...config, [field]: value });
-    };
+    useEffect(() => {
+        if (locationId) {
+            fetchConfig();
+        } else {
+            setConfig(INITIAL_CONFIG);
+        }
+    }, [locationId, fetchConfig]);
 
-    const handleSave = async () => {
+    const handleChange = useCallback((field: keyof EmailConfig, value: string | number | boolean) => {
+        setConfig((prev) => ({ ...prev, [field]: value }));
+    }, []);
+
+    const handleSave = useCallback(async () => {
         if (!locationId) {
             setError("No location selected");
             return;
@@ -86,12 +94,35 @@ export const EmailSettings = () => {
         try {
             await emailConfigService.updateEmailConfig(locationId!, config);
             setSuccessMessage("Email configuration saved successfully.");
-        } catch (err: any) {
-            setError(err.message || "Failed to save configuration.");
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Failed to save configuration."));
         } finally {
             setLoading(false);
         }
-    };
+    }, [config, locationId]);
+
+    const handleSuccessClose = useCallback(() => {
+        setSuccessMessage(null);
+    }, []);
+
+    const handleErrorClose = useCallback(() => {
+        setError(null);
+    }, []);
+
+    const handleTextFieldChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const field = event.currentTarget.dataset.field as keyof EmailConfig | undefined;
+        if (!field) return;
+        const value = field === 'smtp_port' ? parseInt(event.target.value, 10) : event.target.value;
+        handleChange(field, value);
+    }, [handleChange]);
+
+    const handleEncryptionChange = useCallback((event: SelectChangeEvent<string>) => {
+        handleChange('is_secure', event.target.value === 'SSL');
+    }, [handleChange]);
+
+    const handleTogglePassword = useCallback(() => {
+        setShowPassword((prev) => !prev);
+    }, []);
 
     return (
         <Box sx={{ p: 3, maxWidth: 1600, mx: 'auto' }}>
@@ -104,14 +135,14 @@ export const EmailSettings = () => {
                 ]}
             />
             
-            <Snackbar open={!!successMessage} autoHideDuration={6000} onClose={() => setSuccessMessage(null)}>
-                <Alert onClose={() => setSuccessMessage(null)} severity="success" sx={{ width: '100%' }}>
+            <Snackbar open={!!successMessage} autoHideDuration={6000} onClose={handleSuccessClose}>
+                <Alert onClose={handleSuccessClose} severity="success" sx={{ width: '100%' }}>
                     {successMessage}
                 </Alert>
             </Snackbar>
 
-            <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
-                <Alert onClose={() => setError(null)} severity="error" sx={{ width: '100%' }}>
+            <Snackbar open={!!error} autoHideDuration={6000} onClose={handleErrorClose}>
+                <Alert onClose={handleErrorClose} severity="error" sx={{ width: '100%' }}>
                     {error}
                 </Alert>
             </Snackbar>
@@ -154,7 +185,8 @@ export const EmailSettings = () => {
                                         fullWidth 
                                         variant="outlined" 
                                         value={config.smtp_host || ''}
-                                        onChange={(e) => handleChange('smtp_host', e.target.value)}
+                                        onChange={handleTextFieldChange}
+                                        inputProps={{ 'data-field': 'smtp_host' }}
                                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                                     />
                                 </Grid>
@@ -164,7 +196,8 @@ export const EmailSettings = () => {
                                         fullWidth 
                                         variant="outlined" 
                                         value={config.smtp_port || ''}
-                                        onChange={(e) => handleChange('smtp_port', parseInt(e.target.value))}
+                                        onChange={handleTextFieldChange}
+                                        inputProps={{ 'data-field': 'smtp_port' }}
                                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                                     />
                                 </Grid>
@@ -174,7 +207,8 @@ export const EmailSettings = () => {
                                         fullWidth 
                                         variant="outlined" 
                                         value={config.smtp_username || ''}
-                                        onChange={(e) => handleChange('smtp_username', e.target.value)}
+                                        onChange={handleTextFieldChange}
+                                        inputProps={{ 'data-field': 'smtp_username' }}
                                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                                     />
                                 </Grid>
@@ -185,12 +219,13 @@ export const EmailSettings = () => {
                                         type={showPassword ? 'text' : 'password'}
                                         variant="outlined" 
                                         value={config.smtp_password || ''}
-                                        onChange={(e) => handleChange('smtp_password', e.target.value)}
+                                        onChange={handleTextFieldChange}
+                                        inputProps={{ 'data-field': 'smtp_password' }}
                                         InputProps={{
                                             endAdornment: (
                                                 <InputAdornment position="end">
                                                     <IconButton
-                                                        onClick={() => setShowPassword(!showPassword)}
+                                                        onClick={handleTogglePassword}
                                                         edge="end"
                                                     >
                                                         {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -206,7 +241,7 @@ export const EmailSettings = () => {
                                     <FormControl fullWidth>
                                         <Select
                                             value={config.is_secure ? "SSL" : "NONE"}
-                                            onChange={(e) => handleChange('is_secure', e.target.value === "SSL")}
+                                            onChange={handleEncryptionChange}
                                             sx={{ borderRadius: 1.5 }}
                                         >
                                             <MenuItem value="STARTTLS">STARTTLS</MenuItem>
@@ -222,7 +257,8 @@ export const EmailSettings = () => {
                                         fullWidth 
                                         variant="outlined" 
                                         value={config.sender_email || ''}
-                                        onChange={(e) => handleChange('sender_email', e.target.value)}
+                                        onChange={handleTextFieldChange}
+                                        inputProps={{ 'data-field': 'sender_email' }}
                                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                                     />
                                 </Grid>

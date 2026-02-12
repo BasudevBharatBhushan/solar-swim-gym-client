@@ -31,7 +31,6 @@ const colors = {
   warn: "\x1b[33m",
 };
 
-import { configService } from '../src/services/configService';
 
 async function verifyAccounts() {
   console.log(`${colors.header}Starting Account Verification...${colors.reset}`);
@@ -154,3 +153,4 @@ async function verifyAccounts() {
 
 
 verifyAccounts();
+

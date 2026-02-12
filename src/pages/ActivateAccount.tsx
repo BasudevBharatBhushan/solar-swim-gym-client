@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Container,
   Paper,
@@ -41,20 +41,7 @@ export const ActivateAccount = () => {
   const [activated, setActivated] = useState(false);
 
   // Extract token and validate on mount
-  useEffect(() => {
-    const tokenFromUrl = searchParams.get('token');
-    
-    if (!tokenFromUrl) {
-      setError('No activation token found in the link.');
-      setIsValidating(false);
-      return;
-    }
-    
-    setToken(tokenFromUrl);
-    validateToken(tokenFromUrl);
-  }, [searchParams]);
-
-  const validateToken = async (tokenValue: string) => {
+  const validateToken = useCallback(async (tokenValue: string) => {
     try {
       const data = await authService.validateActivationToken(tokenValue);
       
@@ -70,9 +57,22 @@ export const ActivateAccount = () => {
     } finally {
       setIsValidating(false);
     }
-  };
+  }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    const tokenFromUrl = searchParams.get('token');
+    
+    if (!tokenFromUrl) {
+      setError('No activation token found in the link.');
+      setIsValidating(false);
+      return;
+    }
+    
+    setToken(tokenFromUrl);
+    validateToken(tokenFromUrl);
+  }, [searchParams, validateToken]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (password.length < 8) {
@@ -102,7 +102,23 @@ export const ActivateAccount = () => {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [confirmPassword, navigate, password, token]);
+
+  const handleNavigateLogin = useCallback(() => {
+    navigate('/login');
+  }, [navigate]);
+
+  const handlePasswordChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(event.target.value);
+  }, []);
+
+  const handleConfirmPasswordChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmPassword(event.target.value);
+  }, []);
+
+  const handleTogglePassword = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
 
   const renderContent = () => {
     if (isValidating) {
@@ -129,7 +145,7 @@ export const ActivateAccount = () => {
             </Typography>
             <Button
               variant="contained"
-              onClick={() => navigate('/login')}
+              onClick={handleNavigateLogin}
               sx={{
                 bgcolor: '#2563eb',
                 borderRadius: 3,
@@ -159,7 +175,7 @@ export const ActivateAccount = () => {
             </Typography>
             <Button
               variant="outlined"
-              onClick={() => navigate('/login')}
+              onClick={handleNavigateLogin}
               sx={{
                 borderRadius: 3,
                 textTransform: 'none',
@@ -205,7 +221,7 @@ export const ActivateAccount = () => {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -214,7 +230,7 @@ export const ActivateAccount = () => {
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" sx={{ color: '#94a3b8' }}>
+                      <IconButton onClick={handleTogglePassword} edge="end" sx={{ color: '#94a3b8' }}>
                         {showPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
@@ -241,7 +257,7 @@ export const ActivateAccount = () => {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••••"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={handleConfirmPasswordChange}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">

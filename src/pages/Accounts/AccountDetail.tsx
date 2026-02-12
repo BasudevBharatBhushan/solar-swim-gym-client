@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Grid, CircularProgress, Typography, Button, Paper, Tabs, Tab } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -11,12 +11,18 @@ import { ProfileDetail } from './components/ProfileDetail';
 import { SubscriptionsTab } from './components/SubscriptionsTab';
 import { WaiversTab } from './components/WaiversTab';
 import { useAuth } from '../../context/AuthContext';
+import type { Account, Profile } from '../../types';
+
+interface AccountDetailData extends Account {
+  profile?: Profile[];
+  primary_profile?: Profile;
+}
 
 export const AccountDetail = () => {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { currentLocationId } = useAuth();
-  const [account, setAccount] = useState<any>(null);
+  const [account, setAccount] = useState<AccountDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
@@ -30,7 +36,7 @@ export const AccountDetail = () => {
       setLoading(true);
       try {
         const response = await crmService.getAccountDetails(accountId, currentLocationId || undefined);
-        const data = response.data || response;
+        const data = (response as { data?: AccountDetailData }).data || (response as AccountDetailData);
         
         // Normalize data: ensure 'profiles' exists even if API returns 'profile'
         const normalizedData = {
@@ -42,9 +48,9 @@ export const AccountDetail = () => {
         // Default to 'All Members' (null)
         setSelectedProfileId(null);
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to fetch account details", err);
-        setError("Failed to load account details. " + (err.message || ''));
+        setError("Failed to load account details. " + (err instanceof Error ? err.message : ''));
       } finally {
         setLoading(false);
       }
@@ -53,16 +59,20 @@ export const AccountDetail = () => {
     fetchAccount();
   }, [accountId, currentLocationId]);
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
-  };
+  }, []);
 
-  const handleProfileSelect = (profileId: string) => {
+  const handleProfileSelect = useCallback((profileId: string | null) => {
     setSelectedProfileId(profileId);
     // Optionally switch to details tab when clicking a profile, 
     // or stay on subscriptions tab to see that profile's subscriptions
     // For now, let's keep the user on the current tab to allow rapid filtering of subscriptions
-  };
+  }, []);
+
+  const handleBackToAccounts = useCallback(() => {
+    navigate('/admin/accounts');
+  }, [navigate]);
 
   if (loading) {
     return (
@@ -76,14 +86,14 @@ export const AccountDetail = () => {
     return (
         <Box sx={{ p: 3 }}>
             <Typography color="error">{error || 'Account not found'}</Typography>
-            <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/admin/accounts')} sx={{ mt: 2 }}>
+            <Button startIcon={<ArrowBackIcon />} onClick={handleBackToAccounts} sx={{ mt: 2 }}>
                 Back to Accounts
             </Button>
         </Box>
     );
   }
 
-  const selectedProfile = account.profiles?.find((p: any) => p.profile_id === selectedProfileId);
+  const selectedProfile = account.profiles?.find((p) => p.profile_id === selectedProfileId) || null;
 
   return (
     <Box>
@@ -97,7 +107,7 @@ export const AccountDetail = () => {
         action={
             <Button 
                 startIcon={<ArrowBackIcon />} 
-                onClick={() => navigate('/admin/accounts')}
+                onClick={handleBackToAccounts}
                 variant="outlined"
                 sx={{ textTransform: 'none' }}
             >

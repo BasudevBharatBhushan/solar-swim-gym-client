@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Container,
   Paper,
@@ -33,7 +33,7 @@ export const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -49,11 +49,23 @@ export const Login = () => {
       
       login(token, userRole, staffId, userDetails);
       navigate('/admin/leads');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError('Invalid email or password. Please try again.');
     }
-  };
+  }, [email, login, navigate, password]);
+
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+  }, []);
+
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+  }, []);
+
+  const handleTogglePassword = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
 
   return (
     <Box
@@ -163,7 +175,7 @@ export const Login = () => {
                 autoComplete="email"
                 autoFocus
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -211,7 +223,7 @@ export const Login = () => {
                 id="password"
                 autoComplete="current-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -221,7 +233,7 @@ export const Login = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={handleTogglePassword}
                         edge="end"
                         sx={{ color: '#94a3b8' }}
                       >

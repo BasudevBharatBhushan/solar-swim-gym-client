@@ -47,6 +47,13 @@ interface ConfigContextType {
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+};
+
 export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentLocationId } = useAuth();
   const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([]);
@@ -64,8 +71,8 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setError(null);
       const data = await configService.getAgeGroups();
       setAgeGroups(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch age groups');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch age groups'));
       console.error('Error fetching age groups:', err);
     } finally {
       setLoading(false);
@@ -84,8 +91,8 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setError(null);
       const data = await configService.getSubscriptionTerms(currentLocationId);
       setSubscriptionTerms(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch subscription terms');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to fetch subscription terms'));
       console.error('Error fetching subscription terms:', err);
     } finally {
       setLoading(false);
@@ -97,7 +104,7 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       const data = await configService.getWaiverPrograms(currentLocationId || undefined);
       setWaiverPrograms(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching waiver programs:', err);
     }
   }, [currentLocationId]);
@@ -111,7 +118,7 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       const data = await dropdownService.getAll(currentLocationId);
       setDropdownValues(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching dropdown values:', err);
       // Don't block the UI for this, just log it
     }
@@ -128,8 +135,8 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         refreshWaiverPrograms(),
         refreshDropdownValues()
       ]);
-    } catch (err: any) {
-      setError(err.message || 'Failed to refresh configuration');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to refresh configuration'));
     } finally {
       setLoading(false);
     }
@@ -138,7 +145,7 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Initial load when location changes
   useEffect(() => {
     refreshAll();
-  }, [currentLocationId]);
+  }, [refreshAll]);
 
   const value: ConfigContextType = {
     ageGroups,

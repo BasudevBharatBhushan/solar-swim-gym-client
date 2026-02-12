@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { 
   Box, 
   Typography, 
@@ -37,6 +37,13 @@ export const WaiversTab = ({ profiles, selectedProfileId }: WaiversTabProps) => 
   // Dialog state
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedWaiver, setSelectedWaiver] = useState<SignedWaiver | null>(null);
+
+  const getErrorMessage = useCallback((err: unknown, fallback: string) => {
+    if (err instanceof Error && err.message) {
+      return err.message;
+    }
+    return fallback;
+  }, []);
 
   useEffect(() => {
     const fetchWaivers = async () => {
@@ -77,26 +84,38 @@ export const WaiversTab = ({ profiles, selectedProfileId }: WaiversTabProps) => 
         
         setWaivers(allWaivers);
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to fetch waivers", err);
-        setError("Failed to load waivers.");
+        setError(getErrorMessage(err, "Failed to load waivers."));
       } finally {
         setLoading(false);
       }
     };
 
     fetchWaivers();
-  }, [selectedProfileId, currentLocationId, profiles]);
+  }, [selectedProfileId, currentLocationId, profiles, getErrorMessage]);
 
-  const handleViewWaiver = (waiver: SignedWaiver) => {
+  const handleViewWaiver = useCallback((waiver: SignedWaiver) => {
     setSelectedWaiver(waiver);
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setOpenDialog(false);
     setSelectedWaiver(null);
-  };
+  }, []);
+
+  const handleViewWaiverClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const signedWaiverId = event.currentTarget.dataset.signedWaiverId;
+    if (!signedWaiverId) return;
+    const waiver = waivers.find(item => item.signed_waiver_id === signedWaiverId);
+    if (!waiver) return;
+    handleViewWaiver(waiver);
+  }, [handleViewWaiver, waivers]);
+
+  const handlePrint = useCallback(() => {
+    window.print();
+  }, []);
 
   const getProfileName = (profileId: string) => {
      const profile = profiles.find(p => p.profile_id === profileId);
@@ -167,7 +186,8 @@ export const WaiversTab = ({ profiles, selectedProfileId }: WaiversTabProps) => 
                             <Button 
                                 startIcon={<VisibilityIcon />} 
                                 size="small" 
-                                onClick={() => handleViewWaiver(waiver)}
+                                onClick={handleViewWaiverClick}
+                                data-signed-waiver-id={waiver.signed_waiver_id}
                             >
                                 View
                             </Button>
@@ -205,7 +225,7 @@ export const WaiversTab = ({ profiles, selectedProfileId }: WaiversTabProps) => 
         </DialogContent>
         <DialogActions>
             <Button onClick={handleCloseDialog}>Close</Button>
-            <Button onClick={() => window.print()} color="primary">Print</Button>
+            <Button onClick={handlePrint} color="primary">Print</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -1,14 +1,19 @@
 
 import { Box, Paper, Typography, Chip, Grid } from '@mui/material';
+import type { Account, Profile } from '../../../types';
+
+interface AccountWithPrimaryProfile extends Account {
+  primary_profile?: Profile;
+}
 
 interface AccountSummaryProps {
-  account: any;
+  account: AccountWithPrimaryProfile | null;
 }
 
 export const AccountSummary = ({ account }: AccountSummaryProps) => {
   if (!account) return null;
 
-  const primaryProfile = account.primary_profile || (account.profiles && account.profiles.find((p: any) => p.is_primary));
+  const primaryProfile = account.primary_profile || (account.profiles && account.profiles.find((p) => p.is_primary));
   const name = primaryProfile ? `${primaryProfile.first_name} ${primaryProfile.last_name}` : 'Unknown';
   const email = primaryProfile?.email || 'N/A';
   const memberCount = account.profiles?.length || 0;

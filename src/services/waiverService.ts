@@ -23,7 +23,7 @@ export interface UpsertSignedWaiverPayload {
 
 export interface UpsertSignedWaiverResponse {
     signed_waiver_id: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface SignedWaiver {

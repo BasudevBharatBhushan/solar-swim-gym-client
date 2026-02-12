@@ -36,8 +36,6 @@ const colors = {
 
 async function runTests() {
   console.log(`${colors.header}Starting Base Plan API Verification...${colors.reset}`);
-  
-  const timestamp = Date.now();
   let locationId: string | undefined;
   let ageGroupId: string | undefined;
   let subTermId: string | undefined;
@@ -155,3 +153,4 @@ async function runTests() {
 }
 
 runTests();
+

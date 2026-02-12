@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { Box, Typography, Button, CircularProgress, Alert, Grid, List, ListItem, ListItemButton, Checkbox, FormControlLabel } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // For signed status
 import { configService } from '../../../../services/configService';
+import type { AgeGroup } from '../../../../context/ConfigContext';
 import { useAuth } from '../../../../context/AuthContext';
 import { WaiverPreview } from '../../../../components/Waiver/WaiverPreview';
 import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../../../../components/Waiver/SignaturePad';
 import { waiverService, WaiverTemplate } from '../../../../services/waiverService';
+import type { OnboardingFamilyMember, OnboardingProfileData } from '../types';
 
 interface WaiverSigningStepProps {
-  primaryProfile: any;
-  familyMembers: any[];
+  primaryProfile: OnboardingProfileData;
+  familyMembers: OnboardingFamilyMember[];
   onWaiversSigned: (signedWaiversMap: Record<string, string>) => void;
   onAllSigned: (isSigned: boolean) => void;
 }
@@ -28,6 +30,16 @@ interface MemberState {
     error: string | null;
     guardianName?: string;
 }
+
+type WaiverTemplateResponse = { data?: WaiverTemplate[] };
+type UpsertSignedWaiverResult = { signed_waiver_id?: string; data?: { signed_waiver_id?: string } };
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return fallback;
+};
 
 export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryProfile, familyMembers, onWaiversSigned, onAllSigned }) => {
     const { currentLocationId } = useAuth();
@@ -65,11 +77,17 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                     configService.getAgeGroups(currentLocationId)
                 ]);
 
-                const templates = (waiverRes as any).data || [];
-                const ageGroups = (ageGroupRes as any) || [];
+                const templates = Array.isArray(waiverRes)
+                    ? (waiverRes as WaiverTemplate[])
+                    : ((waiverRes as WaiverTemplateResponse).data || []);
+                const ageGroups = (ageGroupRes as AgeGroup[]) || [];
                 
                 const findGroup = (age: number) => {
-                    return ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+                    return ageGroups.find((g) => {
+                        const min = g.min_age ?? 0;
+                        const max = g.max_age ?? 999;
+                        return age >= min && age <= max;
+                    });
                 };
 
                 const membersData = [
@@ -95,12 +113,12 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                         const existing = prev.find(p => p.id === m.id);
                         
                         // Determine template
-                        let matchedTemplate = templates.find((t: any) => 
+                        let matchedTemplate = templates.find((t) => 
                             t.is_active && t.ageprofile_id === group?.age_group_id
                         );
 
                         if (!matchedTemplate) {
-                            matchedTemplate = templates.find((t: any) => t.is_active && !t.ageprofile_id);
+                            matchedTemplate = templates.find((t) => t.is_active && !t.ageprofile_id);
                         }
 
                         // If member already exists and has the same name/age, preserve their signed status
@@ -140,21 +158,42 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
         // For profile/family changes, we want to be careful not to wipe signatures unnecessarily
         // But for now, let's ensure it runs when those props change.
         init();
-    }, [currentLocationId, primaryProfile.first_name, primaryProfile.last_name, primaryProfile.date_of_birth, familyMembers.length]);
+    }, [
+      currentLocationId,
+      primaryProfile.first_name,
+      primaryProfile.last_name,
+      primaryProfile.date_of_birth,
+      primaryProfile.guardian_name,
+      familyMembers
+    ]);
 
-    const handleAgreeChange = (checked: boolean) => {
-        updateMemberState(activeTab, { agreed: checked });
-    };
-
-    const updateMemberState = (index: number, updates: Partial<MemberState>) => {
+    const updateMemberState = useCallback((index: number, updates: Partial<MemberState>) => {
         setMemberStates(prev => {
             const newStates = [...prev];
             newStates[index] = { ...newStates[index], ...updates };
             return newStates;
         });
-    };
+    }, []);
 
-    const handleSign = async () => {
+    const handleAgreeChange = useCallback((checked: boolean) => {
+        updateMemberState(activeTab, { agreed: checked });
+    }, [activeTab, updateMemberState]);
+
+    const handleMemberTabClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+        const indexValue = event.currentTarget.dataset.memberIndex;
+        if (indexValue === undefined) return;
+        setActiveTab(Number(indexValue));
+    }, []);
+
+    const handleSignaturePadEnd = useCallback(() => {
+        updateMemberState(activeTab, { error: null });
+    }, [activeTab, updateMemberState]);
+
+    const handleAgreementCheckboxChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        handleAgreeChange(event.target.checked);
+    }, [handleAgreeChange]);
+
+    const handleSign = useCallback(async () => {
         const member = memberStates[activeTab];
         if (!member.waiverTemplate) return;
         if (!signaturePadRef.current) return;
@@ -194,7 +233,8 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                 }, currentLocationId!);
 
                 console.log("Upsert Waiver Response:", response);
-                const signedId = response.signed_waiver_id || (response as any).data?.signed_waiver_id;
+                const signedResponse = response as UpsertSignedWaiverResult;
+                const signedId = signedResponse.signed_waiver_id || signedResponse.data?.signed_waiver_id;
 
                 if (!signedId) {
                     throw new Error("Waiver saved but no ID returned from server.");
@@ -208,11 +248,11 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                 });
             };
 
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Signing failed", err);
-            updateMemberState(activeTab, { loading: false, error: err.message || "Signing failed" });
+            updateMemberState(activeTab, { loading: false, error: getErrorMessage(err, "Signing failed") });
         }
-    };
+    }, [activeTab, currentLocationId, memberStates, updateMemberState]);
 
     // Notify parent whenever signedWaiverId changes in ANY member
     useEffect(() => {
@@ -261,7 +301,8 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                         <ListItem key={idx} disablePadding>
                             <ListItemButton 
                                 selected={activeTab === idx} 
-                                onClick={() => setActiveTab(idx)}
+                                onClick={handleMemberTabClick}
+                                data-member-index={idx}
                                 sx={{ 
                                     flexDirection: 'column', 
                                     alignItems: 'flex-start',
@@ -361,7 +402,7 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                                         <SignaturePad 
                                             key={activeTab} 
                                             ref={signaturePadRef}
-                                            onEnd={() => updateMemberState(activeTab, { error: null })} 
+                                            onEnd={handleSignaturePadEnd} 
                                             width={500}
                                             height={150}
                                         />
@@ -424,7 +465,7 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                             control={
                                 <Checkbox 
                                     checked={currentMember.agreed} 
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleAgreeChange(e.target.checked)} 
+                                    onChange={handleAgreementCheckboxChange} 
                                     color="primary"
                                     sx={{ '& .MuiSvgIcon-root': { fontSize: 32 } }}
                                 />

@@ -1,12 +1,13 @@
 import { Box, Typography, Breadcrumbs, Link } from '@mui/material';
 import { ReactNode } from 'react';
+import type { SxProps, Theme } from '@mui/material/styles';
 
 interface PageHeaderProps {
   title: string;
   description?: string;
   action?: ReactNode;
   children?: ReactNode;
-  titleSx?: any;
+  titleSx?: SxProps<Theme>;
   titleColor?: string;
   breadcrumbs?: { label: string; href?: string; active?: boolean }[];
 }

@@ -4,7 +4,7 @@ import { emailConfigService } from '../src/services/emailConfigService';
 
 // Force Mock Fetch
 console.log("Overwriting global fetch for testing...");
-// @ts-ignore
+// @ts-expect-error test harness overrides fetch in Node runtime
 globalThis.fetch = async (url: string, options: any) => {
         console.log(`[MOCK FETCH] Request to: ${url}`);
         console.log(`[MOCK FETCH] Method: ${options?.method || 'GET'}`);

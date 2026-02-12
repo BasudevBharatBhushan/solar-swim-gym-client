@@ -338,7 +338,7 @@ async function runTests() {
                     foundProfile = true;
                 }
             }
-        } catch (e) {
+        } catch {
             console.warn(`${colors.warn}⚠ Account search failed, falling back to regData info${colors.reset}`);
         }
         
@@ -399,3 +399,4 @@ async function runTests() {
 }
 
 runTests();
+

@@ -13,6 +13,10 @@ export interface Discount {
     updated_at?: string;
 }
 
+interface DiscountValidationResponse {
+    [key: string]: unknown;
+}
+
 export const discountService = {
   getAllDiscounts: async (locationId: string): Promise<Discount[]> => {
     const options = { headers: { 'x-location-id': locationId } };
@@ -45,7 +49,7 @@ export const discountService = {
     return response as Discount;
   },
 
-  validateDiscount: async (discountCode: string, locationId: string): Promise<any> => {
+  validateDiscount: async (discountCode: string, locationId: string): Promise<DiscountValidationResponse> => {
     const options = { headers: { 'x-location-id': locationId } };
     // As per Postman collection: GET /discounts/validate/:code
     const response = await apiClient.get(`/discounts/validate/${discountCode}`, {}, options);

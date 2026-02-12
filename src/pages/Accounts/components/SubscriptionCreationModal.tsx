@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
     Dialog, DialogTitle, DialogContent, DialogActions, Button, 
     Grid, Typography, Box, Tabs, Tab, Card, CardContent, 
@@ -32,13 +32,7 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
     const [selectedBasePriceId, setSelectedBasePriceId] = useState<string | null>(null);
     const [selectedCategoryIds, _setSelectedCategoryIds] = useState<string[]>([]);
 
-    useEffect(() => {
-        if (open && currentLocationId) {
-            loadMarketplaceData();
-        }
-    }, [open, currentLocationId]);
-
-    const loadMarketplaceData = async () => {
+    const loadMarketplaceData = useCallback(async () => {
         if (!currentLocationId) return;
         setLoading(true);
         try {
@@ -54,22 +48,28 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentLocationId]);
 
-    const handleToggleCategory = (categoryId: string) => {
+    useEffect(() => {
+        if (open && currentLocationId) {
+            loadMarketplaceData();
+        }
+    }, [open, currentLocationId, loadMarketplaceData]);
+
+    const handleToggleCategory = useCallback((categoryId: string) => {
         if (!categoryId) return;
         _setSelectedCategoryIds(prev => 
             prev.includes(categoryId) 
                 ? prev.filter(id => id !== categoryId)
                 : [...prev, categoryId]
         );
-    };
+    }, []);
 
-    const handleCreate = async () => {
+    const handleCreate = useCallback(async () => {
         if (!currentLocationId || !accountId) return;
         setSubmitting(true);
         try {
-            const promises: Promise<any>[] = [];
+            const promises: Promise<unknown>[] = [];
 
             // 1. Base Plan Subscription
             if (selectedBasePriceId) {
@@ -114,7 +114,23 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
         } finally {
             setSubmitting(false);
         }
-    };
+    }, [accountId, basePrices, currentLocationId, membershipPrograms, onClose, onSuccess, profileId, selectedBasePriceId, selectedCategoryIds]);
+
+    const handleTabChange = useCallback((_: React.SyntheticEvent, value: number) => {
+        setActiveTab(value);
+    }, []);
+
+    const handleSelectBasePrice = useCallback((event: React.MouseEvent<HTMLElement> | React.ChangeEvent<HTMLInputElement>) => {
+        const target = event.currentTarget as HTMLElement;
+        const basePriceId = target.dataset.basePriceId;
+        setSelectedBasePriceId(basePriceId || null);
+    }, []);
+
+    const handleToggleCategoryChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const categoryId = event.currentTarget.dataset.categoryId;
+        if (!categoryId) return;
+        handleToggleCategory(categoryId);
+    }, [handleToggleCategory]);
 
     const formatPrice = (price: number) => `$${price.toFixed(2)}`;
 
@@ -128,7 +144,7 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                     </Box>
                 ) : (
                     <Box>
-                        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
+                        <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
                             <Tab label="Base Plans" />
                             <Tab label="Memberships" />
                         </Tabs>
@@ -142,7 +158,7 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                                             borderColor: selectedBasePriceId === bp.base_price_id ? 'primary.main' : 'divider',
                                             bgcolor: selectedBasePriceId === bp.base_price_id ? 'primary.50' : 'background.paper',
                                             cursor: 'pointer'
-                                        }} onClick={() => setSelectedBasePriceId(bp.base_price_id || null)}>
+                                        }} onClick={handleSelectBasePrice} data-base-price-id={bp.base_price_id}>
                                             <CardContent>
                                                 <Box display="flex" justifyContent="space-between" alignItems="center">
                                                     <Typography variant="h6">{bp.name}</Typography>
@@ -150,7 +166,8 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                                                         checked={selectedBasePriceId === bp.base_price_id} 
                                                         value={bp.base_price_id}
                                                         name="base-price-radio"
-                                                        onChange={() => setSelectedBasePriceId(bp.base_price_id || null)}
+                                                        onChange={handleSelectBasePrice}
+                                                        inputProps={{ 'data-base-price-id': bp.base_price_id }}
                                                     />
                                                 </Box>
                                                 <Typography variant="subtitle1" color="primary" fontWeight="bold">
@@ -182,7 +199,8 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                                                     <Typography variant="h6">{cat.name}</Typography>
                                                     <Checkbox 
                                                         checked={selectedCategoryIds.includes(cat.category_id || '')}
-                                                        onChange={() => handleToggleCategory(cat.category_id || '')}
+                                                        onChange={handleToggleCategoryChange}
+                                                        inputProps={{ 'data-category-id': cat.category_id || '' }}
                                                     /> 
                                                 </Box>
                                                 <Typography variant="body2" color="text.secondary">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { 
   Box, 
   Paper, 
@@ -26,25 +26,32 @@ import {
   Select,
   Grid
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { EditOutlined, DeleteOutline, Add } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
+import type { SubscriptionTerm } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { dropdownOptions } from '../../lib/dropdownOptions';
 import { configService } from '../../services/configService';
 
+type SubscriptionTermForm = Partial<SubscriptionTerm> & {
+  id?: string;
+  duration_months?: number | string;
+};
+
 export const SubscriptionTerms = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<SubscriptionTermForm[]>([]);
   const [error, setError] = useState<string|null>(null);
   const [success, setSuccess] = useState<string|null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentTerm, setCurrentTerm] = useState<any>({});
+  const [currentTerm, setCurrentTerm] = useState<SubscriptionTermForm>({});
   
   const { currentLocationId } = useAuth();
   const { refreshSubscriptionTerms } = useConfig();
   // const currentLocation = locations.find(l => l.location_id === currentLocationId);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!currentLocationId) return;
     try {
       const res = await configService.getSubscriptionTerms(currentLocationId);
@@ -53,17 +60,21 @@ export const SubscriptionTerms = () => {
       console.error(err);
       setError('Failed to fetch subscription terms');
     }
-  };
-
-  useEffect(() => {
-    if (currentLocationId) {
-        fetchData();
-    } else {
-        setData([]);
-    }
   }, [currentLocationId]);
 
-  const handleOpenDialog = (term?: any) => {
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (currentLocationId) {
+          fetchData();
+      } else {
+          setData([]);
+      }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentLocationId, fetchData]);
+
+  const handleOpenDialog = useCallback((term?: SubscriptionTermForm) => {
     setCurrentTerm(term || { 
         name: '', 
         duration_months: '', 
@@ -72,14 +83,18 @@ export const SubscriptionTerms = () => {
         recurrence_unit_value: 1
     });
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setOpenDialog(false);
     setCurrentTerm({});
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleOpenNewDialog = useCallback(() => {
+    handleOpenDialog();
+  }, [handleOpenDialog]);
+
+  const handleSave = useCallback(async () => {
     if (!currentLocationId) {
         setError("Please select a location first.");
         return;
@@ -94,9 +109,9 @@ export const SubscriptionTerms = () => {
       console.error(err);
       setError('Failed to save subscription term');
     }
-  };
+  }, [currentLocationId, currentTerm, fetchData, refreshSubscriptionTerms]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!window.confirm('Are you sure?')) return;
     try {
         await configService.deleteSubscriptionTerm(id, currentLocationId || undefined);
@@ -106,7 +121,43 @@ export const SubscriptionTerms = () => {
         console.error(err);
         setError('Failed to delete term');
     }
-  };
+  }, [currentLocationId, fetchData]);
+
+  const handleEditRowClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const termId = event.currentTarget.dataset.termId;
+    if (!termId) return;
+    const term = data.find(row => String(row.id || row.subscription_term_id) === termId);
+    if (!term) return;
+    handleOpenDialog(term);
+  }, [data, handleOpenDialog]);
+
+  const handleDeleteRowClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const termId = event.currentTarget.dataset.termId;
+    if (!termId) return;
+    handleDelete(termId);
+  }, [handleDelete]);
+
+  const handleCurrentTermFieldChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const field = event.currentTarget.dataset.field;
+    if (!field) return;
+    setCurrentTerm((prev) => ({ ...prev, [field]: event.target.value }));
+  }, []);
+
+  const handleRecurrenceUnitValueChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentTerm((prev) => ({ ...prev, recurrence_unit_value: parseInt(event.target.value, 10) || 1 }));
+  }, []);
+
+  const handleRecurrenceUnitChange = useCallback((event: SelectChangeEvent) => {
+    setCurrentTerm((prev) => ({ ...prev, recurrence_unit: event.target.value }));
+  }, []);
+
+  const handleErrorClose = useCallback(() => {
+    setError(null);
+  }, []);
+
+  const handleSuccessClose = useCallback(() => {
+    setSuccess(null);
+  }, []);
 
   if (!currentLocationId) {
       return (
@@ -131,7 +182,7 @@ export const SubscriptionTerms = () => {
             <Button 
                 variant="contained" 
                 startIcon={<Add />} 
-                onClick={() => handleOpenDialog()}
+                onClick={handleOpenNewDialog}
             >
                 Add Subscription Term
             </Button>
@@ -182,10 +233,10 @@ export const SubscriptionTerms = () => {
                 </TableCell>
                 <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ color: 'text.secondary' }}>
+                        <IconButton size="small" onClick={handleEditRowClick} data-term-id={String(row.id || row.subscription_term_id)} sx={{ color: 'text.secondary' }}>
                             <EditOutlined fontSize="small" />
                         </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(row.id || row.subscription_term_id)} sx={{ color: 'text.secondary' }}>
+                        <IconButton size="small" onClick={handleDeleteRowClick} data-term-id={String(row.id || row.subscription_term_id)} sx={{ color: 'text.secondary' }}>
                             <DeleteOutline fontSize="small" />
                         </IconButton>
                     </Stack>
@@ -212,7 +263,8 @@ export const SubscriptionTerms = () => {
                     label="Name" 
                     fullWidth 
                     value={currentTerm.name || ''}
-                    onChange={(e) => setCurrentTerm({...currentTerm, name: e.target.value})}
+                    onChange={handleCurrentTermFieldChange}
+                    inputProps={{ 'data-field': 'name' }}
                     placeholder="e.g. Yearly, Monthly"
                 />
                 <TextField 
@@ -220,14 +272,16 @@ export const SubscriptionTerms = () => {
                     type="number"
                     fullWidth 
                     value={currentTerm.duration_months || ''}
-                    onChange={(e) => setCurrentTerm({...currentTerm, duration_months: e.target.value})}
+                    onChange={handleCurrentTermFieldChange}
+                    inputProps={{ 'data-field': 'duration_months' }}
                 />
                 <TextField 
                     select
                     label="Payment Mode" 
                     fullWidth 
                     value={currentTerm.payment_mode || 'RECURRING'}
-                    onChange={(e) => setCurrentTerm({...currentTerm, payment_mode: e.target.value})}
+                    onChange={handleCurrentTermFieldChange}
+                    inputProps={{ 'data-field': 'payment_mode' }}
                 >
                     {dropdownOptions.subscriptionTerms.map((opt) => (
                         <MenuItem key={opt.value} value={opt.value}>
@@ -244,7 +298,7 @@ export const SubscriptionTerms = () => {
                                 type="number"
                                 fullWidth
                                 value={currentTerm.recurrence_unit_value || 1}
-                                onChange={(e) => setCurrentTerm({...currentTerm, recurrence_unit_value: parseInt(e.target.value) || 1})}
+                                onChange={handleRecurrenceUnitValueChange}
                                 InputProps={{ inputProps: { min: 1 } }}
                             />
                         </Grid>
@@ -255,7 +309,7 @@ export const SubscriptionTerms = () => {
                                     labelId="recurrence-unit-label"
                                     label="Unit"
                                     value={currentTerm.recurrence_unit || 'MONTH'}
-                                    onChange={(e) => setCurrentTerm({...currentTerm, recurrence_unit: e.target.value})}
+                                    onChange={handleRecurrenceUnitChange}
                                 >
                                     <MenuItem value="DAY">Day</MenuItem>
                                     <MenuItem value="WEEK">Week</MenuItem>
@@ -274,10 +328,10 @@ export const SubscriptionTerms = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+      <Snackbar open={!!error} autoHideDuration={6000} onClose={handleErrorClose}>
         <Alert severity="error" variant="filled">{error}</Alert>
       </Snackbar>
-       <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
+       <Snackbar open={!!success} autoHideDuration={6000} onClose={handleSuccessClose}>
         <Alert severity="success" variant="filled">{success}</Alert>
       </Snackbar>
     </Box>

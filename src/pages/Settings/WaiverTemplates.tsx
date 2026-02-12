@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -19,7 +19,6 @@ import {
 import { 
     Save, 
     Assignment, 
-    Edit, 
     ExpandLess, 
     ExpandMore,
     Pool, 
@@ -42,8 +41,11 @@ import 'react-quill-new/dist/quill.snow.css';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { serviceCatalog } from '../../services/serviceCatalog';
+import type { Service } from '../../services/serviceCatalog';
 import { basePriceService } from '../../services/basePriceService';
+import type { BasePrice } from '../../services/basePriceService';
 import { membershipService } from '../../services/membershipService';
+import type { MembershipProgram } from '../../services/membershipService';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { apiClient } from '../../services/apiClient';
 
@@ -57,12 +59,18 @@ interface WaiverTemplate {
   service_id?: string;
   base_price_id?: string;
   membership_category_id?: string;
+  [key: string]: string | boolean | undefined;
 }
 
 interface TargetEntity {
   id: string;
   name: string;
 }
+
+type MembershipProgramsResponse = {
+  memberships?: MembershipProgram[];
+  data?: MembershipProgram[];
+};
 
 export const WaiverTemplates = () => {
   const { currentLocationId } = useAuth();
@@ -94,7 +102,7 @@ export const WaiverTemplates = () => {
   ], []);
 
   // --- Data Fetching Helper ---
-  const fetchCategoryData = async (catKey: string) => {
+  const fetchCategoryData = useCallback(async (catKey: string) => {
       if (!currentLocationId) return;
       if (categoryData[catKey]) return; // Already loaded
 
@@ -111,8 +119,8 @@ export const WaiverTemplates = () => {
           case 'service':
             try {
                 const svcsResponse = await serviceCatalog.getServices(currentLocationId);
-                const svcs = Array.isArray(svcsResponse) ? svcsResponse : (svcsResponse.data || svcsResponse.services || []);
-                data = svcs.map((s: any) => ({ id: s.service_id || s.id, name: s.name }));
+                const svcs = (Array.isArray(svcsResponse) ? svcsResponse : (svcsResponse.data || svcsResponse.services || [])) as Service[];
+                data = svcs.map((s) => ({ id: s.service_id || s.id || '', name: s.name }));
             } catch (e) {
                 console.warn("Failed to fetch", e);
             }
@@ -120,18 +128,18 @@ export const WaiverTemplates = () => {
           case 'base_price':
             try {
                 const bpsResponse = await basePriceService.getAll(currentLocationId);
-                let prices: any[] = [];
+                let prices: BasePrice[] = [];
                 if (bpsResponse && Array.isArray(bpsResponse.prices)) prices = bpsResponse.prices;
-                else if (Array.isArray(bpsResponse)) prices = bpsResponse;
+                else if (Array.isArray(bpsResponse)) prices = bpsResponse as BasePrice[];
 
-                const uniqueMap = new Map();
-                prices.forEach((p: any) => {
+                const uniqueMap = new Map<string, BasePrice>();
+                prices.forEach((p) => {
                     const key = `${p.name} (${p.role})`; 
                     if(!uniqueMap.has(key)) uniqueMap.set(key, p);
                 });
                 
-                data = Array.from(uniqueMap.values()).map((p: any) => ({ 
-                    id: p.base_price_id!, 
+                data = Array.from(uniqueMap.values()).map((p) => ({ 
+                    id: p.base_price_id || '', 
                     name: `${p.name} - ${p.role} (${p.age_group_name || 'Group'})` 
                 }));
             } catch (e) {
@@ -141,13 +149,13 @@ export const WaiverTemplates = () => {
           case 'membership_category':
             try {
                 const progsResponse = await membershipService.getMemberships(currentLocationId);
-                let progs: any[] = [];
+                let progs: MembershipProgram[] = [];
                 if (Array.isArray(progsResponse)) progs = progsResponse;
-                else if (progsResponse && Array.isArray((progsResponse as any).memberships)) progs = (progsResponse as any).memberships;
-                else if (progsResponse && Array.isArray((progsResponse as any).data)) progs = (progsResponse as any).data;
+                else if (progsResponse && Array.isArray((progsResponse as MembershipProgramsResponse).memberships)) progs = (progsResponse as MembershipProgramsResponse).memberships || [];
+                else if (progsResponse && Array.isArray((progsResponse as MembershipProgramsResponse).data)) progs = (progsResponse as MembershipProgramsResponse).data || [];
 
-                data = progs.flatMap(p => (p.categories || []).map((c: any) => ({
-                    id: c.category_id!,
+                data = progs.flatMap(p => (p.categories || []).map((c) => ({
+                    id: c.category_id || '',
                     name: `${p.name} - ${c.name}`
                 })));
             } catch (e) {
@@ -161,22 +169,22 @@ export const WaiverTemplates = () => {
       } finally {
           setLoadingCategory(null);
       }
-  };
+  }, [currentLocationId, categoryData, ageGroups, subscriptionTerms]);
 
   // --- Handlers ---
-  const handleToggleCategory = (catKey: string) => {
+  const handleToggleCategory = useCallback((catKey: string) => {
       if (expandedCategory === catKey) {
           setExpandedCategory(null);
       } else {
           setExpandedCategory(catKey);
           fetchCategoryData(catKey);
       }
-  };
+  }, [expandedCategory, fetchCategoryData]);
 
-  const handleSelectTarget = (catKey: string, targetId: string) => {
+  const handleSelectTarget = useCallback((catKey: string, targetId: string) => {
       setSelectedCategoryKey(catKey);
       setSelectedTargetId(targetId);
-  };
+  }, []);
 
   // --- Initial Load ---
   useEffect(() => {
@@ -184,7 +192,7 @@ export const WaiverTemplates = () => {
       if (expandedCategory && !categoryData[expandedCategory]) {
           fetchCategoryData(expandedCategory);
       }
-  }, [currentLocationId, expandedCategory]); // eslint-disable-line
+  }, [currentLocationId, expandedCategory, categoryData, fetchCategoryData]);
 
   // --- Fetch Template ---
   useEffect(() => {
@@ -197,7 +205,7 @@ export const WaiverTemplates = () => {
         const AllTemplates = res.data || res;
         
         const targetField = `${selectedCategoryKey}_id`;
-        const found = Array.isArray(AllTemplates) ? AllTemplates.find((t: any) => t[targetField] === selectedTargetId) : null;
+        const found = Array.isArray(AllTemplates) ? (AllTemplates as WaiverTemplate[]).find((t) => t[targetField] === selectedTargetId) : null;
         
         if (found) {
             setTemplate(found);
@@ -220,7 +228,7 @@ export const WaiverTemplates = () => {
 
 
   // --- Save ---
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
       if (!selectedTargetId || !currentLocationId || !selectedCategoryKey) return;
       
       setIsSaving(true);
@@ -243,7 +251,34 @@ export const WaiverTemplates = () => {
       } finally {
           setIsSaving(false);
       }
-  };
+  }, [currentLocationId, editorContent, selectedCategoryKey, selectedTargetId, template?.waiver_template_id]);
+
+  const handleCategoryClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+      const categoryKey = event.currentTarget.dataset.categoryKey;
+      if (!categoryKey) return;
+      handleToggleCategory(categoryKey);
+  }, [handleToggleCategory]);
+
+  const handleTargetClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+      const categoryKey = event.currentTarget.dataset.categoryKey;
+      const targetId = event.currentTarget.dataset.targetId;
+      if (!categoryKey || !targetId) return;
+      handleSelectTarget(categoryKey, targetId);
+  }, [handleSelectTarget]);
+
+  const handleOpenPreview = useCallback(() => {
+      setIsPreviewOpen(true);
+  }, []);
+
+  const handleCloseFeedback = useCallback(() => {
+      setFeedback(null);
+  }, []);
+
+  const handleClosePreview = useCallback(() => {
+      setIsPreviewOpen(false);
+  }, []);
+
+  const noopAgreeChange = useCallback(() => {}, []);
 
   return (
     <Box sx={{ pb: 5 }}>
@@ -273,7 +308,7 @@ export const WaiverTemplates = () => {
 
                             return (
                                 <Box key={cat.key} sx={{ borderBottom: '1px solid #f1f5f9' }}>
-                                    <ListItemButton onClick={() => handleToggleCategory(cat.key)} sx={{ py: 2 }}>
+                                    <ListItemButton onClick={handleCategoryClick} data-category-key={cat.key} sx={{ py: 2 }}>
                                         <ListItemIcon sx={{ minWidth: 40, color: isExpanded ? '#3b82f6 !important' : '#64748b !important' }}>
                                             {cat.icon}
                                         </ListItemIcon>
@@ -299,7 +334,9 @@ export const WaiverTemplates = () => {
                                                     <ListItemButton 
                                                         key={item.id} 
                                                         sx={{ pl: 4, bgcolor: isSelected ? '#eff6ff' : 'transparent', borderLeft: isSelected ? '3px solid #3b82f6' : '3px solid transparent' }}
-                                                        onClick={() => handleSelectTarget(cat.key, item.id)}
+                                                        onClick={handleTargetClick}
+                                                        data-category-key={cat.key}
+                                                        data-target-id={item.id}
                                                     >
                                                         <ListItemText 
                                                             primary={item.name} 
@@ -421,7 +458,7 @@ export const WaiverTemplates = () => {
                                     <Button 
                                         variant="outlined" 
                                         startIcon={<Visibility />} 
-                                        onClick={() => setIsPreviewOpen(true)}
+                                        onClick={handleOpenPreview}
                                         sx={{ 
                                             textTransform: 'none', 
                                             fontWeight: 700, 
@@ -537,17 +574,17 @@ export const WaiverTemplates = () => {
         <Snackbar 
             open={!!feedback} 
             autoHideDuration={6000} 
-            onClose={() => setFeedback(null)}
+            onClose={handleCloseFeedback}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
-            <Alert severity={feedback?.type || 'info'} onClose={() => setFeedback(null)} sx={{ fontWeight: 600 }}>
+            <Alert severity={feedback?.type || 'info'} onClose={handleCloseFeedback} sx={{ fontWeight: 600 }}>
                 {feedback?.message}
             </Alert>
         </Snackbar>
 
         <Dialog 
             open={isPreviewOpen} 
-            onClose={() => setIsPreviewOpen(false)}
+            onClose={handleClosePreview}
             maxWidth="md"
             fullWidth
             PaperProps={{
@@ -576,7 +613,7 @@ export const WaiverTemplates = () => {
                         guardian_name: 'Jane Doe'
                     }}
                     agreed={false}
-                    onAgreeChange={() => {}}
+                    onAgreeChange={noopAgreeChange}
                     signatureComponent={
                         <Box sx={{ 
                             height: 100, 
@@ -595,7 +632,7 @@ export const WaiverTemplates = () => {
             </DialogContent>
             <DialogActions sx={{ p: 3, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
                 <Button 
-                    onClick={() => setIsPreviewOpen(false)}
+                    onClick={handleClosePreview}
                     variant="contained"
                     sx={{ 
                         bgcolor: '#0f172a', 

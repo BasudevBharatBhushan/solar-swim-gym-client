@@ -3,15 +3,24 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import logo from '../../assets/logo.png';
 import LogoutIcon from '@mui/icons-material/Logout';
+import { useCallback } from 'react';
 
 export const UserPortalLayout = () => {
     const { logout, userParams } = useAuth();
     const navigate = useNavigate();
 
-    const handleLogout = () => {
+    const handleLogout = useCallback(() => {
         logout();
         navigate('/login');
-    };
+    }, [logout, navigate]);
+
+    const handleLogoClick = useCallback(() => {
+        navigate('/portal');
+    }, [navigate]);
+
+    const handleLogoutClick = useCallback(() => {
+        handleLogout();
+    }, [handleLogout]);
 
     return (
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#f1f5f9' }}>
@@ -21,7 +30,7 @@ export const UserPortalLayout = () => {
                         component="img" 
                         src={logo} 
                         sx={{ height: 40, mr: 2, cursor: 'pointer' }} 
-                        onClick={() => navigate('/portal')}
+                        onClick={handleLogoClick}
                     />
                     <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'text.primary', fontWeight: 'bold' }}>
                         Zalexy
@@ -33,7 +42,7 @@ export const UserPortalLayout = () => {
                         </Typography>
                         <Button 
                             color="inherit" 
-                            onClick={handleLogout}
+                            onClick={handleLogoutClick}
                             startIcon={<LogoutIcon />}
                             sx={{ color: 'text.primary', textTransform: 'none' }}
                         >

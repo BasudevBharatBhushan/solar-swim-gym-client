@@ -5,6 +5,11 @@ export interface Profile {
   last_name: string;
   email: string | null;
   date_of_birth?: string;
+  is_primary?: boolean;
+  guardian_name?: string;
+  guardian_mobile?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
   waiver_program?: {
       code: string;
       name: string;
@@ -30,12 +35,12 @@ export interface Subscription {
   coverage?: {
       profile_id: string;
       role: 'PRIMARY' | 'ADD_ON';
-      profile?: any;
+      profile?: Profile;
   }[];
   subscription_coverage?: {
       profile_id: string;
       role: 'PRIMARY' | 'ADD_ON';
-      profile?: any;
+      profile?: Profile;
   }[];
   plan_name?: string; 
 }

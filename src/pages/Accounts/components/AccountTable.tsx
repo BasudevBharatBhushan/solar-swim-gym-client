@@ -2,6 +2,7 @@
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TablePagination, Chip, IconButton } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useNavigate } from 'react-router-dom';
+import { useCallback } from 'react';
 
 interface Account {
   account_id: string;
@@ -27,6 +28,11 @@ interface AccountTableProps {
 
 export const AccountTable = ({ accounts, count, page, rowsPerPage, onPageChange, onRowsPerPageChange, loading }: AccountTableProps) => {
   const navigate = useNavigate();
+  const handleViewAccount = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const accountId = event.currentTarget.dataset.accountId;
+    if (!accountId) return;
+    navigate(`/admin/accounts/${accountId}`);
+  }, [navigate]);
 
   return (
     <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
@@ -64,7 +70,7 @@ export const AccountTable = ({ accounts, count, page, rowsPerPage, onPageChange,
                         </TableCell>
                         <TableCell>{new Date(account.created_at).toLocaleDateString()}</TableCell>
                         <TableCell align="right">
-                            <IconButton onClick={() => navigate(`/admin/accounts/${account.account_id}`)}>
+                            <IconButton onClick={handleViewAccount} data-account-id={account.account_id}>
                                 <VisibilityIcon color="action" />
                             </IconButton>
                         </TableCell>

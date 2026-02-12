@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   Box, 
   Paper, 
@@ -28,19 +28,35 @@ import { useAuth } from '../../context/AuthContext';
 import { configService } from '../../services/configService';
 import { PageHeader } from '../../components/Common/PageHeader';
 
+interface WaiverProgramData {
+    waiver_program_id?: string;
+    location_id?: string;
+    name: string;
+    code: string;
+    description?: string;
+    requires_case_manager: boolean;
+    is_active: boolean;
+}
+
 export const WaiverPrograms = () => {
-    const [data, setData] = useState<any[]>([]);
+    const [data, setData] = useState<WaiverProgramData[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string|null>(null);
     const [success, setSuccess] = useState<string|null>(null);
     const [openDialog, setOpenDialog] = useState(false);
-    const [currentProgram, setCurrentProgram] = useState<any>({});
+    const [currentProgram, setCurrentProgram] = useState<WaiverProgramData>({
+        name: '',
+        code: '',
+        description: '',
+        requires_case_manager: false,
+        is_active: true
+    });
     
-    const { token, currentLocationId } = useAuth();
+    const { currentLocationId } = useAuth();
     // Assuming location_id comes from userDetails or context for the header
     const locationId = currentLocationId;
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             const res = await configService.getWaiverPrograms(locationId || undefined);
@@ -51,13 +67,13 @@ export const WaiverPrograms = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [locationId]);
 
     useEffect(() => {
         fetchData();
-    }, [locationId]);
+    }, [fetchData]);
 
-    const handleOpenDialog = (program?: any) => {
+    const handleOpenDialog = useCallback((program?: WaiverProgramData) => {
         setCurrentProgram(program || { 
             name: '', 
             code: '', 
@@ -66,14 +82,32 @@ export const WaiverPrograms = () => {
             is_active: true
         });
         setOpenDialog(true);
-    };
+    }, []);
 
-    const handleCloseDialog = () => {
+    const handleCloseDialog = useCallback(() => {
         setOpenDialog(false);
-        setCurrentProgram({});
-    };
+        setCurrentProgram({
+            name: '',
+            code: '',
+            description: '',
+            requires_case_manager: false,
+            is_active: true
+        });
+    }, []);
 
-    const handleSave = async () => {
+    const handleOpenNewDialog = useCallback(() => {
+        handleOpenDialog();
+    }, [handleOpenDialog]);
+
+    const handleEditRowClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+        const waiverProgramId = event.currentTarget.dataset.waiverProgramId;
+        if (!waiverProgramId) return;
+        const program = data.find(row => row.waiver_program_id === waiverProgramId);
+        if (!program) return;
+        handleOpenDialog(program);
+    }, [data, handleOpenDialog]);
+
+    const handleSave = useCallback(async () => {
         try {
             const payload = {
                 ...currentProgram,
@@ -88,7 +122,29 @@ export const WaiverPrograms = () => {
             console.error(err);
             setError('Failed to save waiver program');
         }
-    };
+    }, [currentProgram, fetchData, handleCloseDialog, locationId]);
+
+    const handleProgramFieldChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const field = event.currentTarget.dataset.field;
+        if (!field) return;
+        setCurrentProgram((prev) => ({ ...prev, [field]: event.target.value }));
+    }, []);
+
+    const handleRequiresCaseManagerChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setCurrentProgram((prev) => ({ ...prev, requires_case_manager: event.target.checked }));
+    }, []);
+
+    const handleProgramActiveChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setCurrentProgram((prev) => ({ ...prev, is_active: event.target.checked }));
+    }, []);
+
+    const handleErrorClose = useCallback(() => {
+        setError(null);
+    }, []);
+
+    const handleSuccessClose = useCallback(() => {
+        setSuccess(null);
+    }, []);
 
     return (
         <Box sx={{ width: '100%' }}>
@@ -103,7 +159,7 @@ export const WaiverPrograms = () => {
                     <Button 
                         variant="contained" 
                         startIcon={<Add />} 
-                        onClick={() => handleOpenDialog()}
+                        onClick={handleOpenNewDialog}
                         sx={{ px: 3 }}
                     >
                         Add Program
@@ -148,7 +204,7 @@ export const WaiverPrograms = () => {
                                     />
                                 </TableCell>
                                 <TableCell align="right">
-                                    <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ color: 'text.secondary' }}>
+                                    <IconButton size="small" onClick={handleEditRowClick} data-waiver-program-id={row.waiver_program_id} sx={{ color: 'text.secondary' }}>
                                         <EditOutlined fontSize="small" />
                                     </IconButton>
                                 </TableCell>
@@ -193,14 +249,16 @@ export const WaiverPrograms = () => {
                             fullWidth 
                             autoFocus
                             value={currentProgram.name || ''}
-                            onChange={(e) => setCurrentProgram({...currentProgram, name: e.target.value})}
+                            onChange={handleProgramFieldChange}
+                            inputProps={{ 'data-field': 'name' }}
                         />
                         <TextField 
                             label="Program Code" 
                             fullWidth 
                             placeholder="e.g., SLW-001"
                             value={currentProgram.code || ''}
-                            onChange={(e) => setCurrentProgram({...currentProgram, code: e.target.value})}
+                            onChange={handleProgramFieldChange}
+                            inputProps={{ 'data-field': 'code' }}
                             helperText="Unique identifier for internal use."
                         />
                         <TextField 
@@ -209,14 +267,15 @@ export const WaiverPrograms = () => {
                             multiline
                             rows={3}
                             value={currentProgram.description || ''}
-                            onChange={(e) => setCurrentProgram({...currentProgram, description: e.target.value})}
+                            onChange={handleProgramFieldChange}
+                            inputProps={{ 'data-field': 'description' }}
                         />
                         
                         <FormControlLabel
                             control={
                                 <Switch 
                                     checked={currentProgram.requires_case_manager || false}
-                                    onChange={(e) => setCurrentProgram({...currentProgram, requires_case_manager: e.target.checked})}
+                                    onChange={handleRequiresCaseManagerChange}
                                 />
                             }
                             label="Requires Case Manager Info"
@@ -229,7 +288,7 @@ export const WaiverPrograms = () => {
                             control={
                                 <Switch 
                                     checked={currentProgram.is_active !== false}
-                                    onChange={(e) => setCurrentProgram({...currentProgram, is_active: e.target.checked})}
+                                    onChange={handleProgramActiveChange}
                                 />
                             }
                             label="Program Active"
@@ -242,10 +301,10 @@ export const WaiverPrograms = () => {
                 </DialogActions>
             </Dialog>
 
-            <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+            <Snackbar open={!!error} autoHideDuration={6000} onClose={handleErrorClose}>
                 <Alert severity="error" variant="filled">{error}</Alert>
             </Snackbar>
-             <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
+             <Snackbar open={!!success} autoHideDuration={6000} onClose={handleSuccessClose}>
                 <Alert severity="success" variant="filled">{success}</Alert>
             </Snackbar>
         </Box>

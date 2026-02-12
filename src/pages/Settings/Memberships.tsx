@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -29,6 +29,7 @@ import {
   Stack,
   Checkbox
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { 
   Add, 
   Edit, 
@@ -89,7 +90,7 @@ export const Memberships = () => {
     : activeProgram?.categories.find(c => c.category_id === selectedCategoryId);
 
   // --- Fetch Data ---
-  const fetchData = async (silent = false) => {
+  const fetchData = useCallback(async (silent = false) => {
     if (!currentLocationId) return;
     if (!silent) setLoading(true);
     try {
@@ -110,11 +111,11 @@ export const Memberships = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [currentLocationId, selectedProgramId]);
 
   useEffect(() => {
     fetchData();
-  }, [currentLocationId]);
+  }, [fetchData]);
 
   // Preselect first category when program changes
   useEffect(() => {
@@ -130,7 +131,7 @@ export const Memberships = () => {
     // Cancel editing on program switch
     setIsEditing(false);
     setDraftCategory(null);
-  }, [selectedProgramId, activeProgram]);
+  }, [selectedProgramId, activeProgram, selectedCategoryId]);
 
   // Fetch Services when Category Changes (View Mode)
   useEffect(() => {
@@ -150,17 +151,17 @@ export const Memberships = () => {
     } else {
         setCategoryServices([]);
     }
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, currentLocationId]);
 
 
   // --- Actions ---
 
-  const handleProgramChange = (progId: string) => {
+  const handleProgramChange = useCallback((progId: string) => {
       setSelectedProgramId(progId);
       setIsEditing(false);
-  };
+  }, []);
 
-  const handleCategorySelect = (catId: string) => {
+  const handleCategorySelect = useCallback((catId: string) => {
       if (isEditing) {
           // If editing, ideally we warn user. For now, we just reset.
           if (window.confirm("You have unsaved changes. Discard them?")) {
@@ -171,9 +172,9 @@ export const Memberships = () => {
       } else {
           setSelectedCategoryId(catId);
       }
-  };
+  }, [isEditing]);
 
-  const handleCreateProgram = async () => {
+  const handleCreateProgram = useCallback(async () => {
       if(!currentLocationId || !createProgramName) return;
       setSaving(true);
       try {
@@ -208,14 +209,14 @@ export const Memberships = () => {
           setOpenCreateProgram(false);
           setCreateProgramName('');
           setSuccess("Membership Program created.");
-      } catch (e: any) {
+      } catch {
           setError("Failed to create program.");
       } finally {
           setSaving(false);
       }
-  };
+  }, [currentLocationId, createProgramName]);
 
-  const handleAddNewCategory = () => {
+  const handleAddNewCategory = useCallback(() => {
       if (!activeProgram) return;
       
       const newCategory: MembershipCategory = {
@@ -239,16 +240,16 @@ export const Memberships = () => {
       setDraftServices([]);
       setSelectedCategoryId('new');
       setIsEditing(true);
-  };
+  }, [activeProgram]);
 
-  const handleStartEdit = () => {
+  const handleStartEdit = useCallback(() => {
       if (!activeCategory) return;
       setDraftCategory(JSON.parse(JSON.stringify(activeCategory)));
       setDraftServices(JSON.parse(JSON.stringify(categoryServices)));
       setIsEditing(true);
-  };
+  }, [activeCategory, categoryServices]);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
       setIsEditing(false);
       setDraftCategory(null);
       setDraftServices([]);
@@ -259,9 +260,9 @@ export const Memberships = () => {
               setSelectedCategoryId(null);
           }
       }
-  };
+  }, [selectedCategoryId, activeProgram]);
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
       if (!activeProgram || !draftCategory) return;
       setSaving(true);
       
@@ -326,24 +327,24 @@ export const Memberships = () => {
       } finally {
            setSaving(false);
       }
-  };
+  }, [activeProgram, draftCategory, selectedCategoryId, draftServices, currentLocationId, fetchData]);
 
   // --- Field Updaters (Draft) ---
 
-  const updateDraftField = (field: keyof MembershipCategory, value: any) => {
+  const updateDraftField = useCallback((field: keyof MembershipCategory, value: unknown) => {
       if (!draftCategory) return;
       setDraftCategory({ ...draftCategory, [field]: value });
-  };
+  }, [draftCategory]);
 
-  const updateDraftFee = (type: 'JOINING' | 'ANNUAL', amount: number) => {
+  const updateDraftFee = useCallback((type: 'JOINING' | 'ANNUAL', amount: number) => {
       if (!draftCategory) return;
       const newFees = draftCategory.fees.map(f => 
           f.fee_type === type ? { ...f, amount } : f
       );
       setDraftCategory({ ...draftCategory, fees: newFees });
-  };
+  }, [draftCategory]);
   
-  const updateDraftRule = (ruleIndex: number, field: string, value: any) => {
+  const updateDraftRule = useCallback((ruleIndex: number, field: string, value: string | number | null) => {
       if (!draftCategory) return;
       const newRules = [...draftCategory.rules];
       const rule = { ...newRules[ruleIndex] };
@@ -353,11 +354,11 @@ export const Memberships = () => {
       };
       newRules[ruleIndex] = rule;
       setDraftCategory({ ...draftCategory, rules: newRules });
-  };
+  }, [draftCategory]);
 
   // --- Service Updaters (Draft) ---
 
-  const handleDraftAddService = () => {
+  const handleDraftAddService = useCallback(() => {
       if (!newServiceId || !draftCategory) return;
       
       const newService: IMembershipService = {
@@ -372,18 +373,98 @@ export const Memberships = () => {
       setDraftServices(prev => [...prev, newService]);
       setOpenAddService(false);
       setNewServiceId('');
-  };
+  }, [newServiceId, draftCategory, selectedCategoryId]);
 
-  const updateDraftService = (index: number, updates: Partial<IMembershipService>) => {
+  const updateDraftService = useCallback((index: number, updates: Partial<IMembershipService>) => {
       const newServices = [...draftServices];
       newServices[index] = { ...newServices[index], ...updates };
       setDraftServices(newServices);
-  };
+  }, [draftServices]);
 
-  const removeDraftService = (index: number) => {
+  const removeDraftService = useCallback((index: number) => {
       // Soft delete
       updateDraftService(index, { is_active: false });
-  };
+  }, [updateDraftService]);
+  const handleOpenCreateProgram = useCallback(() => {
+      setOpenCreateProgram(true);
+  }, []);
+  const handleCloseCreateProgram = useCallback(() => {
+      setOpenCreateProgram(false);
+  }, []);
+  const handleOpenAddService = useCallback(() => {
+      setOpenAddService(true);
+  }, []);
+  const handleCloseAddService = useCallback(() => {
+      setOpenAddService(false);
+  }, []);
+  const handleCreateProgramNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      setCreateProgramName(e.target.value);
+  }, []);
+  const handleNewServiceChange = useCallback((e: SelectChangeEvent<string>) => {
+      setNewServiceId(e.target.value);
+  }, []);
+  const handleCloseError = useCallback(() => {
+      setError(null);
+  }, []);
+  const handleCloseSuccess = useCallback(() => {
+      setSuccess(null);
+  }, []);
+  const handleProgramSelectChange = useCallback((e: SelectChangeEvent<string>) => {
+      handleProgramChange(e.target.value as string);
+  }, [handleProgramChange]);
+  const handleCategoryClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+      const categoryId = e.currentTarget.dataset.categoryId;
+      if (categoryId) {
+          handleCategorySelect(categoryId);
+      }
+  }, [handleCategorySelect]);
+  const handleDraftNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      updateDraftField('name', e.target.value);
+  }, [updateDraftField]);
+  const handleDraftActiveChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      updateDraftField('is_active', e.target.checked);
+  }, [updateDraftField]);
+  const handleDraftServiceFieldChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      const field = e.currentTarget.dataset.field;
+      if (!Number.isFinite(index) || !field) return;
+      updateDraftService(index, { [field]: e.target.value });
+  }, [updateDraftService]);
+  const handleDraftServiceIncludedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      if (!Number.isFinite(index)) return;
+      const current = draftServices[index];
+      updateDraftService(index, { is_included: e.target.checked, discount: e.target.checked ? '' : current?.discount });
+  }, [draftServices, updateDraftService]);
+  const handleDraftServiceDiscountAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      const val = e.target.value;
+      if (!Number.isFinite(index)) return;
+      if (!/^\d*\.?\d*$/.test(val)) return;
+      updateDraftService(index, { discount: val });
+  }, [updateDraftService]);
+  const handleDraftServiceDiscountPercentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      const val = e.target.value;
+      if (!Number.isFinite(index)) return;
+      if (!/^\d*\.?\d*$/.test(val)) return;
+      updateDraftService(index, { discount: val ? `${val}%` : '' });
+  }, [updateDraftService]);
+  const handleRemoveDraftService = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      if (!Number.isFinite(index)) return;
+      removeDraftService(index);
+  }, [removeDraftService]);
+  const handleRuleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const field = e.currentTarget.dataset.ruleField;
+      if (!field) return;
+      updateDraftRule(0, field, e.target.value);
+  }, [updateDraftRule]);
+  const handleFeeInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const feeType = e.currentTarget.dataset.feeType as 'JOINING' | 'ANNUAL' | undefined;
+      if (!feeType) return;
+      updateDraftFee(feeType, Number(e.target.value));
+  }, [updateDraftFee]);
 
 
   if (!currentLocationId) {
@@ -413,11 +494,12 @@ export const Memberships = () => {
                                </Typography>
                            </Box>
                       ) : (
-                          <TextField
-                              label="Min" size="small" type="number" fullWidth
-                              value={rule.condition_json[minKey] ?? ''}
-                              onChange={(e) => updateDraftRule(0, minKey, e.target.value)}
-                          />
+                              <TextField
+                                  label="Min" size="small" type="number" fullWidth
+                                  value={rule.condition_json[minKey] ?? ''}
+                                  onChange={handleRuleInputChange}
+                                  inputProps={{ 'data-rule-field': minKey }}
+                              />
                       )}
                   </Grid>
                   <Grid size={{ xs: 6 }}>
@@ -429,12 +511,13 @@ export const Memberships = () => {
                                </Typography>
                            </Box>
                       ) : (
-                          <TextField
-                              label="Max" size="small" type="number" fullWidth
-                              placeholder="No limit"
-                              value={rule.condition_json[maxKey] ?? ''}
-                              onChange={(e) => updateDraftRule(0, maxKey, e.target.value)}
-                          />
+                              <TextField
+                                  label="Max" size="small" type="number" fullWidth
+                                  placeholder="No limit"
+                                  value={rule.condition_json[maxKey] ?? ''}
+                                  onChange={handleRuleInputChange}
+                                  inputProps={{ 'data-rule-field': maxKey }}
+                              />
                       )}
                   </Grid>
               </Grid>
@@ -480,7 +563,8 @@ export const Memberships = () => {
                              fullWidth
                              variant="filled"
                              value={item.fee?.amount || 0}
-                             onChange={(e) => updateDraftFee(item.type, Number(e.target.value))}
+                             onChange={handleFeeInputChange}
+                             inputProps={{ 'data-fee-type': item.type }}
                              InputProps={{
                                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
                                  disableUnderline: true,
@@ -519,7 +603,7 @@ export const Memberships = () => {
                         <Select
                             value={activeProgram ? selectedProgramId : ''}
                             label="Select Program"
-                            onChange={(e) => handleProgramChange(e.target.value as string)}
+                            onChange={handleProgramSelectChange}
                         >
                             {programs.map(p => (
                                 <MenuItem key={p.membership_program_id} value={p.membership_program_id}>{p.name}</MenuItem>
@@ -530,7 +614,7 @@ export const Memberships = () => {
                     <Button 
                         variant="contained" 
                         startIcon={<Add />} 
-                        onClick={() => setOpenCreateProgram(true)}
+                        onClick={handleOpenCreateProgram}
                         sx={{ whiteSpace: 'nowrap' }}
                     >
                         New Program
@@ -560,7 +644,8 @@ export const Memberships = () => {
                                      <ListItemButton 
                                          key={cat.category_id}
                                          selected={isSelected}
-                                         onClick={() => handleCategorySelect(cat.category_id!)}
+                                         onClick={handleCategoryClick}
+                                         data-category-id={cat.category_id}
                                          sx={{ 
                                              pl: 2,
                                              py: 1.5,
@@ -647,7 +732,7 @@ export const Memberships = () => {
                                                     hiddenLabel
                                                     variant="standard" 
                                                     value={draftCategory?.name || ''}
-                                                    onChange={(e) => updateDraftField('name', e.target.value)}
+                                                    onChange={handleDraftNameChange}
                                                     inputProps={{ style: { fontSize: '2.125rem', fontWeight: 900, textTransform: 'uppercase', color: '#1e293b' } }}
                                                     placeholder="CATEGORY NAME"
                                                     fullWidth
@@ -692,7 +777,7 @@ export const Memberships = () => {
                                                       control={
                                                           <Switch 
                                                               checked={draftCategory?.is_active !== false}
-                                                              onChange={(e) => updateDraftField('is_active', e.target.checked)}
+                                                              onChange={handleDraftActiveChange}
                                                           />
                                                       }
                                                       label={<Typography fontWeight={600}>Active Status</Typography>}
@@ -734,7 +819,7 @@ export const Memberships = () => {
                                                      size="small" 
                                                      startIcon={<Add />} 
                                                      variant="contained"
-                                                     onClick={() => setOpenAddService(true)}
+                                                     onClick={handleOpenAddService}
                                                      sx={{ textTransform: 'none', borderRadius: 2, bgcolor: '#0f172a' }}
                                                  >
                                                      Add Service
@@ -806,7 +891,8 @@ export const Memberships = () => {
                                                                          control={
                                                                              <Checkbox 
                                                                                  checked={svc.is_included}
-                                                                                 onChange={(e) => updateDraftService(idx, { is_included: e.target.checked, discount: e.target.checked ? '' : svc.discount })}
+                                                                                 onChange={handleDraftServiceIncludedChange}
+                                                                                 inputProps={{ 'data-index': idx }}
                                                                                  sx={{ '&.Mui-checked': { color: '#0f172a' } }}
                                                                              />
                                                                          }
@@ -816,7 +902,8 @@ export const Memberships = () => {
                                                                      <TextField 
                                                                          label="Usage Limit" size="small" placeholder="Unlimited"
                                                                          value={svc.usage_limit || ''}
-                                                                         onChange={(e) => updateDraftService(idx, { usage_limit: e.target.value })}
+                                                                         onChange={handleDraftServiceFieldChange}
+                                                                         inputProps={{ 'data-index': idx, 'data-field': 'usage_limit' }}
                                                                          sx={{ width: 140, bgcolor: 'white' }}
                                                                      />
                                                                      {!svc.is_included && (
@@ -824,11 +911,8 @@ export const Memberships = () => {
                                                                              <TextField 
                                                                                  label="Discount ($)" size="small" placeholder="Amount"
                                                                                  value={!((svc.discount || '').includes('%')) ? svc.discount || '' : ''}
-                                                                                 onChange={(e) => {
-                                                                                     const val = e.target.value;
-                                                                                     if (!/^\d*\.?\d*$/.test(val)) return;
-                                                                                     updateDraftService(idx, { discount: val });
-                                                                                 }}
+                                                                                 onChange={handleDraftServiceDiscountAmountChange}
+                                                                                 inputProps={{ 'data-index': idx }}
                                                                                  disabled={(svc.discount || '').includes('%')}
                                                                                  InputProps={{
                                                                                      startAdornment: <InputAdornment position="start">$</InputAdornment>
@@ -838,11 +922,8 @@ export const Memberships = () => {
                                                                              <TextField 
                                                                                  label="Discount (%)" size="small" placeholder="Percent"
                                                                                  value={(svc.discount || '').includes('%') ? (svc.discount || '').replace('%', '') : ''}
-                                                                                 onChange={(e) => {
-                                                                                     const val = e.target.value;
-                                                                                     if (!/^\d*\.?\d*$/.test(val)) return;
-                                                                                     updateDraftService(idx, { discount: val ? `${val}%` : '' });
-                                                                                 }}
+                                                                                 onChange={handleDraftServiceDiscountPercentChange}
+                                                                                 inputProps={{ 'data-index': idx }}
                                                                                  disabled={!!svc.discount && !svc.discount.includes('%')}
                                                                                  InputProps={{
                                                                                      endAdornment: <InputAdornment position="end">%</InputAdornment>
@@ -852,7 +933,7 @@ export const Memberships = () => {
                                                                          </Stack>
                                                                      )}
                                                                      <Box sx={{ flex: 1 }} />
-                                                                     <IconButton size="small" onClick={() => removeDraftService(idx)} sx={{ color: '#ef4444', bgcolor: '#fff', border: '1px solid #fecaca' }}>
+                                                                     <IconButton size="small" data-index={idx} onClick={handleRemoveDraftService} sx={{ color: '#ef4444', bgcolor: '#fff', border: '1px solid #fecaca' }}>
                                                                          <Delete fontSize="small" />
                                                                      </IconButton>
                                                                  </Box>
@@ -915,23 +996,23 @@ export const Memberships = () => {
         )}
 
         {/* Create Program Dialog */}
-        <Dialog open={openCreateProgram} onClose={() => setOpenCreateProgram(false)} maxWidth="sm" fullWidth>
+        <Dialog open={openCreateProgram} onClose={handleCloseCreateProgram} maxWidth="sm" fullWidth>
             <DialogTitle>Add Membership Program</DialogTitle>
             <DialogContent>
                 <TextField 
                     autoFocus margin="dense" label="Program Name" fullWidth
                     value={createProgramName}
-                    onChange={(e) => setCreateProgramName(e.target.value)}
+                    onChange={handleCreateProgramNameChange}
                 />
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => setOpenCreateProgram(false)}>Cancel</Button>
+                <Button onClick={handleCloseCreateProgram}>Cancel</Button>
                 <Button onClick={handleCreateProgram} variant="contained" disabled={!createProgramName || saving}>Create</Button>
             </DialogActions>
         </Dialog>
 
         {/* Add Service Dialog (using Draft Services if editing) */}
-        <Dialog open={openAddService} onClose={() => setOpenAddService(false)}>
+        <Dialog open={openAddService} onClose={handleCloseAddService}>
              <DialogTitle>Add Service to Category</DialogTitle>
              <DialogContent>
                  <FormControl fullWidth sx={{ mt: 2, minWidth: 300 }}>
@@ -939,7 +1020,7 @@ export const Memberships = () => {
                      <Select
                          value={newServiceId}
                          label="Select Service"
-                         onChange={(e) => setNewServiceId(e.target.value)}
+                         onChange={handleNewServiceChange}
                      >
                           {availableServices
                              // Filter out services already in the DRAFT list
@@ -952,15 +1033,15 @@ export const Memberships = () => {
                  </FormControl>
              </DialogContent>
              <DialogActions>
-                 <Button onClick={() => setOpenAddService(false)}>Cancel</Button>
+                 <Button onClick={handleCloseAddService}>Cancel</Button>
                  <Button onClick={handleDraftAddService} variant="contained" disabled={!newServiceId}>Add</Button>
              </DialogActions>
         </Dialog>
 
-        <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+        <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseError}>
             <Alert severity="error">{error}</Alert>
         </Snackbar>
-        <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
+        <Snackbar open={!!success} autoHideDuration={6000} onClose={handleCloseSuccess}>
             <Alert severity="success">{success}</Alert>
         </Snackbar>
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Box,
   Paper,
@@ -52,35 +52,40 @@ const StaffModal = ({ open, onClose, onSave, staffToEdit, currentLocationId }: S
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (staffToEdit) {
-      setFormData({
-        staff_id: staffToEdit.staff_id,
-        first_name: staffToEdit.first_name,
-        last_name: staffToEdit.last_name,
-        email: staffToEdit.email,
-        role: staffToEdit.role as 'STAFF' | 'ADMIN',
-      });
-    } else {
-      setFormData({
-        location_id: currentLocationId,
-        first_name: '',
-        last_name: '',
-        email: '',
-        role: 'STAFF',
-      });
-    }
+    const timeoutId = setTimeout(() => {
+      if (staffToEdit) {
+        setFormData({
+          staff_id: staffToEdit.staff_id,
+          first_name: staffToEdit.first_name,
+          last_name: staffToEdit.last_name,
+          email: staffToEdit.email,
+          role: staffToEdit.role as 'STAFF' | 'ADMIN',
+        });
+      } else {
+        setFormData({
+          location_id: currentLocationId,
+          first_name: '',
+          last_name: '',
+          email: '',
+          role: 'STAFF',
+        });
+      }
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [staffToEdit, currentLocationId, open]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     setLoading(true);
     await onSave(formData);
     setLoading(false);
     onClose();
-  };
+  }, [formData, onClose, onSave]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -155,8 +160,9 @@ export const StaffManagement = () => {
 
   const { currentLocationId } = useAuth();
   const locationId = currentLocationId || ''; 
+  type StaffResponse = StaffMember[] | { data?: StaffMember[] };
 
-  const fetchStaff = async () => {
+  const fetchStaff = useCallback(async () => {
       try {
         setLoading(true);
         const response = await staffService.getAllStaff();
@@ -166,8 +172,8 @@ export const StaffManagement = () => {
                 return (order[a.role as string] ?? 3) - (order[b.role as string] ?? 3);
             });
             setStaffList(sorted);
-        } else if (response && (response as any).data) {
-             const data = (response as any).data;
+        } else if (response && (response as StaffResponse).data) {
+             const data = (response as StaffResponse).data || [];
              const sorted = [...data].sort((a, b) => {
                 const order: Record<string, number> = { 'SUPER_ADMIN': 0, 'ADMIN': 1, 'STAFF': 2 };
                 return (order[a.role as string] ?? 3) - (order[b.role as string] ?? 3);
@@ -179,18 +185,26 @@ export const StaffManagement = () => {
       } finally {
         setLoading(false);
       }
-  };
+  }, []);
 
   useEffect(() => {
     fetchStaff();
-  }, []);
+  }, [fetchStaff]);
 
-  const handleOpenModal = (staff?: StaffMember) => {
+  const handleOpenModal = useCallback((staff?: StaffMember) => {
     setSelectedStaff(staff);
     setModalOpen(true);
-  };
+  }, []);
 
-  const handleSaveStaff = async (payload: UpsertStaffPayload) => {
+  const handleOpenNewModal = useCallback(() => {
+    handleOpenModal();
+  }, [handleOpenModal]);
+
+  const handleCloseModal = useCallback(() => {
+    setModalOpen(false);
+  }, []);
+
+  const handleSaveStaff = useCallback(async (payload: UpsertStaffPayload) => {
       try {
           await staffService.upsertStaff(payload);
           fetchStaff();
@@ -203,9 +217,9 @@ export const StaffManagement = () => {
           console.error("Failed to save staff", error);
           alert("Failed to save staff member."); // Placeholder for toast
       }
-  };
+  }, [fetchStaff]);
 
-  const handleSendResetLink = async (staffId: string) => {
+  const handleSendResetLink = useCallback(async (staffId: string) => {
     setSendingEmail(staffId);
     try {
       await staffService.sendResetLink(staffId);
@@ -216,7 +230,21 @@ export const StaffManagement = () => {
     } finally {
       setSendingEmail(null);
     }
-  };
+  }, []);
+
+  const handleSendResetClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const staffId = event.currentTarget.dataset.staffId;
+    if (!staffId) return;
+    handleSendResetLink(staffId);
+  }, [handleSendResetLink]);
+
+  const handleEditClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const staffId = event.currentTarget.dataset.staffId;
+    if (!staffId) return;
+    const staff = staffList.find(item => item.staff_id === staffId);
+    if (!staff) return;
+    handleOpenModal(staff);
+  }, [handleOpenModal, staffList]);
 
   const getRoleIcon = (role: string) => {
       switch(role) {
@@ -248,7 +276,7 @@ export const StaffManagement = () => {
                 <Button 
                     variant="contained" 
                     startIcon={<Add />} 
-                    onClick={() => handleOpenModal()}
+                    onClick={handleOpenNewModal}
                     sx={{ borderRadius: 2, textTransform: 'none', px: 3 }}
                 >
                     Add Staff Member
@@ -309,7 +337,8 @@ export const StaffManagement = () => {
                                                         size="small" 
                                                         color="primary"
                                                         disabled={sendingEmail === staff.staff_id}
-                                                        onClick={() => handleSendResetLink(staff.staff_id)}
+                                                        onClick={handleSendResetClick}
+                                                        data-staff-id={staff.staff_id}
                                                     >
                                                         {sendingEmail === staff.staff_id ? <CircularProgress size={20} /> : <Email />}
                                                     </IconButton>
@@ -317,7 +346,7 @@ export const StaffManagement = () => {
                                             )}
                                             {staff.role?.toUpperCase() !== 'SUPER_ADMIN' && (
                                                 <Tooltip title="Edit">
-                                                    <IconButton size="small" onClick={() => handleOpenModal(staff)}>
+                                                    <IconButton size="small" onClick={handleEditClick} data-staff-id={staff.staff_id}>
                                                         <Edit fontSize="small" />
                                                     </IconButton>
                                                 </Tooltip>
@@ -341,7 +370,7 @@ export const StaffManagement = () => {
 
         <StaffModal 
             open={modalOpen} 
-            onClose={() => setModalOpen(false)} 
+            onClose={handleCloseModal} 
             onSave={handleSaveStaff} 
             staffToEdit={selectedStaff}
             currentLocationId={locationId}

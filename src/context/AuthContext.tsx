@@ -6,14 +6,30 @@ export interface Location {
   address?: string;
 }
 
+export interface UserParams {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  account_id?: string;
+  profile_id?: string;
+  location_id?: string;
+  is_primary?: boolean;
+  date_of_birth?: string;
+  location?: {
+    name?: string;
+    address?: string;
+  };
+  [key: string]: unknown;
+}
+
 interface AuthContextType {
   token: string | null;
   role: string | null;
   loginId: string | null;
-  userParams: any | null;
+  userParams: UserParams | null;
   locations: Location[];
   currentLocationId: string | null;
-  login: (token: string, role: string, loginId: string, params?: any) => void;
+  login: (token: string, role: string, loginId: string, params?: UserParams) => void;
   logout: () => void;
   isAuthenticated: boolean;
   setLocations: (locations: Location[]) => void;
@@ -26,8 +42,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(sessionStorage.getItem('token'));
   const [role, setRole] = useState<string | null>(sessionStorage.getItem('role'));
   const [loginId, setLoginId] = useState<string | null>(sessionStorage.getItem('loginId'));
-  const [userParams, setUserParams] = useState<any | null>(
-    sessionStorage.getItem('userParams') ? JSON.parse(sessionStorage.getItem('userParams')!) : null
+  const [userParams, setUserParams] = useState<UserParams | null>(
+    sessionStorage.getItem('userParams')
+      ? (JSON.parse(sessionStorage.getItem('userParams')!) as UserParams)
+      : null
   );
 
   // Global Location State
@@ -49,7 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setCurrentLocationIdState(id);
   };
 
-  const login = (newToken: string, newRole: string, newLoginId: string, newParams: any = {}) => {
+  const login = (newToken: string, newRole: string, newLoginId: string, newParams: UserParams = {}) => {
     sessionStorage.setItem('token', newToken);
     sessionStorage.setItem('role', newRole);
     sessionStorage.setItem('loginId', newLoginId);

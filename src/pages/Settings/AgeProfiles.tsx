@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { 
   Box, 
   Paper, 
@@ -26,21 +26,39 @@ import {
 import { EditOutlined, DeleteOutline, Add, InfoOutlined } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
+import type { AgeGroup } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { configService } from '../../services/configService';
 
+type AgeProfile = AgeGroup & {
+  accept_guardian_information?: boolean;
+};
+
+type AgeProfileForm = {
+  age_group_id?: string;
+  name: string;
+  min_age: number | string;
+  max_age: number | string;
+  accept_guardian_information: boolean;
+};
+
 // Config
 export const AgeProfiles = () => {
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<AgeProfile[]>([]);
   const [error, setError] = useState<string|null>(null);
   const [success, setSuccess] = useState<string|null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentProfile, setCurrentProfile] = useState<any>({});
+  const [currentProfile, setCurrentProfile] = useState<AgeProfileForm>({
+    name: '',
+    min_age: '',
+    max_age: '',
+    accept_guardian_information: false
+  });
   
   const { currentLocationId } = useAuth();
   const { refreshAgeGroups } = useConfig();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!currentLocationId) return;
     try {
       const res = await configService.getAgeGroups(currentLocationId);
@@ -49,13 +67,16 @@ export const AgeProfiles = () => {
       console.error(err);
       setError('Failed to fetch age groups');
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, [currentLocationId]);
 
-  const handleOpenDialog = (profile?: any) => {
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchData();
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, [fetchData]);
+
+  const handleOpenDialog = useCallback((profile?: AgeProfile) => {
     setCurrentProfile(profile || { 
       name: '', 
       min_age: '', 
@@ -63,16 +84,33 @@ export const AgeProfiles = () => {
       accept_guardian_information: false
     });
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setOpenDialog(false);
-    setCurrentProfile({});
-  };
+    setCurrentProfile({
+      name: '',
+      min_age: '',
+      max_age: '',
+      accept_guardian_information: false
+    });
+  }, []);
 
-  const handleSave = async () => {
+  const handleOpenNewDialog = useCallback(() => {
+    handleOpenDialog();
+  }, [handleOpenDialog]);
+
+  const handleEditRowClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const ageGroupId = event.currentTarget.dataset.ageGroupId;
+    if (!ageGroupId) return;
+    const profile = data.find(row => row.age_group_id === ageGroupId);
+    if (!profile) return;
+    handleOpenDialog(profile);
+  }, [data, handleOpenDialog]);
+
+  const handleSave = useCallback(async () => {
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         name: currentProfile.name,
         min_age: parseFloat(currentProfile.min_age),
         max_age: parseFloat(currentProfile.max_age),
@@ -93,9 +131,9 @@ export const AgeProfiles = () => {
       console.error(err);
       setError('Failed to save age profile');
     }
-  };
+  }, [currentLocationId, currentProfile, fetchData, handleCloseDialog, refreshAgeGroups]);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this age profile?')) return;
     
     try {
@@ -107,7 +145,31 @@ export const AgeProfiles = () => {
         console.error(err);
         setError('Delete operation not supported or failed');
     }
-  };
+  }, [currentLocationId, fetchData, refreshAgeGroups]);
+
+  const handleDeleteRowClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const ageGroupId = event.currentTarget.dataset.ageGroupId;
+    if (!ageGroupId) return;
+    handleDelete(ageGroupId);
+  }, [handleDelete]);
+
+  const handleCurrentProfileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const field = event.currentTarget.dataset.field;
+    if (!field) return;
+    setCurrentProfile((prev) => ({ ...prev, [field]: event.target.value }));
+  }, []);
+
+  const handleGuardianInfoChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentProfile((prev) => ({ ...prev, accept_guardian_information: event.target.checked }));
+  }, []);
+
+  const handleErrorClose = useCallback(() => {
+    setError(null);
+  }, []);
+
+  const handleSuccessClose = useCallback(() => {
+    setSuccess(null);
+  }, []);
 
   if (!currentLocationId) {
       return (
@@ -132,7 +194,7 @@ export const AgeProfiles = () => {
             <Button 
                 variant="contained" 
                 startIcon={<Add />} 
-                onClick={() => handleOpenDialog()}
+                onClick={handleOpenNewDialog}
                 sx={{ px: 3 }}
             >
                 Add New Age Profile
@@ -168,10 +230,10 @@ export const AgeProfiles = () => {
                 </TableCell>
 
                 <TableCell align="right">
-                  <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ mr: 1, color: 'text.secondary' }}>
+                  <IconButton size="small" onClick={handleEditRowClick} data-age-group-id={row.age_group_id} sx={{ mr: 1, color: 'text.secondary' }}>
                     <EditOutlined fontSize="small" />
                   </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(row.age_group_id)} sx={{ color: 'text.secondary' }}>
+                  <IconButton size="small" onClick={handleDeleteRowClick} data-age-group-id={row.age_group_id} sx={{ color: 'text.secondary' }}>
                     <DeleteOutline fontSize="small" />
                   </IconButton>
                 </TableCell>
@@ -217,7 +279,8 @@ export const AgeProfiles = () => {
                     fullWidth 
                     autoFocus
                     value={currentProfile.name || ''}
-                    onChange={(e) => setCurrentProfile({...currentProfile, name: e.target.value})}
+                    onChange={handleCurrentProfileChange}
+                    inputProps={{ 'data-field': 'name' }}
                 />
                 <Stack direction="row" spacing={2}>
                     <TextField 
@@ -225,14 +288,16 @@ export const AgeProfiles = () => {
                         type="number" 
                         fullWidth 
                         value={currentProfile.min_age ?? ''}
-                        onChange={(e) => setCurrentProfile({...currentProfile, min_age: e.target.value})}
+                        onChange={handleCurrentProfileChange}
+                        inputProps={{ 'data-field': 'min_age' }}
                     />
                     <TextField 
                         label="Max Age" 
                         type="number" 
                         fullWidth 
                         value={currentProfile.max_age ?? ''}
-                        onChange={(e) => setCurrentProfile({...currentProfile, max_age: e.target.value})}
+                        onChange={handleCurrentProfileChange}
+                        inputProps={{ 'data-field': 'max_age' }}
                     />
                 </Stack>
                 
@@ -240,7 +305,7 @@ export const AgeProfiles = () => {
                     control={
                         <Checkbox
                             checked={currentProfile.accept_guardian_information || false}
-                            onChange={(e) => setCurrentProfile({...currentProfile, accept_guardian_information: e.target.checked})}
+                            onChange={handleGuardianInfoChange}
                         />
                     }
                     label="Require Guardian Information"
@@ -254,10 +319,10 @@ export const AgeProfiles = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+      <Snackbar open={!!error} autoHideDuration={6000} onClose={handleErrorClose}>
         <Alert severity="error" variant="filled">{error}</Alert>
       </Snackbar>
-       <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
+       <Snackbar open={!!success} autoHideDuration={6000} onClose={handleSuccessClose}>
         <Alert severity="success" variant="filled">{success}</Alert>
       </Snackbar>
     </Box>

@@ -11,6 +11,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import { serviceCatalog, ServicePack, ServicePrice } from '../../services/serviceCatalog';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
+import type { AgeGroup } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
 
 
@@ -19,14 +20,21 @@ interface LocalService {
   service_id?: string;
   id?: string;
   name: string;
-  description: string;
-  type: string;
-  service_type: string;
-  is_active: boolean;
+  description?: string;
+  type?: string;
+  service_type?: string;
+  is_active?: boolean;
   is_addon_only?: boolean;
   image_url?: string;
   LessonRegistrationFee?: number;
 }
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return fallback;
+};
 
 // ----------------------------------------------------------------------
 // Sub-components
@@ -45,12 +53,16 @@ const ServiceListItem = memo(({
   categories?: { value: string, label: string }[],
   types?: { value: string, label: string }[]
 }) => {
+    const handleItemClick = useCallback(() => {
+        onClick(service);
+    }, [onClick, service]);
+
     const categoryLabel = categories.find(opt => opt.value.trim().toLowerCase() === service.service_type?.trim().toLowerCase())?.label || service.service_type;
     const typeLabel = types.find(opt => opt.value.trim().toLowerCase() === service.type?.trim().toLowerCase())?.label || service.type;
 
     return (
         <Box 
-            onClick={() => onClick(service)}
+            onClick={handleItemClick}
             sx={{
                 p: 2,
                 borderBottom: '1px solid',
@@ -146,11 +158,29 @@ const ServiceBasicInfo = memo(({
     categories = [],
     types = []
 }: ServiceBasicInfoProps) => {
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
             onImageUpload(event.target.files[0]);
         }
-    };
+    }, [onImageUpload]);
+    const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        onNameChange(e.target.value);
+    }, [onNameChange]);
+    const handleDescriptionChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        onDescriptionChange(e.target.value);
+    }, [onDescriptionChange]);
+    const handleServiceTypeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        onServiceTypeChange(e.target.value);
+    }, [onServiceTypeChange]);
+    const handleTypeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        onTypeChange(e.target.value);
+    }, [onTypeChange]);
+    const handleLessonFeeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        onLessonRegistrationFeeChange(parseFloat(e.target.value) || 0);
+    }, [onLessonRegistrationFeeChange]);
+    const handleActiveChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        onActiveChange(e.target.checked);
+    }, [onActiveChange]);
 
     return (
         <Paper elevation={0} sx={{ borderRadius: 1, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -230,7 +260,7 @@ const ServiceBasicInfo = memo(({
                             <TextField 
                                 fullWidth 
                                 value={name} 
-                                onChange={(e) => onNameChange(e.target.value)} 
+                                onChange={handleNameChange}
                                 size="small" 
                                 placeholder="Swim Clinic (Group)" 
                                 sx={{ 
@@ -253,7 +283,7 @@ const ServiceBasicInfo = memo(({
                                 multiline
                                 rows={2}
                                 value={description} 
-                                onChange={(e) => onDescriptionChange(e.target.value)} 
+                                onChange={handleDescriptionChange}
                                 size="small" 
                                 placeholder="Details about this service..." 
                                 sx={{ 
@@ -275,7 +305,7 @@ const ServiceBasicInfo = memo(({
                                 fullWidth 
                                 select 
                                 value={serviceType} 
-                                onChange={(e) => onServiceTypeChange(e.target.value)} 
+                                onChange={handleServiceTypeChange}
                                 size="small"
                                 sx={{ 
                                     '& .MuiOutlinedInput-root': { 
@@ -296,7 +326,7 @@ const ServiceBasicInfo = memo(({
                                 fullWidth 
                                 select 
                                 value={type} 
-                                onChange={(e) => onTypeChange(e.target.value)} 
+                                onChange={handleTypeChange}
                                 size="small"
                                 sx={{ 
                                     '& .MuiOutlinedInput-root': { 
@@ -318,7 +348,7 @@ const ServiceBasicInfo = memo(({
                                 fullWidth 
                                 type="number"
                                 value={lessonRegistrationFee} 
-                                onChange={(e) => onLessonRegistrationFeeChange(parseFloat(e.target.value) || 0)} 
+                                onChange={handleLessonFeeChange}
                                 size="small"
                                 InputProps={{
                                     startAdornment: <InputAdornment position="start">$</InputAdornment>,
@@ -355,7 +385,7 @@ const ServiceBasicInfo = memo(({
                                 </Typography>
                                 <Switch 
                                     checked={isActive} 
-                                    onChange={(e) => onActiveChange(e.target.checked)} 
+                                    onChange={handleActiveChange}
                                     size="small"
                                     sx={{
                                         '& .MuiSwitch-switchBase.Mui-checked': { color: '#10b981' },
@@ -371,7 +401,7 @@ const ServiceBasicInfo = memo(({
     );
 });
 
-const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, ageGroups: any[], onSave: (prices: Record<string, number>) => Promise<void> }) => {
+const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, ageGroups: AgeGroup[], onSave: (prices: Record<string, number>) => Promise<void> }) => {
     const [prices, setPrices] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(false);
 
@@ -381,8 +411,9 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
             setLoading(true);
             try {
                 const res = await serviceCatalog.getPackPrices(pack.service_pack_id);
+                const normalizedPrices = Array.isArray(res) ? res : (res.data || []);
                 const map: Record<string, string> = {};
-                res.forEach((p: ServicePrice) => {
+                normalizedPrices.forEach((p: ServicePrice) => {
                     map[p.age_group_id] = p.price.toString();
                 });
                 setPrices(map);
@@ -391,11 +422,11 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
         fetchPrices();
     }, [pack]);
 
-    const handleChange = (ageId: string, val: string) => {
+    const handleChange = useCallback((ageId: string, val: string) => {
         setPrices(prev => ({ ...prev, [ageId]: val }));
-    };
+    }, []);
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         setLoading(true);
         const toSave: Record<string, number> = {};
         Object.entries(prices).forEach(([id, val]) => {
@@ -404,7 +435,12 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
         });
         await onSave(toSave);
         setLoading(false);
-    };
+    }, [prices, onSave]);
+    const handlePriceInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const ageId = e.currentTarget.dataset.ageId;
+        if (!ageId) return;
+        handleChange(ageId, e.target.value);
+    }, [handleChange]);
 
     return (
         <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -445,14 +481,15 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
                             <Box>
                                 <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>{ag.name}</Typography>
                                 <Typography sx={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>
-                                    {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : (ag.description || 'N/A')}
+                                    {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : 'N/A'}
                                 </Typography>
                             </Box>
                             <TextField 
                                 value={prices[agId] || ''} 
-                                onChange={(e) => handleChange(agId, e.target.value)}
+                                onChange={handlePriceInputChange}
                                 size="small"
                                 placeholder="N/A"
+                                inputProps={{ 'data-age-id': agId }}
                                 InputProps={{
                                     startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.875rem', color: '#94a3b8' } }}>$</InputAdornment>
                                 }}
@@ -550,37 +587,17 @@ export const Services = () => {
 
     // --- Data Fetching ---
 
-    const fetchServices = useCallback(async (selectId?: string) => {
-        if (!currentLocationId) return;
+    const fetchPacks = useCallback(async (serviceId: string) => {
         try {
-            const res = await serviceCatalog.getServices(currentLocationId);
-            setServices(res);
-            if (selectId) {
-                const found = res.find((s: any) => (s.service_id || s.id) === selectId);
-                if (found) handleSelectService(found);
-            } else if (res.length > 0 && !selectedService && !isCreatingService) {
-                handleSelectService(res[0]);
-            }
-        } catch (err) { console.error(err); setError('Failed to fetch services'); }
-    }, [currentLocationId, selectedService, isCreatingService]);
-
-    const fetchPacks = async (serviceId: string) => {
-        try {
-            const res = await serviceCatalog.getServicePacks(serviceId);
-            setPacks(res);
+            const res = await serviceCatalog.getServicePacks(serviceId, currentLocationId || undefined);
+            const normalizedPacks = Array.isArray(res) ? res : (res.data || []);
+            setPacks(normalizedPacks);
         } catch (err) { console.error(err); setError('Failed to fetch packs'); }
-    };
-
-    useEffect(() => {
-        if (currentLocationId) {
-            handleCreateService(); // Reset selection
-            fetchServices();
-        }
     }, [currentLocationId]);
 
     // --- Handlers: Service ---
 
-    const handleSelectService = (service: LocalService) => {
+    const handleSelectService = useCallback((service: LocalService) => {
         setSelectedService(service);
         setIsCreatingService(false);
         setServiceName(service.name);
@@ -599,9 +616,9 @@ export const Services = () => {
         // Fetch child data
         const svcId = service.service_id || service.id;
         if (svcId) fetchPacks(svcId);
-    };
+    }, [fetchPacks, serviceTypes, serviceCategories]);
 
-    const handleCreateService = () => {
+    const handleCreateService = useCallback(() => {
         setSelectedService(null);
         setIsCreatingService(true);
         setServiceName('');
@@ -612,14 +629,39 @@ export const Services = () => {
         setServiceImageUrl('');
         setServiceLessonRegistrationFee(0);
         setPacks([]);
-    };
+    }, [serviceTypes, serviceCategories]);
 
-    const handleSaveService = async () => {
+    const fetchServices = useCallback(async (selectId?: string) => {
+        if (!currentLocationId) return;
+        try {
+            const res = await serviceCatalog.getServices(currentLocationId);
+            const normalizedServices = Array.isArray(res) ? res : (res.data || []);
+            setServices(normalizedServices);
+            if (selectId) {
+                const found = normalizedServices.find((s: LocalService) => (s.service_id || s.id) === selectId);
+                if (found) handleSelectService(found);
+            } else if (normalizedServices.length > 0 && !selectedService && !isCreatingService) {
+                handleSelectService(normalizedServices[0]);
+            }
+        } catch (err) { console.error(err); setError('Failed to fetch services'); }
+    }, [currentLocationId, selectedService, isCreatingService, handleSelectService]);
+
+    useEffect(() => {
+        if (currentLocationId) {
+            const timeoutId = setTimeout(() => {
+                handleCreateService(); // Reset selection
+                fetchServices();
+            }, 0);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [currentLocationId, handleCreateService, fetchServices]);
+
+    const handleSaveService = useCallback(async () => {
         if (!currentLocationId) return;
         if (!serviceName.trim()) return setError('Service Name is required');
 
         try {
-            const payload: any = {
+            const payload: Record<string, unknown> = {
                 location_id: currentLocationId,
                 name: serviceName,
                 description: serviceDesc || '',
@@ -636,14 +678,17 @@ export const Services = () => {
             }
 
             const res = await serviceCatalog.upsertService(payload);
-            const savedId = res.service_id || res.id;
+            const savedId = res.service_id || res.id || res.data?.service_id || res.data?.id;
+            if (!savedId) {
+                throw new Error('Service saved but no service id returned');
+            }
             
             setSuccess(`Service ${selectedService ? 'updated' : 'created'}`);
             fetchServices(savedId);
-        } catch (err: any) { setError(err.message || 'Failed to save service'); }
-    };
+        } catch (err: unknown) { setError(getErrorMessage(err, 'Failed to save service')); }
+    }, [currentLocationId, serviceName, serviceDesc, serviceType, serviceCategory, serviceActive, serviceLessonRegistrationFee, selectedService, fetchServices]);
 
-    const handleImageUpload = async (file: File) => {
+    const handleImageUpload = useCallback(async (file: File) => {
         if (!selectedService || !currentLocationId) return;
         
         try {
@@ -657,14 +702,14 @@ export const Services = () => {
                 // Optionally update the service list item image if it's displayed there
                 setServices(prev => prev.map(s => (s.service_id === serviceId || s.id === serviceId) ? { ...s, image_url: res.image_url } : s));
             }
-        } catch (err: any) {
-            setError(err.message || 'Failed to upload image');
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Failed to upload image'));
         }
-    };
+    }, [selectedService, currentLocationId]);
 
     // --- Handlers: Packs ---
 
-    const handleOpenPackModal = async (pack?: ServicePack) => {
+    const handleOpenPackModal = useCallback(async (pack?: ServicePack) => {
         setCurrentPack(pack || null);
         setPackName(pack?.name || '');
         setPackDesc(pack?.description || '');
@@ -682,9 +727,9 @@ export const Services = () => {
         
         setPackIsWaiverFreeAllowed(pack?.is_waiver_free_allowed || false);
         setIsPackModalOpen(true);
-    };
+    }, []);
 
-    const handleSavePack = async () => {
+    const handleSavePack = useCallback(async () => {
         const svcId = selectedService?.service_id || selectedService?.id;
         if (!svcId) return setError('No service selected');
         if (!packName.trim()) return setError('Pack Name required');
@@ -706,8 +751,8 @@ export const Services = () => {
             setSuccess('Pack metadata saved');
             setIsPackModalOpen(false);
             fetchPacks(svcId);
-        } catch (err: any) { setError(err.message || 'Failed to save pack'); }
-    };
+        } catch (err: unknown) { setError(getErrorMessage(err, 'Failed to save pack')); }
+    }, [selectedService, packName, currentPack, packDesc, packClasses, packDurationUnit, packDurationDays, packDurationMonths, packIsWaiverFreeAllowed, fetchPacks]);
 
     const handleSavePackPrices = useCallback(async (prices: Record<string, number>) => {
         if (!selectedPack?.service_pack_id) return;
@@ -723,8 +768,57 @@ export const Services = () => {
             );
             await Promise.all(promises);
             setSuccess('Prices updated successfully');
-        } catch (err: any) { setError('Failed to update prices'); console.error(err); }
-    }, [selectedPack]);
+        } catch (err: unknown) { setError(getErrorMessage(err, 'Failed to update prices')); console.error(err); }
+    }, [selectedPack, currentLocationId]);
+
+    const handleAddPackClick = useCallback(() => {
+        void handleOpenPackModal();
+    }, [handleOpenPackModal]);
+    const handlePackSelectClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+        const packId = e.currentTarget.dataset.packId;
+        if (!packId) return;
+        const pack = packs.find((p) => (p.service_pack_id || '') === packId);
+        if (pack) setSelectedPack(pack);
+    }, [packs]);
+    const handlePackEditClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+        e.stopPropagation();
+        const packId = e.currentTarget.dataset.packId;
+        if (!packId) return;
+        const pack = packs.find((p) => (p.service_pack_id || '') === packId);
+        if (pack) {
+            void handleOpenPackModal(pack);
+        }
+    }, [packs, handleOpenPackModal]);
+    const handleClosePackModal = useCallback(() => {
+        setIsPackModalOpen(false);
+    }, []);
+    const handlePackNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setPackName(e.target.value);
+    }, []);
+    const handlePackClassesChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setPackClasses(parseInt(e.target.value) || '');
+    }, []);
+    const handlePackDurationUnitChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setPackDurationUnit(e.target.value as 'days' | 'months');
+    }, []);
+    const handlePackDurationDaysChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setPackDurationDays(parseInt(e.target.value) || '');
+    }, []);
+    const handlePackDurationMonthsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setPackDurationMonths(parseInt(e.target.value) || '');
+    }, []);
+    const handlePackDescriptionChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setPackDesc(e.target.value);
+    }, []);
+    const handlePackWaiverAllowedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setPackIsWaiverFreeAllowed(e.target.checked);
+    }, []);
+    const handleClearError = useCallback(() => {
+        setError(null);
+    }, []);
+    const handleClearSuccess = useCallback(() => {
+        setSuccess(null);
+    }, []);
 
 
     if (!currentLocationId) return <Alert severity="warning" sx={{ m: 2 }}>Select a location.</Alert>;
@@ -748,9 +842,9 @@ export const Services = () => {
                             <IconButton size="small" onClick={handleCreateService} sx={{ color: '#3b82f6' }}><AddIcon fontSize="small" /></IconButton> 
                         </Box>
                         <Box sx={{ flex: 1, overflowY: 'auto' }}>
-                            {services.map(s => (
+                            {services.map((s, serviceIndex) => (
                                 <ServiceListItem 
-                                    key={s.service_id || s.id || Math.random()} 
+                                    key={s.service_id || s.id || `service-${serviceIndex}`} 
                                     service={s} 
                                     isSelected={selectedService === s} 
                                     onClick={handleSelectService}
@@ -802,7 +896,7 @@ export const Services = () => {
                                                 startIcon={<AddIcon />} 
                                                 variant="contained" 
                                                 size="small" 
-                                                onClick={() => handleOpenPackModal()} 
+                                                onClick={handleAddPackClick}
                                                 sx={{ bgcolor: '#3b82f6', textTransform: 'none', fontWeight: 700, borderRadius: '6px' }}
                                             >
                                                 ADD PACK
@@ -813,13 +907,15 @@ export const Services = () => {
                                             <Box sx={{ p: 4, textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem' }}>No packs defined.</Box>
                                         ) : (
                                             <List sx={{ p: 0 }}>
-                                                {packs.map(pack => {
+                                                {packs.map((pack, packIndex) => {
                                                     const isSelected = !!selectedPack?.service_pack_id && selectedPack.service_pack_id === pack.service_pack_id;
+                                                    const packId = pack.service_pack_id || '';
                                                     return (
                                                         <ListItemButton 
-                                                            key={pack.service_pack_id || Math.random()} 
+                                                            key={pack.service_pack_id || `pack-${packIndex}`} 
                                                             selected={isSelected}
-                                                            onClick={() => setSelectedPack(pack)}
+                                                            onClick={handlePackSelectClick}
+                                                            data-pack-id={packId}
                                                             sx={{ 
                                                                 py: 2, 
                                                                 px: 2.5, 
@@ -855,7 +951,8 @@ export const Services = () => {
                                                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                                                      <IconButton 
                                                                         size="small" 
-                                                                        onClick={(e) => { e.stopPropagation(); handleOpenPackModal(pack); }}
+                                                                        data-pack-id={packId}
+                                                                        onClick={handlePackEditClick}
                                                                         sx={{ color: '#94a3b8', '&:hover': { color: '#3b82f6' } }}
                                                                      >
                                                                          <EditIcon fontSize="small" />
@@ -892,10 +989,10 @@ export const Services = () => {
             </Grid>
 
             {/* Pack Modal */}
-            <Dialog open={isPackModalOpen} onClose={() => setIsPackModalOpen(false)} maxWidth="lg" fullWidth>
+            <Dialog open={isPackModalOpen} onClose={handleClosePackModal} maxWidth="lg" fullWidth>
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     {currentPack ? 'Edit Pack & Pricing' : 'New Service Pack'}
-                    <IconButton onClick={() => setIsPackModalOpen(false)}><CloseIcon /></IconButton>
+                    <IconButton onClick={handleClosePackModal}><CloseIcon /></IconButton>
                 </DialogTitle>
                 <DialogContent dividers sx={{ p: 4 }}>
                     <Typography variant="subtitle2" sx={{ mb: 3, color: 'text.secondary', fontWeight: 700, letterSpacing: '0.05em' }}>PACK DETAILS</Typography>
@@ -906,7 +1003,7 @@ export const Services = () => {
                                 label="Pack Name" 
                                 autoFocus 
                                 value={packName} 
-                                onChange={(e) => setPackName(e.target.value)} 
+                                onChange={handlePackNameChange}
                                 size="small" 
                                 placeholder="e.g. 10 Class Pack" 
                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
@@ -918,7 +1015,7 @@ export const Services = () => {
                                 type="number" 
                                 label="Classes Included" 
                                 value={packClasses} 
-                                onChange={(e) => setPackClasses(parseInt(e.target.value) || '')} 
+                                onChange={handlePackClassesChange}
                                 size="small" 
                                 helperText="Leave empty for unlimited" 
                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
@@ -935,7 +1032,7 @@ export const Services = () => {
                                             select 
                                             label="Unit" 
                                             value={packDurationUnit} 
-                                            onChange={(e) => setPackDurationUnit(e.target.value as 'days' | 'months')} 
+                                            onChange={handlePackDurationUnitChange}
                                             size="small"
                                             sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
                                         >
@@ -950,7 +1047,7 @@ export const Services = () => {
                                                 type="number" 
                                                 label="Valid Days" 
                                                 value={packDurationDays} 
-                                                onChange={(e) => setPackDurationDays(parseInt(e.target.value) || '')} 
+                                                onChange={handlePackDurationDaysChange}
                                                 size="small" 
                                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
                                             />
@@ -960,7 +1057,7 @@ export const Services = () => {
                                                 type="number" 
                                                 label="Valid Months" 
                                                 value={packDurationMonths} 
-                                                onChange={(e) => setPackDurationMonths(parseInt(e.target.value) || '')} 
+                                                onChange={handlePackDurationMonthsChange}
                                                 size="small" 
                                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
                                             />
@@ -977,7 +1074,7 @@ export const Services = () => {
                                 rows={3} 
                                 label="Description" 
                                 value={packDesc} 
-                                onChange={(e) => setPackDesc(e.target.value)} 
+                                onChange={handlePackDescriptionChange}
                                 size="small" 
                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
                             />
@@ -991,7 +1088,7 @@ export const Services = () => {
                                 </Box>
                                 <Switch 
                                     checked={packIsWaiverFreeAllowed} 
-                                    onChange={(e) => setPackIsWaiverFreeAllowed(e.target.checked)}
+                                    onChange={handlePackWaiverAllowedChange}
                                     color="warning"
                                 />
                             </Box>
@@ -999,15 +1096,15 @@ export const Services = () => {
                     </Grid>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setIsPackModalOpen(false)}>Cancel</Button>
+                    <Button onClick={handleClosePackModal}>Cancel</Button>
                     <Button variant="contained" onClick={handleSavePack}>Save</Button>
                 </DialogActions>
             </Dialog>
 
-            <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+            <Snackbar open={!!error} autoHideDuration={6000} onClose={handleClearError}>
                 <Alert severity="error">{error}</Alert>
             </Snackbar>
-            <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
+            <Snackbar open={!!success} autoHideDuration={6000} onClose={handleClearSuccess}>
                 <Alert severity="success">{success}</Alert>
             </Snackbar>
         </Box>

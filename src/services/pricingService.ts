@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+type JsonObject = Record<string, unknown>;
 
 export const pricingService = {
   getBasePrices: async (locationId?: string) => {
@@ -6,7 +7,7 @@ export const pricingService = {
     return apiClient.get('/base-prices', {}, options);
   },
 
-  createBasePrice: async (priceData: any) => {
+  createBasePrice: async (priceData: JsonObject) => {
     return apiClient.post('/base-prices', priceData);
   },
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Box, Typography, Paper, Button, Container, Stack } from '@mui/material';
 import { RocketLaunch, ArrowBack } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,9 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({
   breadcrumbs
 }) => {
   const navigate = useNavigate();
+  const handleGoBack = useCallback(() => {
+    navigate(-1);
+  }, [navigate]);
 
   return (
     <Box sx={{ p: 3, maxWidth: 1600, mx: 'auto', minHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
@@ -135,7 +138,7 @@ export const ComingSoon: React.FC<ComingSoonProps> = ({
             <Button
               variant="outlined"
               startIcon={<ArrowBack />}
-              onClick={() => navigate(-1)}
+              onClick={handleGoBack}
               sx={{
                 borderRadius: 2,
                 px: 4,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -29,6 +29,7 @@ import {
   MenuItem,
   Stack
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { Add, Edit, Save, Delete } from '@mui/icons-material';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
@@ -75,7 +76,7 @@ export const BasePlan = () => {
   });
 
   // --- 1. Fetch Data ---
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!currentLocationId) return;
     setLoading(true);
     try {
@@ -92,11 +93,11 @@ export const BasePlan = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentLocationId]);
 
   useEffect(() => {
     fetchData();
-  }, [currentLocationId]);
+  }, [fetchData]);
 
   const ageGroupsWithProfiles = useMemo(() => {
     const groups: Record<string, ProfileKey[]> = {};
@@ -144,27 +145,7 @@ export const BasePlan = () => {
     }).map(([id, profiles]) => ({ ageGroupId: id, profiles }));
   }, [basePrices, ageGroups]);
 
-  // --- 3. Selection Logic ---
-  // Select first profile on load
-  useEffect(() => {
-    if (ageGroupsWithProfiles.length > 0 && !selectedProfile) {
-        // Select first profile of first group
-        if (ageGroupsWithProfiles[0].profiles.length > 0) {
-            setSelectedProfile(ageGroupsWithProfiles[0].profiles[0]);
-        }
-    }
-  }, [ageGroupsWithProfiles, selectedProfile]);
-
-  // When selection changes, reset edit mode and load bundled services
-  useEffect(() => {
-    if (selectedProfile) {
-        setIsEditing(false);
-        setEditedPrices({});
-        loadBundledServices(selectedProfile);
-    }
-  }, [selectedProfile]);
-
-  const loadBundledServices = async (profile: ProfileKey) => {
+  const loadBundledServices = useCallback(async (profile: ProfileKey) => {
       // Find a representative base_price_id for this profile
       // We assume services are attached to the 'profile', meaning any term's ID *should* work if backend links them,
       // or we pick one to be the 'master'. Existing logic used *any* ID found.
@@ -187,23 +168,43 @@ export const BasePlan = () => {
       } else {
           setEditedServices([]);
       }
-  };
+  }, [basePrices, currentLocationId]);
+
+  // --- 3. Selection Logic ---
+  // Select first profile on load
+  useEffect(() => {
+    if (ageGroupsWithProfiles.length > 0 && !selectedProfile) {
+        // Select first profile of first group
+        if (ageGroupsWithProfiles[0].profiles.length > 0) {
+            setSelectedProfile(ageGroupsWithProfiles[0].profiles[0]);
+        }
+    }
+  }, [ageGroupsWithProfiles, selectedProfile]);
+
+  // When selection changes, reset edit mode and load bundled services
+  useEffect(() => {
+    if (selectedProfile) {
+        setIsEditing(false);
+        setEditedPrices({});
+        loadBundledServices(selectedProfile);
+    }
+  }, [selectedProfile, loadBundledServices]);
 
   // --- 4. Helpers ---
-  const getAgeGroupName = (id: string) => ageGroups.find(g => g.age_group_id === id)?.name || 'Unknown';
+  const getAgeGroupName = useCallback((id: string) => ageGroups.find(g => g.age_group_id === id)?.name || 'Unknown', [ageGroups]);
   
-  const getExistingPrice = (profile: ProfileKey, termId: string) => {
+  const getExistingPrice = useCallback((profile: ProfileKey, termId: string) => {
       return basePrices.find(p => 
           p.name === profile.planName && 
           p.role === profile.role && 
           p.age_group_id === profile.ageGroupId && 
           p.subscription_term_id === termId
       );
-  };
+  }, [basePrices]);
 
   // --- 5. Handlers ---
   
-  const handleStartEdit = () => {
+  const handleStartEdit = useCallback(() => {
     if (!selectedProfile) return;
     
     // Initialize edited prices from current state
@@ -214,16 +215,16 @@ export const BasePlan = () => {
     });
     setEditedPrices(prices);
     setIsEditing(true);
-  };
+  }, [selectedProfile, subscriptionTerms, getExistingPrice]);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
     setEditedPrices({});
     // Re-load services to reset changes
     if (selectedProfile) loadBundledServices(selectedProfile);
-  };
+  }, [selectedProfile, loadBundledServices]);
 
-  const handleSaveChanges = async () => {
+  const handleSaveChanges = useCallback(async () => {
       if (!selectedProfile || !currentLocationId) return;
       setIsSaving(true);
       
@@ -301,9 +302,9 @@ export const BasePlan = () => {
       } finally {
           setIsSaving(false);
       }
-  };
+  }, [selectedProfile, currentLocationId, editedPrices, getExistingPrice, editedServices, fetchData, loadBundledServices]);
 
-  const handleCreateProfile = async () => {
+  const handleCreateProfile = useCallback(async () => {
     if(!createForm.name || !createForm.age_group_id || !createForm.subscription_term_id || !currentLocationId) return;
     
     setIsSaving(true);
@@ -333,7 +334,130 @@ export const BasePlan = () => {
     } finally {
         setIsSaving(false);
     }
-  };
+  }, [createForm, currentLocationId, fetchData]);
+  const handleOpenCreateDialog = useCallback(() => {
+      setOpenCreate(true);
+  }, []);
+  const handleCloseCreateDialog = useCallback(() => {
+      setOpenCreate(false);
+  }, []);
+  const handleCreateFormChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const { name, value } = e.target;
+      if (name === 'price') {
+          setCreateForm(prev => ({ ...prev, price: Number(value) }));
+          return;
+      }
+      setCreateForm(prev => ({ ...prev, [name]: value }));
+  }, []);
+  const handleCreateRoleChange = useCallback((e: SelectChangeEvent<string>) => {
+      const roleValue = e.target.value as 'PRIMARY' | 'ADD_ON';
+      setCreateForm(prev => ({ ...prev, role: roleValue }));
+  }, []);
+  const handleCreateAgeGroupChange = useCallback((e: SelectChangeEvent<string>) => {
+      setCreateForm(prev => ({ ...prev, age_group_id: e.target.value }));
+  }, []);
+  const handleCreateTermChange = useCallback((e: SelectChangeEvent<string>) => {
+      setCreateForm(prev => ({ ...prev, subscription_term_id: e.target.value }));
+  }, []);
+  const handleCloseError = useCallback(() => {
+      setError(null);
+  }, []);
+  const handleCloseSuccess = useCallback(() => {
+      setSuccess(null);
+  }, []);
+  const handleProfileSelect = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+      const key = e.currentTarget.dataset.profileKey;
+      if (!key) return;
+      const [planName, role, ageGroupId] = key.split('|');
+      setSelectedProfile({
+          planName,
+          role: role as 'PRIMARY' | 'ADD_ON',
+          ageGroupId
+      });
+  }, []);
+  const handleTermPriceChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const termId = e.currentTarget.dataset.termId;
+      if (!termId) return;
+      const val = e.target.value;
+      const numVal = val === '' ? 0 : parseFloat(val);
+      setEditedPrices(prev => ({ ...prev, [termId]: numVal }));
+  }, []);
+  const handleAddBundledService = useCallback((e: SelectChangeEvent<string>) => {
+      const svcId = e.target.value as string;
+      setEditedServices(prev => [
+          ...prev,
+          {
+              service_id: svcId,
+              is_included: true,
+              usage_limit: 'Unlimited',
+              is_active: true
+          }
+      ]);
+  }, []);
+  const handleEditedServiceIncludedChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      if (!Number.isFinite(index)) return;
+      setEditedServices(prev => {
+          const copy = [...prev];
+          const svc = copy[index];
+          if (!svc) return prev;
+          const newDiscount = e.target.checked ? '' : svc.discount;
+          copy[index] = { ...svc, is_included: e.target.checked, discount: newDiscount };
+          return copy;
+      });
+  }, []);
+  const handleEditedServiceUsageLimitChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      if (!Number.isFinite(index)) return;
+      setEditedServices(prev => {
+          const copy = [...prev];
+          const svc = copy[index];
+          if (!svc) return prev;
+          copy[index] = { ...svc, usage_limit: e.target.value };
+          return copy;
+      });
+  }, []);
+  const handleEditedServiceDiscountAmountChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      if (!Number.isFinite(index)) return;
+      const val = e.target.value;
+      if (!/^\d*\.?\d*$/.test(val)) return;
+      setEditedServices(prev => {
+          const copy = [...prev];
+          const svc = copy[index];
+          if (!svc) return prev;
+          copy[index] = { ...svc, discount: val };
+          return copy;
+      });
+  }, []);
+  const handleEditedServiceDiscountPercentChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      if (!Number.isFinite(index)) return;
+      const val = e.target.value;
+      if (!/^\d*\.?\d*$/.test(val)) return;
+      setEditedServices(prev => {
+          const copy = [...prev];
+          const svc = copy[index];
+          if (!svc) return prev;
+          copy[index] = { ...svc, discount: val ? `${val}%` : '' };
+          return copy;
+      });
+  }, []);
+  const handleEditedServiceRemove = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+      const index = Number(e.currentTarget.dataset.index);
+      if (!Number.isFinite(index)) return;
+      setEditedServices(prev => {
+          const copy = [...prev];
+          const svc = copy[index];
+          if (!svc) return prev;
+          if (svc.membership_service_id) {
+              copy[index] = { ...svc, is_active: false };
+          } else {
+              copy.splice(index, 1);
+          }
+          return copy;
+      });
+  }, []);
 
 
   // --- Render ---
@@ -353,7 +477,7 @@ export const BasePlan = () => {
                 <Button 
                     variant="contained" 
                     startIcon={<Add />} 
-                    onClick={() => setOpenCreate(true)}
+                    onClick={handleOpenCreateDialog}
                     sx={{ 
                         borderRadius: '8px', // Reduced from 2 (default 8px usually, but making sure it's explicit small) or just 1
                         textTransform: 'none', 
@@ -393,7 +517,8 @@ export const BasePlan = () => {
                                         <ListItemButton 
                                             key={`${profile.role}-${profile.ageGroupId}-${profile.planName}`}
                                             selected={isSelected}
-                                            onClick={() => setSelectedProfile(profile)}
+                                            onClick={handleProfileSelect}
+                                            data-profile-key={`${profile.planName}|${profile.role}|${profile.ageGroupId}`}
                                             sx={{ 
                                                 py: 2, 
                                                 px: 2.5, 
@@ -524,11 +649,8 @@ export const BasePlan = () => {
                                                             fullWidth
                                                             variant="filled"
                                                             value={priceValue}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                const numVal = val === '' ? 0 : parseFloat(val);
-                                                                setEditedPrices(prev => ({ ...prev, [term.subscription_term_id]: numVal }));
-                                                            }}
+                                                            onChange={handleTermPriceChange}
+                                                            inputProps={{ 'data-term-id': term.subscription_term_id }}
                                                             InputProps={{
                                                                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
                                                                 disableUnderline: true,
@@ -571,18 +693,7 @@ export const BasePlan = () => {
                                                      <Select
                                                         label="Add Service"
                                                         value=""
-                                                        onChange={(e) => {
-                                                            const svcId = e.target.value;
-                                                            setEditedServices(prev => [
-                                                                ...prev,
-                                                                {
-                                                                    service_id: svcId as string,
-                                                                    is_included: true,
-                                                                    usage_limit: 'Unlimited',
-                                                                    is_active: true
-                                                                }
-                                                            ]);
-                                                        }}
+                                                        onChange={handleAddBundledService}
                                                      >
                                                          {allServices
                                                             .filter(s => !editedServices.find(es => es.service_id === s.service_id && es.is_active !== false))
@@ -687,13 +798,8 @@ export const BasePlan = () => {
                                                                         control={
                                                                             <Checkbox 
                                                                                 checked={svc.is_included}
-                                                                                onChange={(e) => {
-                                                                                    const copy = [...editedServices];
-                                                                                    // If checking included, clear discount
-                                                                                    const newDiscount = e.target.checked ? '' : svc.discount;
-                                                                                    copy[editedServices.indexOf(svc)] = { ...svc, is_included: e.target.checked, discount: newDiscount };
-                                                                                    setEditedServices(copy);
-                                                                                }}
+                                                                                onChange={handleEditedServiceIncludedChange}
+                                                                                inputProps={{ 'data-index': idx }}
                                                                                 sx={{ '&.Mui-checked': { color: '#0f172a' } }}
                                                                             />
                                                                         }
@@ -716,11 +822,8 @@ export const BasePlan = () => {
                                                                             size="small"
                                                                             placeholder="Unlimited"
                                                                             value={svc.usage_limit || ''}
-                                                                            onChange={(e) => {
-                                                                                const copy = [...editedServices];
-                                                                                copy[editedServices.indexOf(svc)] = { ...svc, usage_limit: e.target.value };
-                                                                                setEditedServices(copy);
-                                                                            }}
+                                                                            onChange={handleEditedServiceUsageLimitChange}
+                                                                            inputProps={{ 'data-index': idx }}
                                                                             sx={{ width: 140, bgcolor: 'white' }}
                                                                         />
                                                                     </Box>
@@ -739,13 +842,8 @@ export const BasePlan = () => {
                                                                                         size="small"
                                                                                         placeholder="Amount"
                                                                                         value={!((svc.discount || '').includes('%')) ? svc.discount || '' : ''}
-                                                                                        onChange={(e) => {
-                                                                                            const val = e.target.value;
-                                                                                            if (!/^\d*\.?\d*$/.test(val)) return;
-                                                                                            const copy = [...editedServices];
-                                                                                            copy[editedServices.indexOf(svc)] = { ...svc, discount: val };
-                                                                                            setEditedServices(copy);
-                                                                                        }}
+                                                                                        onChange={handleEditedServiceDiscountAmountChange}
+                                                                                        inputProps={{ 'data-index': idx }}
                                                                                         disabled={(svc.discount || '').includes('%')}
                                                                                         InputProps={{
                                                                                             startAdornment: <InputAdornment position="start">$</InputAdornment>
@@ -758,13 +856,8 @@ export const BasePlan = () => {
                                                                                         size="small"
                                                                                         placeholder="Percent"
                                                                                         value={(svc.discount || '').includes('%') ? (svc.discount || '').replace('%', '') : ''}
-                                                                                        onChange={(e) => {
-                                                                                            const val = e.target.value;
-                                                                                            if (!/^\d*\.?\d*$/.test(val)) return;
-                                                                                            const copy = [...editedServices];
-                                                                                            copy[editedServices.indexOf(svc)] = { ...svc, discount: val ? `${val}%` : '' };
-                                                                                            setEditedServices(copy);
-                                                                                        }}
+                                                                                        onChange={handleEditedServiceDiscountPercentChange}
+                                                                                        inputProps={{ 'data-index': idx }}
                                                                                         disabled={!!svc.discount && !svc.discount.includes('%')}
                                                                                         InputProps={{
                                                                                             endAdornment: <InputAdornment position="end">%</InputAdornment>
@@ -780,16 +873,8 @@ export const BasePlan = () => {
 
                                                                     <IconButton 
                                                                         size="medium" 
-                                                                        onClick={() => {
-                                                                            const copy = [...editedServices];
-                                                                            if (svc.membership_service_id) {
-                                                                                copy[editedServices.indexOf(svc)] = { ...svc, is_active: false };
-                                                                            } else {
-                                                                                const index = editedServices.indexOf(svc);
-                                                                                if (index > -1) copy.splice(index, 1);
-                                                                            }
-                                                                            setEditedServices(copy);
-                                                                        }}
+                                                                        onClick={handleEditedServiceRemove}
+                                                                        data-index={idx}
                                                                         sx={{ 
                                                                             color: '#ef4444', 
                                                                             bgcolor: '#fff', 
@@ -857,7 +942,7 @@ export const BasePlan = () => {
         </Grid>
 
         {/* Create Dialog (Preserved) */}
-        <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
+        <Dialog open={openCreate} onClose={handleCloseCreateDialog} maxWidth="sm" fullWidth>
             <DialogTitle>Create New Base Plan</DialogTitle>
             <DialogContent>
                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -865,15 +950,16 @@ export const BasePlan = () => {
                         label="Plan Name"
                         placeholder="e.g. Gold"
                         fullWidth
+                        name="name"
                         value={createForm.name || ''}
-                        onChange={e => setCreateForm({...createForm, name: e.target.value})}
+                        onChange={handleCreateFormChange}
                     />
                      <FormControl fullWidth>
                         <InputLabel>Role</InputLabel>
                         <Select 
                             value={createForm.role || ''} 
                             label="Role"
-                            onChange={e => setCreateForm({...createForm, role: e.target.value as any})}
+                            onChange={handleCreateRoleChange}
                         >
                             <MenuItem value="PRIMARY">Primary</MenuItem>
                             <MenuItem value="ADD_ON">AddOn</MenuItem>
@@ -884,7 +970,7 @@ export const BasePlan = () => {
                         <Select
                             value={createForm.age_group_id || ''}
                             label="Age Group"
-                            onChange={e => setCreateForm({...createForm, age_group_id: e.target.value})}
+                            onChange={handleCreateAgeGroupChange}
                         >
                              {ageGroups.map(g => (
                                 <MenuItem key={g.age_group_id} value={g.age_group_id}>{g.name}</MenuItem>
@@ -899,7 +985,7 @@ export const BasePlan = () => {
                         <Select
                             value={createForm.subscription_term_id || ''}
                             label="Term"
-                            onChange={e => setCreateForm({...createForm, subscription_term_id: e.target.value})}
+                            onChange={handleCreateTermChange}
                         >
                              {subscriptionTerms.map(t => (
                                 <MenuItem key={t.subscription_term_id} value={t.subscription_term_id}>{t.name}</MenuItem>
@@ -910,14 +996,15 @@ export const BasePlan = () => {
                         label="Price"
                         type="number"
                         fullWidth
+                        name="price"
                         value={createForm.price || ''}
-                        onChange={e => setCreateForm({...createForm, price: Number(e.target.value)})}
+                        onChange={handleCreateFormChange}
                         InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment>, inputProps: { min: 0 } }}
                     />
                  </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => setOpenCreate(false)}>Cancel</Button>
+                <Button onClick={handleCloseCreateDialog}>Cancel</Button>
                 <Button 
                     variant="contained" 
                     onClick={handleCreateProfile}
@@ -928,11 +1015,11 @@ export const BasePlan = () => {
             </DialogActions>
         </Dialog>
 
-        <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
-            <Alert severity="error" onClose={() => setError(null)} variant="filled">{error}</Alert>
+        <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseError}>
+            <Alert severity="error" onClose={handleCloseError} variant="filled">{error}</Alert>
         </Snackbar>
-        <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
-            <Alert severity="success" onClose={() => setSuccess(null)} variant="filled">{success}</Alert>
+        <Snackbar open={!!success} autoHideDuration={6000} onClose={handleCloseSuccess}>
+            <Alert severity="success" onClose={handleCloseSuccess} variant="filled">{success}</Alert>
         </Snackbar>
     </Box>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Container,
   Paper,
@@ -30,7 +30,7 @@ export const UserLogin = () => {
   const { login, setCurrentLocationId } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -55,11 +55,23 @@ export const UserLogin = () => {
       }
 
       navigate('/portal'); // Redirect to user portal
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError('Invalid email or password. Please try again.');
     }
-  };
+  }, [email, login, navigate, password, setCurrentLocationId]);
+
+  const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setEmail(e.target.value);
+  }, []);
+
+  const handlePasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+  }, []);
+
+  const handleTogglePassword = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
 
   return (
     <Box
@@ -169,7 +181,7 @@ export const UserLogin = () => {
                 autoComplete="email"
                 autoFocus
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -217,7 +229,7 @@ export const UserLogin = () => {
                 id="password"
                 autoComplete="current-password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -227,7 +239,7 @@ export const UserLogin = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
+                        onClick={handleTogglePassword}
                         edge="end"
                         sx={{ color: '#94a3b8' }}
                       >

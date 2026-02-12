@@ -90,7 +90,7 @@ export const Leads = () => {
       
       setLeads(res.results || []);
       setTotal(res.total || 0);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
       setError('Failed to fetch leads');
     } finally {
@@ -104,37 +104,37 @@ export const Leads = () => {
 
   // --- Handlers ---
 
-  const handleSort = (field: string) => {
+  const handleSort = useCallback((field: string) => {
     const isAsc = sortField === field && sortOrder === 'asc';
     setSortOrder(isAsc ? 'desc' : 'asc');
     setSortField(field);
-  };
+  }, [sortField, sortOrder]);
 
-  const handleGlobalSearch = (val: string) => {
+  const handleGlobalSearch = useCallback((val: string) => {
     setGlobalSearch(val);
     setPage(0);
-  };
+  }, []);
 
-  const handleColumnSearch = (field: keyof ColumnSearch, val: string) => {
+  const handleColumnSearch = useCallback((field: keyof ColumnSearch, val: string) => {
     setColumnSearch(prev => ({ ...prev, [field]: val }));
     setPage(0); 
-  };
+  }, []);
 
-  const handleReindex = async () => {
+  const handleReindex = useCallback(async () => {
     if (!currentLocationId) return;
     try {
         setLoading(true);
         await crmService.reindexLeads(currentLocationId);
         setSuccess('Reindexing triggered successfully');
         fetchLeads();
-    } catch (err: any) {
+    } catch {
         setError('Failed to reindex');
     } finally {
         setLoading(false);
     }
-  };
+  }, [currentLocationId, fetchLeads]);
 
-  const handleSaveLead = async () => {
+  const handleSaveLead = useCallback(async () => {
     if (!currentLocationId) return;
     if (!currentLead.first_name || !currentLead.last_name) return setError('Name is required');
 
@@ -149,15 +149,60 @@ export const Leads = () => {
         setSuccess('Lead saved successfully');
         setIsModalOpen(false);
         fetchLeads();
-    } catch (err: any) {
-        setError(err.message || 'Failed to save lead');
+    } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to save lead');
     }
-  };
+  }, [currentLocationId, currentLead, userParams, fetchLeads]);
 
-  const openModal = (lead?: Lead) => {
+  const openModal = useCallback((lead?: Lead) => {
     setCurrentLead(lead || { status: 'NEW' });
     setIsModalOpen(true);
-  };
+  }, []);
+  const handleGlobalSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    handleGlobalSearch(e.target.value);
+  }, [handleGlobalSearch]);
+  const handleOpenCreateModal = useCallback(() => {
+    openModal();
+  }, [openModal]);
+  const handleSortHeaderClick = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const field = e.currentTarget.dataset.field;
+    if (field) {
+      handleSort(field);
+    }
+  }, [handleSort]);
+  const handleColumnSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const field = e.currentTarget.dataset.field as keyof ColumnSearch | undefined;
+    if (!field) return;
+    handleColumnSearch(field, e.target.value);
+  }, [handleColumnSearch]);
+  const handleEditLeadClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    const leadId = e.currentTarget.dataset.leadId;
+    if (!leadId) return;
+    const lead = leads.find((l) => l.lead_id === leadId);
+    if (lead) {
+      openModal(lead);
+    }
+  }, [leads, openModal]);
+  const handlePageChange = useCallback((_event: unknown, newPage: number) => {
+    setPage(newPage);
+  }, []);
+  const handleRowsPerPageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(e.target.value, 10));
+    setPage(0);
+  }, []);
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
+  const handleCloseError = useCallback(() => {
+    setError(null);
+  }, []);
+  const handleCloseSuccess = useCallback(() => {
+    setSuccess(null);
+  }, []);
+  const handleLeadInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setCurrentLead(prev => ({ ...prev, [name]: value }));
+  }, []);
 
   // --- Render Helpers ---
 
@@ -182,7 +227,7 @@ export const Leads = () => {
                     size="small" 
                     placeholder="Global Search..." 
                     value={globalSearch}
-                    onChange={(e) => handleGlobalSearch(e.target.value)}
+                    onChange={handleGlobalSearchChange}
                     InputProps={{ 
                       startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" color="action" /></InputAdornment>,
                       sx: { borderRadius: '8px', bgcolor: '#f8fafc', '& fieldset': { border: 'none' } }
@@ -203,7 +248,7 @@ export const Leads = () => {
                 <Button 
                     variant="contained" 
                     startIcon={<AddIcon />} 
-                    onClick={() => openModal()} 
+                    onClick={handleOpenCreateModal}
                     sx={{ 
                       bgcolor: '#0f172a', 
                       borderRadius: '8px', 
@@ -218,7 +263,7 @@ export const Leads = () => {
             <Button 
                 variant="contained" 
                 startIcon={<AddIcon />} 
-                onClick={() => openModal()} 
+                onClick={handleOpenCreateModal}
                 sx={{ 
                   bgcolor: '#0f172a', 
                   borderRadius: '8px', 
@@ -237,32 +282,32 @@ export const Leads = () => {
             <Table stickyHeader size="small">
                 <TableHead>
                     <TableRow>
-                        <TableCell onClick={() => handleSort('first_name')} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
+                        <TableCell data-field="first_name" onClick={handleSortHeaderClick} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                               FIRST NAME {renderSortIcon('first_name')}
                             </Box>
                         </TableCell>
-                        <TableCell onClick={() => handleSort('last_name')} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
+                        <TableCell data-field="last_name" onClick={handleSortHeaderClick} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                               LAST NAME {renderSortIcon('last_name')}
                             </Box>
                         </TableCell>
-                        <TableCell onClick={() => handleSort('email')} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
+                        <TableCell data-field="email" onClick={handleSortHeaderClick} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                EMAIL {renderSortIcon('email')}
                              </Box>
                         </TableCell>
-                        <TableCell onClick={() => handleSort('mobile')} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
+                        <TableCell data-field="mobile" onClick={handleSortHeaderClick} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                MOBILE {renderSortIcon('mobile')}
                              </Box>
                         </TableCell>
-                         <TableCell onClick={() => handleSort('status')} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
+                         <TableCell data-field="status" onClick={handleSortHeaderClick} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                STATUS {renderSortIcon('status')}
                              </Box>
                         </TableCell>
-                        <TableCell onClick={() => handleSort('created_at')} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
+                        <TableCell data-field="created_at" onClick={handleSortHeaderClick} sx={{ cursor: 'pointer', py: 2, bgcolor: 'white' }}>
                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: '#64748b', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                CREATED AT {renderSortIcon('created_at')}
                              </Box>
@@ -273,19 +318,19 @@ export const Leads = () => {
                     {/* Column Search Row */}
                     <TableRow>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }}>
-                          <TextField size="small" fullWidth placeholder="First Name" value={columnSearch.first_name || ''} onChange={(e) => handleColumnSearch('first_name', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
+                          <TextField size="small" fullWidth placeholder="First Name" value={columnSearch.first_name || ''} onChange={handleColumnSearchChange} variant="standard" inputProps={{ 'data-field': 'first_name' }} InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
                         </TableCell>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }}>
-                          <TextField size="small" fullWidth placeholder="Last Name" value={columnSearch.last_name || ''} onChange={(e) => handleColumnSearch('last_name', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
+                          <TextField size="small" fullWidth placeholder="Last Name" value={columnSearch.last_name || ''} onChange={handleColumnSearchChange} variant="standard" inputProps={{ 'data-field': 'last_name' }} InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
                         </TableCell>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }}>
-                          <TextField size="small" fullWidth placeholder="Email" value={columnSearch.email || ''} onChange={(e) => handleColumnSearch('email', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
+                          <TextField size="small" fullWidth placeholder="Email" value={columnSearch.email || ''} onChange={handleColumnSearchChange} variant="standard" inputProps={{ 'data-field': 'email' }} InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
                         </TableCell>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }}>
-                          <TextField size="small" fullWidth placeholder="Mobile" value={columnSearch.mobile || ''} onChange={(e) => handleColumnSearch('mobile', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
+                          <TextField size="small" fullWidth placeholder="Mobile" value={columnSearch.mobile || ''} onChange={handleColumnSearchChange} variant="standard" inputProps={{ 'data-field': 'mobile' }} InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
                         </TableCell>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }}>
-                          <TextField size="small" fullWidth placeholder="Status" value={columnSearch.status || ''} onChange={(e) => handleColumnSearch('status', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
+                          <TextField size="small" fullWidth placeholder="Status" value={columnSearch.status || ''} onChange={handleColumnSearchChange} variant="standard" inputProps={{ 'data-field': 'status' }} InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
                         </TableCell>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }} />
                         <TableCell colSpan={2} sx={{ borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }} />
@@ -322,7 +367,7 @@ export const Leads = () => {
                               {lead.notes}
                             </TableCell>
                             <TableCell align="right">
-                                <IconButton size="small" onClick={() => openModal(lead)} sx={{ color: '#94a3b8' }}>
+                                <IconButton size="small" data-lead-id={lead.lead_id} onClick={handleEditLeadClick} sx={{ color: '#94a3b8' }}>
                                     <EditIcon fontSize="small" />
                                 </IconButton>
                             </TableCell>
@@ -338,52 +383,52 @@ export const Leads = () => {
             component="div"
             count={total}
             page={page}
-            onPageChange={(_, p) => setPage(p)}
+            onPageChange={handlePageChange}
             rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            onRowsPerPageChange={handleRowsPerPageChange}
             sx={{ borderTop: '1px solid #f1f5f9' }}
         />
       </Paper>
 
 
       {/* Upsert Modal */}
-      <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={isModalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {currentLead.lead_id ? 'Edit Lead' : 'Add New Lead'}
-            <IconButton onClick={() => setIsModalOpen(false)}><CloseIcon /></IconButton>
+            <IconButton onClick={handleCloseModal}><CloseIcon /></IconButton>
         </DialogTitle>
         <DialogContent dividers>
             <Grid container spacing={2}>
                 <Grid size={{ xs: 6 }}>
-                    <TextField fullWidth label="First Name" value={currentLead.first_name || ''} onChange={(e) => setCurrentLead({ ...currentLead, first_name: e.target.value })} />
+                    <TextField fullWidth name="first_name" label="First Name" value={currentLead.first_name || ''} onChange={handleLeadInputChange} />
                 </Grid>
                 <Grid size={{ xs: 6 }}>
-                    <TextField fullWidth label="Last Name" value={currentLead.last_name || ''} onChange={(e) => setCurrentLead({ ...currentLead, last_name: e.target.value })} />
+                    <TextField fullWidth name="last_name" label="Last Name" value={currentLead.last_name || ''} onChange={handleLeadInputChange} />
                 </Grid>
                 <Grid size={{ xs: 12 }}>
-                    <TextField fullWidth label="Email" value={currentLead.email || ''} onChange={(e) => setCurrentLead({ ...currentLead, email: e.target.value })} />
+                    <TextField fullWidth name="email" label="Email" value={currentLead.email || ''} onChange={handleLeadInputChange} />
                 </Grid>
                 <Grid size={{ xs: 12 }}>
-                    <TextField fullWidth label="Mobile" value={currentLead.mobile || ''} onChange={(e) => setCurrentLead({ ...currentLead, mobile: e.target.value })} />
+                    <TextField fullWidth name="mobile" label="Mobile" value={currentLead.mobile || ''} onChange={handleLeadInputChange} />
                 </Grid>
                 <Grid size={{ xs: 12 }}>
-                    <TextField fullWidth label="Status" value={currentLead.status || 'NEW'} onChange={(e) => setCurrentLead({ ...currentLead, status: e.target.value })} helperText="e.g. NEW, CONTACTED" />
+                    <TextField fullWidth name="status" label="Status" value={currentLead.status || 'NEW'} onChange={handleLeadInputChange} helperText="e.g. NEW, CONTACTED" />
                 </Grid>
                 <Grid size={{ xs: 12 }}>
-                    <TextField fullWidth multiline rows={3} label="Notes" value={currentLead.notes || ''} onChange={(e) => setCurrentLead({ ...currentLead, notes: e.target.value })} />
+                    <TextField fullWidth multiline rows={3} name="notes" label="Notes" value={currentLead.notes || ''} onChange={handleLeadInputChange} />
                 </Grid>
             </Grid>
         </DialogContent>
         <DialogActions>
-            <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleCloseModal}>Cancel</Button>
             <Button variant="contained" onClick={handleSaveLead}>Save</Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
+      <Snackbar open={!!error} autoHideDuration={6000} onClose={handleCloseError}>
         <Alert severity="error">{error}</Alert>
       </Snackbar>
-      <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
+      <Snackbar open={!!success} autoHideDuration={6000} onClose={handleCloseSuccess}>
          <Alert severity="success">{success}</Alert>
       </Snackbar>
     </Box>

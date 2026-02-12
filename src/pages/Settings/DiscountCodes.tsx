@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -28,11 +28,19 @@ import {
   FormControl,
   FormHelperText
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { Add, FilterList, Download, Edit, Delete, LocalOffer, MonetizationOn, InfoOutlined } from '@mui/icons-material';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { discountService, Discount } from '../../services/discountService';
 import { serviceCatalog, Service } from '../../services/serviceCatalog';
 import { useAuth } from '../../context/AuthContext';
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+    if (error instanceof Error && error.message) {
+        return error.message;
+    }
+    return fallback;
+};
 
 export const DiscountCodes = () => {
     const { currentLocationId: locationId, userParams } = useAuth();
@@ -53,13 +61,7 @@ export const DiscountCodes = () => {
 
     const nameInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
-        if (locationId) {
-            loadInitialData();
-        }
-    }, [locationId]);
-
-    const loadInitialData = async () => {
+    const loadInitialData = useCallback(async () => {
         if (!locationId) return;
         setLoading(true);
         try {
@@ -76,9 +78,15 @@ export const DiscountCodes = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [locationId]);
 
-    const loadDiscounts = async () => {
+    useEffect(() => {
+        if (locationId) {
+            loadInitialData();
+        }
+    }, [locationId, loadInitialData]);
+
+    const loadDiscounts = useCallback(async () => {
         if (!locationId) return;
         try {
             const data = await discountService.getAllDiscounts(locationId!);
@@ -86,9 +94,9 @@ export const DiscountCodes = () => {
         } catch (error) {
             console.error("Failed to load discounts", error);
         }
-    };
+    }, [locationId]);
 
-    const handleEditClick = (discount: Discount) => {
+    const handleEditClick = useCallback((discount: Discount) => {
         setEditingDiscountId(discount.discount_id);
         setDiscountName(discount.discount_code);
         
@@ -97,9 +105,9 @@ export const DiscountCodes = () => {
         setDiscountValue(discount.discount.replace('%', ''));
         setSelectedServiceId(discount.service_id || 'all');
         setIsActive(discount.is_active);
-    };
+    }, []);
 
-    const resetForm = () => {
+    const resetForm = useCallback(() => {
         setEditingDiscountId(null);
         setDiscountName('');
         setDiscountType('Percentage');
@@ -111,9 +119,17 @@ export const DiscountCodes = () => {
         setTimeout(() => {
             nameInputRef.current?.focus();
         }, 100);
-    };
+    }, []);
 
-    const handleSaveDiscount = async () => {
+    const handleEditDiscountButtonClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+        const discountId = event.currentTarget.dataset.discountId;
+        if (!discountId) return;
+        const discount = discounts.find(d => d.discount_id === discountId);
+        if (!discount) return;
+        handleEditClick(discount);
+    }, [discounts, handleEditClick]);
+
+    const handleSaveDiscount = useCallback(async () => {
         if (!locationId) {
             setMessage({ type: 'error', text: 'No location selected' });
             return;
@@ -151,12 +167,44 @@ export const DiscountCodes = () => {
             
             resetForm();
             loadDiscounts(); // Refresh list
-        } catch (error: any) {
-            setMessage({ type: 'error', text: error.message || 'Failed to save discount' });
+        } catch (error: unknown) {
+            setMessage({ type: 'error', text: getErrorMessage(error, 'Failed to save discount') });
         } finally {
             setLoading(false);
         }
-    };
+    }, [locationId, discountName, discountValue, discountType, userParams, isActive, selectedServiceId, editingDiscountId, resetForm, loadDiscounts]);
+
+    const handleCloseMessage = useCallback(() => {
+        setMessage(null);
+    }, []);
+
+    const handleTabChange = useCallback((_: React.SyntheticEvent, value: number) => {
+        setTabValue(value);
+    }, []);
+
+    const handleDiscountNameChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setDiscountName(event.target.value);
+    }, []);
+
+    const handleDiscountValueChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setDiscountValue(event.target.value);
+    }, []);
+
+    const handleSelectPercentageType = useCallback(() => {
+        setDiscountType('Percentage');
+    }, []);
+
+    const handleSelectFlatType = useCallback(() => {
+        setDiscountType('Flat');
+    }, []);
+
+    const handleSelectedServiceChange = useCallback((event: SelectChangeEvent<string>) => {
+        setSelectedServiceId(event.target.value);
+    }, []);
+
+    const handleIsActiveChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        setIsActive(event.target.checked);
+    }, []);
 
     const filteredDiscounts = discounts.filter(d => {
         if (tabValue === 1) return d.is_active;
@@ -194,8 +242,8 @@ export const DiscountCodes = () => {
             />
 
             {message && (
-                <Snackbar open={true} autoHideDuration={6000} onClose={() => setMessage(null)}>
-                    <Alert severity={message.type} onClose={() => setMessage(null)}>{message.text}</Alert>
+                <Snackbar open={true} autoHideDuration={6000} onClose={handleCloseMessage}>
+                    <Alert severity={message.type} onClose={handleCloseMessage}>{message.text}</Alert>
                 </Snackbar>
             )}
 
@@ -207,7 +255,7 @@ export const DiscountCodes = () => {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Tabs 
                                 value={tabValue} 
-                                onChange={(_, v) => setTabValue(v)}
+                                onChange={handleTabChange}
                                 sx={{ 
                                     minHeight: 0,
                                     '& .MuiTab-root': { 
@@ -299,7 +347,7 @@ export const DiscountCodes = () => {
                                                 <Typography variant="body2" sx={{ color: '#263238', fontWeight: 600 }}>{serviceName}</Typography>
                                             </TableCell>
                                             <TableCell align="right">
-                                                <IconButton size="small" sx={{ color: '#90A4AE' }} onClick={() => handleEditClick(discount)}>
+                                                <IconButton size="small" sx={{ color: '#90A4AE' }} onClick={handleEditDiscountButtonClick} data-discount-id={discount.discount_id}>
                                                     <Edit fontSize="small" />
                                                 </IconButton>
                                                 <IconButton size="small" sx={{ color: '#90A4AE' }}>
@@ -346,7 +394,7 @@ export const DiscountCodes = () => {
                                     inputRef={nameInputRef}
                                     placeholder="E.G. FLASH20" 
                                     value={discountName}
-                                    onChange={(e) => setDiscountName(e.target.value)}
+                                    onChange={handleDiscountNameChange}
                                     size="medium"
                                     sx={{ 
                                         '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#FFFFFF' } 
@@ -368,7 +416,7 @@ export const DiscountCodes = () => {
                                                 borderColor: discountType === 'Percentage' ? '#2196F3' : '#E0E0E0',
                                                 borderWidth: discountType === 'Percentage' ? 2 : 1
                                             }}
-                                            onClick={() => setDiscountType('Percentage')}
+                                            onClick={handleSelectPercentageType}
                                         >
                                            <LocalOffer sx={{ color: discountType === 'Percentage' ? '#2196F3' : '#90A4AE', mb: 1 }} />
                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: discountType === 'Percentage' ? '#1976D2' : '#455A64' }}>Percentage</Typography>
@@ -386,7 +434,7 @@ export const DiscountCodes = () => {
                                                 borderColor: discountType === 'Flat' ? '#2196F3' : '#E0E0E0',
                                                 borderWidth: discountType === 'Flat' ? 2 : 1
                                             }}
-                                            onClick={() => setDiscountType('Flat')}
+                                            onClick={handleSelectFlatType}
                                         >
                                            <MonetizationOn sx={{ color: discountType === 'Flat' ? '#2196F3' : '#90A4AE', mb: 1 }} />
                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: discountType === 'Flat' ? '#1976D2' : '#455A64' }}>Flat Amount</Typography>
@@ -401,7 +449,7 @@ export const DiscountCodes = () => {
                                 <TextField 
                                     fullWidth 
                                     value={discountValue}
-                                    onChange={(e) => setDiscountValue(e.target.value)}
+                                    onChange={handleDiscountValueChange}
                                     InputProps={{
                                         startAdornment: <InputAdornment position="start" sx={{ fontWeight: 800, color: '#546E7A' }}>{discountType === 'Percentage' ? '%' : '$'}</InputAdornment>
                                     }}
@@ -414,7 +462,7 @@ export const DiscountCodes = () => {
                                 <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}>
                                     <Select
                                         value={selectedServiceId}
-                                        onChange={(e) => setSelectedServiceId(e.target.value as string)}
+                                        onChange={handleSelectedServiceChange}
                                         displayEmpty
                                     >
                                         <MenuItem value="all">Applicable for All Services</MenuItem>
@@ -438,7 +486,7 @@ export const DiscountCodes = () => {
                                     control={
                                         <Switch 
                                             checked={isActive} 
-                                            onChange={(e) => setIsActive(e.target.checked)}
+                                            onChange={handleIsActiveChange}
                                             color="success"
                                         />
                                     } 

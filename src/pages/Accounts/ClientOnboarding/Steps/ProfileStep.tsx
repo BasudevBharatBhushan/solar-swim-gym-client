@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -10,20 +10,32 @@ import {
   MenuItem,
   FormHelperText
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material/Select';
 import { useConfig } from '../../../../context/ConfigContext';
+import type { OnboardingErrors, OnboardingProfileData } from '../types';
 
 interface ProfileStepProps {
-  data: any;
-  updateData: (key: string, value: any) => void;
-  errors: any;
+  data: OnboardingProfileData;
+  updateData: (key: keyof OnboardingProfileData, value: string | number | null) => void;
+  errors: OnboardingErrors;
 }
 
 export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, errors }) => {
     const { waiverPrograms } = useConfig();
 
-    const handleProgramChange = (programId: string) => {
-        updateData('waiver_program_id', programId);
-    };
+    const handleInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const field = event.currentTarget.dataset.field;
+        if (!field) return;
+        updateData(field, event.target.value);
+    }, [updateData]);
+
+    const handleFamilyCountChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        updateData('family_count', parseInt(event.target.value, 10));
+    }, [updateData]);
+
+    const handleWaiverProgramChange = useCallback((event: SelectChangeEvent<string>) => {
+        updateData('waiver_program_id', event.target.value);
+    }, [updateData]);
 
     // Safety check: ensure current value exists in loaded programs (or is empty) to avoid MUI out-of-range warning
     const selectValue = waiverPrograms.some(p => p.waiver_program_id === data.waiver_program_id) 
@@ -45,7 +57,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             label="First Name"
             fullWidth
             value={data.first_name || ''}
-            onChange={(e) => updateData('first_name', e.target.value)}
+            onChange={handleInputChange}
+            inputProps={{ 'data-field': 'first_name' }}
             error={!!errors.first_name}
             helperText={errors.first_name}
             placeholder="e.g. John"
@@ -58,7 +71,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             label="Last Name"
             fullWidth
             value={data.last_name || ''}
-            onChange={(e) => updateData('last_name', e.target.value)}
+            onChange={handleInputChange}
+            inputProps={{ 'data-field': 'last_name' }}
             error={!!errors.last_name}
             helperText={errors.last_name}
             placeholder="e.g. Doe"
@@ -73,7 +87,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             fullWidth
             type="email"
             value={data.email || ''}
-            onChange={(e) => updateData('email', e.target.value)}
+            onChange={handleInputChange}
+            inputProps={{ 'data-field': 'email' }}
             error={!!errors.email}
             helperText={errors.email}
             placeholder="john.doe@example.com"
@@ -103,7 +118,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             label="Mobile Number"
             fullWidth
             value={data.mobile || ''}
-            onChange={(e) => updateData('mobile', e.target.value)}
+            onChange={handleInputChange}
+            inputProps={{ 'data-field': 'mobile' }}
             error={!!errors.mobile}
             helperText={errors.mobile}
             placeholder="(555) 123-4567"
@@ -117,7 +133,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
                 type="date"
                 fullWidth
                 value={data.date_of_birth || ''}
-                onChange={(e) => updateData('date_of_birth', e.target.value)}
+                onChange={handleInputChange}
+                inputProps={{ 'data-field': 'date_of_birth' }}
                 error={!!errors.date_of_birth}
                 helperText={errors.date_of_birth}
                 slotProps={{ inputLabel: { shrink: true } }}
@@ -131,14 +148,14 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
                     labelId="waiver-program-label"
                     value={selectValue}
                     label="State Waiver Program (Optional)"
-                    onChange={(e) => handleProgramChange(e.target.value)}
+                    onChange={handleWaiverProgramChange}
                 >
                     <MenuItem value="">
                         <em>None</em>
                     </MenuItem>
                     {waiverPrograms
-                        .filter((p: any) => p.is_active)
-                        .map((program: any) => (
+                        .filter((p) => p.is_active)
+                        .map((program) => (
                         <MenuItem key={program.waiver_program_id} value={program.waiver_program_id}>
                             {program.name} ({program.code})
                         </MenuItem>
@@ -156,7 +173,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
                         fullWidth
                         size="small"
                         value={data.case_manager_name || ''}
-                        onChange={(e) => updateData('case_manager_name', e.target.value)}
+                        onChange={handleInputChange}
+                        inputProps={{ 'data-field': 'case_manager_name' }}
                         required
                         error={!!errors.case_manager_name} // Handler in parent needs to validate this
                         helperText={errors.case_manager_name}
@@ -169,7 +187,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
                         fullWidth
                         size="small"
                         value={data.case_manager_email || ''}
-                        onChange={(e) => updateData('case_manager_email', e.target.value)}
+                        onChange={handleInputChange}
+                        inputProps={{ 'data-field': 'case_manager_email' }}
                         required
                         error={!!errors.case_manager_email}
                         helperText={errors.case_manager_email}
@@ -186,7 +205,7 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
              <TextField
                 type="number"
                 value={data.family_count || 1}
-                onChange={(e) => updateData('family_count', parseInt(e.target.value))}
+                onChange={handleFamilyCountChange}
                 slotProps={{ htmlInput: { min: 1 } }}
                 sx={{ width: 100 }}
              />

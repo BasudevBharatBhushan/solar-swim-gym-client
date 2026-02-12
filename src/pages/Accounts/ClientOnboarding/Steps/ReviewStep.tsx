@@ -11,10 +11,11 @@ import {
 } from '@mui/material';
 import { Person, ChildCare, Star, ContactEmergency } from '@mui/icons-material';
 import { useConfig } from '../../../../context/ConfigContext';
+import type { OnboardingFamilyMember, OnboardingProfileData } from '../types';
 
 interface ReviewStepProps {
-  primaryProfile: any;
-  familyMembers: any[];
+  primaryProfile: OnboardingProfileData;
+  familyMembers: OnboardingFamilyMember[];
 }
 
 export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMembers }) => {
@@ -46,7 +47,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMe
 
   const getProgramName = (id?: string | null) => {
       if (!id) return null;
-      return waiverPrograms.find((p: any) => p.waiver_program_id === id)?.name || 'Unknown Program';
+      return waiverPrograms.find((p) => p.waiver_program_id === id)?.name || 'Unknown Program';
   };
 
   return (

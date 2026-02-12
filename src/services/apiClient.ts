@@ -7,6 +7,7 @@ const getBaseUrl = () => {
 
 const API_BASE_URL = getBaseUrl();
 const TOKEN_KEY = 'token';
+type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
 /**
  * Get the current auth token from storage
@@ -39,7 +40,7 @@ export const removeToken = () => {
 /**
  * Base fetch wrapper that handles headers and errors
  */
-const request = async (endpoint: string, options: RequestInit = {}) => {
+const request = async <T = unknown>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   const token = getToken();
   
   const headers: Record<string, string> = {
@@ -72,48 +73,54 @@ const request = async (endpoint: string, options: RequestInit = {}) => {
 
   // Allow for 204 No Content
   if (response.status === 204) {
-    return null;
+    return null as T;
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 };
 
 export const apiClient = {
-  get: (endpoint: string, queryParams: any = {}, options: RequestInit = {}) => {
-    const query = new URLSearchParams(queryParams).toString();
+  get: <T = unknown>(endpoint: string, queryParams: QueryParams = {}, options: RequestInit = {}) => {
+    const stringParams = Object.entries(queryParams).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (value !== undefined && value !== null) {
+        acc[key] = String(value);
+      }
+      return acc;
+    }, {});
+    const query = new URLSearchParams(stringParams).toString();
     const url = query ? `${endpoint}?${query}` : endpoint;
-    return request(url, { method: 'GET', ...options });
+    return request<T>(url, { method: 'GET', ...options });
   },
   
-  post: (endpoint: string, body: any, options: RequestInit = {}) => {
-    return request(endpoint, {
+  post: <T = unknown>(endpoint: string, body: unknown, options: RequestInit = {}) => {
+    return request<T>(endpoint, {
       method: 'POST',
       body: JSON.stringify(body),
       ...options,
     });
   },
 
-  put: (endpoint: string, body: any, options: RequestInit = {}) => {
-    return request(endpoint, {
+  put: <T = unknown>(endpoint: string, body: unknown, options: RequestInit = {}) => {
+    return request<T>(endpoint, {
       method: 'PUT',
       body: JSON.stringify(body),
       ...options,
     });
   },
 
-  patch: (endpoint: string, body: any, options: RequestInit = {}) => {
-    return request(endpoint, {
+  patch: <T = unknown>(endpoint: string, body: unknown, options: RequestInit = {}) => {
+    return request<T>(endpoint, {
       method: 'PATCH',
       body: JSON.stringify(body),
       ...options,
     });
   },
 
-  delete: (endpoint: string, options: RequestInit = {}) => {
-    return request(endpoint, { method: 'DELETE', ...options });
+  delete: <T = unknown>(endpoint: string, options: RequestInit = {}) => {
+    return request<T>(endpoint, { method: 'DELETE', ...options });
   },
 
-  upload: async (endpoint: string, formData: FormData, options: RequestInit = {}) => {
+  upload: async <T = unknown>(endpoint: string, formData: FormData, options: RequestInit = {}): Promise<T> => {
     const token = getToken();
     const headers: Record<string, string> = {
       ...(options.headers as Record<string, string>),
@@ -138,6 +145,6 @@ export const apiClient = {
         }
         throw new Error(errorMessage);
     }
-    return response.json();
+    return response.json() as Promise<T>;
   }
 };

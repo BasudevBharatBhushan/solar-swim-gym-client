@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -32,6 +32,7 @@ import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { dropdownService, DropdownValue } from '../../services/dropdownService';
 import { PageHeader } from '../../components/Common/PageHeader';
+import type { AutocompleteRenderInputParams } from '@mui/material/Autocomplete';
 
 interface DropdownFormData {
   dropdown_id?: string;
@@ -84,11 +85,11 @@ export const DropdownValues = () => {
   }, [dropdownValues]);
 
   // Get unique labels for current module in autocomplete
-  const getLabelsForModule = (module: string) => {
+  const getLabelsForModule = useCallback((module: string) => {
     return Array.from(new Set(dropdownValues.filter(v => v.module === module).map(v => v.label)));
-  };
+  }, [dropdownValues]);
 
-  const handleOpenDialog = (item?: DropdownValue, prefill?: { module: string, label: string }) => {
+  const handleOpenDialog = useCallback((item?: DropdownValue, prefill?: { module: string, label: string }) => {
     if (item) {
       setFormData({
         dropdown_id: item.dropdown_id,
@@ -106,14 +107,33 @@ export const DropdownValues = () => {
       setFormData(initialFormData);
     }
     setOpenDialog(true);
-  };
+  }, []);
 
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setOpenDialog(false);
     setFormData(initialFormData);
-  };
+  }, []);
 
-  const handleSubmit = async () => {
+  const handleOpenEmptyDialog = useCallback(() => {
+    handleOpenDialog();
+  }, [handleOpenDialog]);
+
+  const handleOpenPrefilledDialog = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const module = event.currentTarget.dataset.module;
+    const label = event.currentTarget.dataset.label;
+    if (!module || !label) return;
+    handleOpenDialog(undefined, { module, label });
+  }, [handleOpenDialog]);
+
+  const handleEditClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const dropdownId = event.currentTarget.dataset.dropdownId;
+    if (!dropdownId) return;
+    const item = dropdownValues.find(v => v.dropdown_id === dropdownId);
+    if (!item) return;
+    handleOpenDialog(item);
+  }, [dropdownValues, handleOpenDialog]);
+
+  const handleSubmit = useCallback(async () => {
     if (!currentLocationId) return;
     
     try {
@@ -127,13 +147,65 @@ export const DropdownValues = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentLocationId, formData, refreshDropdownValues, handleCloseDialog]);
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = useCallback((id: string) => {
     setDeleteId(id);
-  };
+  }, []);
 
-  const handleConfirmDelete = async () => {
+  const handleDeleteButtonClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+    const dropdownId = event.currentTarget.dataset.dropdownId;
+    if (!dropdownId) return;
+    handleDeleteClick(dropdownId);
+  }, [handleDeleteClick]);
+
+  const handleCloseDeleteDialog = useCallback(() => {
+    setDeleteId(null);
+  }, []);
+
+  const handleModuleChange = useCallback((_: React.SyntheticEvent, newValue: string | null) => {
+    setFormData(prev => ({ ...prev, module: newValue || '' }));
+  }, []);
+
+  const handleModuleInputChange = useCallback((_: React.SyntheticEvent, newInputValue: string) => {
+    setFormData(prev => ({ ...prev, module: newInputValue }));
+  }, []);
+
+  const handleLabelChange = useCallback((_: React.SyntheticEvent, newValue: string | null) => {
+    setFormData(prev => ({ ...prev, label: newValue || '' }));
+  }, []);
+
+  const handleLabelInputChange = useCallback((_: React.SyntheticEvent, newInputValue: string) => {
+    setFormData(prev => ({ ...prev, label: newInputValue }));
+  }, []);
+
+  const handleValueChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData(prev => ({ ...prev, value: event.target.value }));
+  }, []);
+
+  const renderModuleInput = useCallback((params: AutocompleteRenderInputParams) => (
+    <TextField 
+      {...params} 
+      label="Module" 
+      fullWidth 
+      required 
+      placeholder="e.g. Services"
+      helperText="Select existing or type new module name"
+    />
+  ), []);
+
+  const renderLabelInput = useCallback((params: AutocompleteRenderInputParams) => (
+    <TextField 
+      {...params} 
+      label="Label" 
+      fullWidth 
+      required 
+      placeholder="e.g. Category"
+      helperText="Select existing or type new label name"
+    />
+  ), []);
+
+  const handleConfirmDelete = useCallback(async () => {
     if (!currentLocationId || !deleteId) return;
 
     try {
@@ -146,7 +218,7 @@ export const DropdownValues = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentLocationId, deleteId, refreshDropdownValues]);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -161,7 +233,7 @@ export const DropdownValues = () => {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
+            onClick={handleOpenEmptyDialog}
             sx={{
               bgcolor: '#3b82f6',
               '&:hover': { bgcolor: '#2563eb' },
@@ -221,7 +293,9 @@ export const DropdownValues = () => {
                     <Button
                       size="small"
                       startIcon={<AddIcon sx={{ fontSize: '1rem !important' }} />}
-                      onClick={() => handleOpenDialog(undefined, { module: moduleName, label: labelName })}
+                      onClick={handleOpenPrefilledDialog}
+                      data-module={moduleName}
+                      data-label={labelName}
                       sx={{ 
                         textTransform: 'none', 
                         fontSize: '0.75rem', 
@@ -242,12 +316,12 @@ export const DropdownValues = () => {
                             <TableCell align="right" sx={{ width: 100, pr: 2 }}>
                               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                                 <Tooltip title="Edit">
-                                  <IconButton size="small" onClick={() => handleOpenDialog(item)} sx={{ color: '#94a3b8', '&:hover': { color: '#3b82f6' } }}>
+                                  <IconButton size="small" onClick={handleEditClick} data-dropdown-id={item.dropdown_id} sx={{ color: '#94a3b8', '&:hover': { color: '#3b82f6' } }}>
                                     <EditIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Delete">
-                                  <IconButton size="small" onClick={() => handleDeleteClick(item.dropdown_id!)} sx={{ color: '#94a3b8', '&:hover': { color: '#ef4444' } }}>
+                                  <IconButton size="small" onClick={handleDeleteButtonClick} data-dropdown-id={item.dropdown_id} sx={{ color: '#94a3b8', '&:hover': { color: '#ef4444' } }}>
                                     <DeleteIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
@@ -288,36 +362,18 @@ export const DropdownValues = () => {
               freeSolo
               options={modules}
               value={formData.module}
-              onChange={(_, newValue) => setFormData(prev => ({ ...prev, module: newValue || '' }))}
-              onInputChange={(_, newInputValue) => setFormData(prev => ({ ...prev, module: newInputValue }))}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Module" 
-                  fullWidth 
-                  required 
-                  placeholder="e.g. Services"
-                  helperText="Select existing or type new module name"
-                />
-              )}
+              onChange={handleModuleChange}
+              onInputChange={handleModuleInputChange}
+              renderInput={renderModuleInput}
             />
             
             <Autocomplete
               freeSolo
               options={formData.module ? getLabelsForModule(formData.module) : []}
               value={formData.label}
-              onChange={(_, newValue) => setFormData(prev => ({ ...prev, label: newValue || '' }))}
-              onInputChange={(_, newInputValue) => setFormData(prev => ({ ...prev, label: newInputValue }))}
-              renderInput={(params) => (
-                <TextField 
-                  {...params} 
-                  label="Label" 
-                  fullWidth 
-                  required 
-                  placeholder="e.g. Category"
-                  helperText="Select existing or type new label name"
-                />
-              )}
+              onChange={handleLabelChange}
+              onInputChange={handleLabelInputChange}
+              renderInput={renderLabelInput}
             />
 
             <TextField
@@ -325,7 +381,7 @@ export const DropdownValues = () => {
               fullWidth
               required
               value={formData.value}
-              onChange={(e) => setFormData(prev => ({ ...prev, value: e.target.value }))}
+              onChange={handleValueChange}
               placeholder="e.g. Training"
             />
           </Box>
@@ -344,13 +400,13 @@ export const DropdownValues = () => {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}>
+      <Dialog open={!!deleteId} onClose={handleCloseDeleteDialog}>
         <DialogTitle>Confirm Delete</DialogTitle>
         <DialogContent>
           <Typography>Are you sure you want to delete this value? This action cannot be undone.</Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setDeleteId(null)} color="inherit">Cancel</Button>
+          <Button onClick={handleCloseDeleteDialog} color="inherit">Cancel</Button>
           <Button onClick={handleConfirmDelete} color="error" variant="contained" disabled={loading}>
             {loading ? 'Deleting...' : 'Delete'}
           </Button>

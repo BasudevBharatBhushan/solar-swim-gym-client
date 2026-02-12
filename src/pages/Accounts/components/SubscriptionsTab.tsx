@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -22,6 +22,14 @@ import { Subscription } from '../../../types';
 import { useConfig } from '../../../context/ConfigContext';
 import { getAgeGroupName } from '../../../lib/ageUtils';
 
+type SubscriptionCoverage = NonNullable<Subscription['coverage']>[number];
+
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+};
 
 interface SubscriptionsTabProps {
   accountId: string;
@@ -43,9 +51,9 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
       try {
         const response = await billingService.getAccountSubscriptions(accountId, currentLocationId || undefined);
         setSubscriptions(response.data || response || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Failed to fetch subscriptions", err);
-        setError("Failed to load subscriptions");
+        setError(getErrorMessage(err, "Failed to load subscriptions"));
       } finally {
         setLoading(false);
       }
@@ -56,7 +64,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
     }
   }, [accountId, currentLocationId]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): 'default' | 'success' | 'error' => {
       switch (status) {
           case 'ACTIVE': return 'success';
           case 'PAID': return 'success';
@@ -65,9 +73,18 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
       }
   };
 
-  const getCoverage = (sub: any) => {
+  const getCoverage = (sub: Subscription): SubscriptionCoverage[] => {
       return sub.subscription_coverage || sub.coverage || [];
   };
+
+  const handleAddSubscription = useCallback(() => {
+    const isMember = role === 'MEMBER' || role === 'USER';
+    if (isMember) {
+      navigate('/portal/marketplace');
+    } else {
+      navigate(`/admin/accounts/${accountId}/marketplace`);
+    }
+  }, [accountId, navigate, role]);
 
   if (loading) {
       return <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}><CircularProgress /></Box>;
@@ -85,14 +102,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                 <Button 
                     variant="contained" 
                     size="small" 
-                    onClick={() => {
-                        const isMember = role === 'MEMBER' || role === 'USER';
-                        if (isMember) {
-                            navigate('/portal/marketplace');
-                        } else {
-                            navigate(`/admin/accounts/${accountId}/marketplace`);
-                        }
-                    }}
+                    onClick={handleAddSubscription}
                 >
                     Add Subscription
                 </Button>
@@ -109,14 +119,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
           <Button 
             variant="contained" 
             size="small" 
-            onClick={() => {
-                const isMember = role === 'MEMBER' || role === 'USER';
-                if (isMember) {
-                    navigate('/portal/marketplace');
-                } else {
-                    navigate(`/admin/accounts/${accountId}/marketplace`);
-                }
-            }}
+            onClick={handleAddSubscription}
           >
             Add Subscription
           </Button>
@@ -135,7 +138,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
             </TableHead>
             <TableBody>
                 {subscriptions
-                  .filter(sub => !selectedProfileId || getCoverage(sub).some((c: any) => c.profile_id === selectedProfileId))
+                  .filter(sub => !selectedProfileId || getCoverage(sub).some((c) => c.profile_id === selectedProfileId))
                   .map((sub) => {
                     const coverage = getCoverage(sub);
                     return (
@@ -172,14 +175,14 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                 <Chip 
                                     label={sub.status} 
                                     size="small" 
-                                    color={getStatusColor(sub.status) as any} 
+                                    color={getStatusColor(sub.status)} 
                                     sx={{ fontWeight: 600, fontSize: '0.7rem' }}
                                 />
                             </TableCell>
                             <TableCell>
                                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                                     {coverage.length > 0 ? (
-                                        coverage.map((c: any) => (
+                                        coverage.map((c) => (
                                             <Chip 
                                                 key={c.profile_id} 
                                                 label={`${c.profile?.first_name || 'Member'} (${getAgeGroupName(c.profile?.date_of_birth, ageGroups)})`} 
@@ -198,7 +201,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                         </TableRow>
                     );
                 })}
-                {subscriptions.filter(sub => !selectedProfileId || getCoverage(sub).some((c: any) => c.profile_id === selectedProfileId)).length === 0 && (
+                {subscriptions.filter(sub => !selectedProfileId || getCoverage(sub).some((c) => c.profile_id === selectedProfileId)).length === 0 && (
                     <TableRow>
                         <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                             <Typography color="text.secondary">No subscriptions found for the selected profile.</Typography>

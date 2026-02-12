@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Button, CircularProgress } from '@mui/material';
 import SyncIcon from '@mui/icons-material/Sync';
 import { crmService } from '../../../services/crmService';
@@ -10,7 +10,7 @@ export const ReindexButton = () => {
   const { currentLocationId } = useAuth();
   const locationId = currentLocationId;
 
-  const handleReindex = async () => {
+  const handleReindex = useCallback(async () => {
     if (!locationId) return;
     setLoading(true);
     try {
@@ -23,7 +23,7 @@ export const ReindexButton = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [locationId]);
 
   return (
     <Button

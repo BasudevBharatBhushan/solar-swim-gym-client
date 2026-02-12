@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+type JsonObject = Record<string, unknown>;
 
 export const configService = {
   // Locations
@@ -6,7 +7,7 @@ export const configService = {
     return apiClient.get('/locations');
   },
   
-  upsertLocation: async (locationData: any) => {
+  upsertLocation: async (locationData: JsonObject) => {
     // locationData: { id?, name, address }
     return apiClient.post('/locations', locationData);
   },
@@ -19,7 +20,7 @@ export const configService = {
     return apiClient.get('/staff', locationId ? { location_id: locationId } : {});
   },
 
-  upsertStaff: async (staffData: any) => {
+  upsertStaff: async (staffData: JsonObject) => {
     // staffData: { staff_id?, first_name, last_name, email, password, role, location_id }
     return apiClient.post('/staff', staffData);
   },
@@ -30,7 +31,7 @@ export const configService = {
     return apiClient.get('/config/age-groups', {}, options);
   },
 
-  upsertAgeGroup: async (ageGroupData: any, locationId?: string) => {
+  upsertAgeGroup: async (ageGroupData: JsonObject, locationId?: string) => {
     // ageGroupData: { age_group_id?, name, min_age, max_age }
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/config/age-groups', ageGroupData, options);
@@ -42,7 +43,7 @@ export const configService = {
     return apiClient.get('/config/subscription-terms', {}, options);
   },
 
-  upsertSubscriptionTerm: async (termData: any, locationId?: string) => {
+  upsertSubscriptionTerm: async (termData: JsonObject, locationId?: string) => {
     // termData: { subscription_term_id?, ... }
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/config/subscription-terms', termData, options);
@@ -54,7 +55,7 @@ export const configService = {
     return apiClient.get('/config/waiver-programs', {}, options);
   },
 
-  upsertWaiverProgram: async (programData: any, locationId?: string) => {
+  upsertWaiverProgram: async (programData: JsonObject, locationId?: string) => {
     // programData: { waiver_program_id?, name, code, requires_case_manager, is_active }
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/config/waiver-programs', programData, options);
