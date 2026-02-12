@@ -251,6 +251,8 @@ export const StaffManagement = () => {
         return <AdminPanelSettings color="error" />;
       case "ADMIN":
         return <AdminPanelSettings color="primary" />;
+      case "STAFF":
+        return <AdminPanelSettings color="primary" />;
       default:
         return <PersonOutline color="action" />;
     }
