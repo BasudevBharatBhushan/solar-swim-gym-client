@@ -61,14 +61,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUserParams(newParams);
 
     // If the login response includes location details, set them
-    if (newParams.location && newParams.location_id) {
-        const userLocation: Location = {
-            location_id: newParams.location_id,
-            name: newParams.location.name,
-            address: newParams.location.address
-        };
-        setLocations([userLocation]);
+    if (newParams.location_id) {
         setCurrentLocationId(newParams.location_id);
+        
+        if (newParams.location) {
+            const userLocation: Location = {
+                location_id: newParams.location_id,
+                name: newParams.location.name,
+                address: newParams.location.address
+            };
+            setLocations([userLocation]);
+        }
     }
   };
 

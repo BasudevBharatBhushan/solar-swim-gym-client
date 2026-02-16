@@ -8,6 +8,7 @@ import AddIcon from '@mui/icons-material/Add';
 import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { serviceCatalog, ServicePack, ServicePrice } from '../../services/serviceCatalog';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
@@ -136,13 +137,14 @@ interface ServiceBasicInfoProps {
     onLessonRegistrationFeeChange: (val: number) => void;
     onSave: () => void;
     onImageUpload: (file: File) => void;
+    onDelete: () => void;
     categories?: { value: string, label: string }[];
     types?: { value: string, label: string }[];
 }
 
 const ServiceBasicInfo = memo(({
     name, description, type, serviceType, isActive, imageUrl, lessonRegistrationFee, isCreating,
-    onNameChange, onDescriptionChange, onTypeChange, onServiceTypeChange, onActiveChange, onLessonRegistrationFeeChange, onSave, onImageUpload,
+    onNameChange, onDescriptionChange, onTypeChange, onServiceTypeChange, onActiveChange, onLessonRegistrationFeeChange, onSave, onImageUpload, onDelete,
     categories = [],
     types = []
 }: ServiceBasicInfoProps) => {
@@ -159,6 +161,18 @@ const ServiceBasicInfo = memo(({
                     {isCreating ? 'New Service' : 'Service Details'}
                 </Typography>
                 <Box>
+                    {!isCreating && (
+                        <Button 
+                            variant="outlined" 
+                            size="small" 
+                            color="error"
+                            startIcon={<DeleteIcon />}
+                            onClick={onDelete}
+                            sx={{ mr: 1, textTransform: 'none', fontWeight: 600, px: 2 }}
+                        >
+                            Delete
+                        </Button>
+                    )}
                     <Button variant="outlined" size="small" sx={{ mr: 1, color: '#64748b', borderColor: '#e2e8f0', textTransform: 'none', fontWeight: 600, px: 2 }}>
                         Discard
                     </Button>
@@ -544,6 +558,13 @@ export const Services = () => {
     const [packDurationUnit, setPackDurationUnit] = useState<'days' | 'months'>('months');
     const [packIsWaiverFreeAllowed, setPackIsWaiverFreeAllowed] = useState(false);
     
+    // Deletion State
+    const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
+    const [isDeleteServiceModalOpen, setIsDeleteServiceModalOpen] = useState(false);
+    
+    const [deletePackId, setDeletePackId] = useState<string | null>(null);
+    const [isDeletePackModalOpen, setIsDeletePackModalOpen] = useState(false);
+
     // Feedback
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -726,6 +747,76 @@ export const Services = () => {
         } catch (err: any) { setError('Failed to update prices'); console.error(err); }
     }, [selectedPack]);
 
+    // --- Handlers: Deletion ---
+
+    const handleDeleteServiceClick = () => {
+        if (!selectedService) return;
+        setDeleteServiceId(selectedService.service_id || selectedService.id || null);
+        setIsDeleteServiceModalOpen(true);
+    };
+
+    const handleConfirmDeleteService = async () => {
+        if (!deleteServiceId || !currentLocationId) return;
+
+        // Optimistic UI: Remove from list immediately
+        const prevServices = [...services];
+        const prevSelected = selectedService;
+        
+        setIsDeleteServiceModalOpen(false);
+        setServices(prev => prev.filter(s => (s.service_id || s.id) !== deleteServiceId));
+        
+        // If deleted service was selected, switch to create mode
+        if (selectedService && (selectedService.service_id === deleteServiceId || selectedService.id === deleteServiceId)) {
+             handleCreateService(); 
+        }
+
+        try {
+            await serviceCatalog.deleteService(deleteServiceId, currentLocationId);
+            setSuccess('Service deleted successfully');
+            setDeleteServiceId(null);
+            fetchServices(); // Refresh to ensure sync
+        } catch (err: any) {
+            // Revert on failure
+            setServices(prevServices);
+            if (prevSelected) handleSelectService(prevSelected);
+            setError(err.message || 'Failed to delete service');
+        }
+    };
+
+    const handleDeletePackClick = (packId: string) => {
+        setDeletePackId(packId);
+        setIsDeletePackModalOpen(true);
+    };
+
+    const handleConfirmDeletePack = async () => {
+        if (!deletePackId || !currentLocationId) return;
+
+        const prevPacks = [...packs];
+        const prevSelectedPack = selectedPack;
+
+        setIsDeletePackModalOpen(false);
+        setPacks(prev => prev.filter(p => p.service_pack_id !== deletePackId));
+        
+        if (selectedPack?.service_pack_id === deletePackId) {
+            setSelectedPack(null);
+        }
+
+        try {
+            await serviceCatalog.deleteServicePack(deletePackId, currentLocationId);
+            setSuccess('Service pack deleted successfully');
+            setDeletePackId(null);
+            // Re-fetch parent service packs to ensure sync
+            if (selectedService) {
+                fetchPacks(selectedService.service_id || selectedService.id || '');
+            }
+        } catch (err: any) {
+            // Revert
+            setPacks(prevPacks);
+            setSelectedPack(prevSelectedPack);
+            setError(err.message || 'Failed to delete service pack');
+        }
+    };
+
 
     if (!currentLocationId) return <Alert severity="warning" sx={{ m: 2 }}>Select a location.</Alert>;
 
@@ -784,6 +875,7 @@ export const Services = () => {
                                 onLessonRegistrationFeeChange={setServiceLessonRegistrationFee}
                                 onSave={handleSaveService}
                                 onImageUpload={handleImageUpload}
+                                onDelete={handleDeleteServiceClick}
                                 categories={serviceCategories}
                                 types={serviceTypes}
                             />
@@ -859,6 +951,13 @@ export const Services = () => {
                                                                         sx={{ color: '#94a3b8', '&:hover': { color: '#3b82f6' } }}
                                                                      >
                                                                          <EditIcon fontSize="small" />
+                                                                     </IconButton>
+                                                                     <IconButton 
+                                                                        size="small" 
+                                                                        onClick={(e) => { e.stopPropagation(); handleDeletePackClick(pack.service_pack_id || ''); }}
+                                                                        sx={{ color: '#94a3b8', '&:hover': { color: '#ef4444' } }}
+                                                                     >
+                                                                         <DeleteIcon fontSize="small" />
                                                                      </IconButton>
                                                                     <Typography variant="h6" sx={{ ml: 1, color: '#3b82f6', opacity: isSelected ? 1 : 0 }}>›</Typography>
                                                                 </Box>
@@ -1001,6 +1100,42 @@ export const Services = () => {
                 <DialogActions>
                     <Button onClick={() => setIsPackModalOpen(false)}>Cancel</Button>
                     <Button variant="contained" onClick={handleSavePack}>Save</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete Service Confirmation Dialog */}
+            <Dialog open={isDeleteServiceModalOpen} onClose={() => setIsDeleteServiceModalOpen(false)}>
+                <DialogTitle sx={{ color: '#ef4444', fontWeight: 700 }}>
+                    Delete Service?
+                </DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Are you sure you want to delete this Service? This will permanently delete the service, all its packs, and all pricing configurations. This action cannot be undone.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setIsDeleteServiceModalOpen(false)} sx={{ color: '#64748b' }}>Cancel</Button>
+                    <Button onClick={handleConfirmDeleteService} color="error" variant="contained" autoFocus>
+                        Delete Forever
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete Pack Confirmation Dialog */}
+            <Dialog open={isDeletePackModalOpen} onClose={() => setIsDeletePackModalOpen(false)}>
+                <DialogTitle sx={{ fontWeight: 700 }}>
+                    Delete Service Pack?
+                </DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Delete this Service Pack? This will remove the pack and its associated prices.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setIsDeletePackModalOpen(false)} sx={{ color: '#64748b' }}>Cancel</Button>
+                    <Button onClick={handleConfirmDeletePack} color="error" variant="contained" autoFocus>
+                        Delete
+                    </Button>
                 </DialogActions>
             </Dialog>
 

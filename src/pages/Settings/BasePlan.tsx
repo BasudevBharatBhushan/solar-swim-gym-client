@@ -13,7 +13,7 @@ import {
   TextField,
   InputAdornment,
   CircularProgress,
-  IconButton,
+
   Chip,
   FormControlLabel,
   Checkbox,
@@ -60,8 +60,15 @@ export const BasePlan = () => {
   
   // -- Edit State --
   const [editedPrices, setEditedPrices] = useState<Record<string, number>>({}); // termId -> price
-  const [editedServices, setEditedServices] = useState<MembershipService[]>([]);
+  const [bundledServices, setBundledServices] = useState<MembershipService[]>([]);
   const [bundledServicesLoading, setBundledServicesLoading] = useState(false);
+
+  // -- Service Management State --
+  const [isAddingService, setIsAddingService] = useState(false);
+  const [newServiceId, setNewServiceId] = useState('');
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [serviceEditState, setServiceEditState] = useState<Partial<MembershipService>>({});
+
 
   // -- Feedback --
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +79,19 @@ export const BasePlan = () => {
   const [createForm, setCreateForm] = useState<Partial<BasePrice>>({
     role: 'PRIMARY',
     is_active: true
+  });
+
+  // -- Delete Confirmation State --
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+      open: boolean;
+      title: string;
+      message: string;
+      onConfirm: () => Promise<void>;
+  }>({
+      open: false,
+      title: '',
+      message: '',
+      onConfirm: async () => {}
   });
 
   // --- 1. Fetch Data ---
@@ -161,6 +181,8 @@ export const BasePlan = () => {
         setIsEditing(false);
         setEditedPrices({});
         loadBundledServices(selectedProfile);
+        setEditingServiceId(null);
+        setServiceEditState({});
     }
   }, [selectedProfile]);
 
@@ -178,14 +200,14 @@ export const BasePlan = () => {
           setBundledServicesLoading(true);
           try {
               const services = await membershipService.getServices(priceRecord.base_price_id, currentLocationId || undefined);
-              setEditedServices(services);
+              setBundledServices(services);
           } catch (e) {
               console.error(e);
           } finally {
               setBundledServicesLoading(false);
           }
       } else {
-          setEditedServices([]);
+          setBundledServices([]);
       }
   };
 
@@ -263,29 +285,8 @@ export const BasePlan = () => {
             }, currentLocationId || undefined);
         }
 
-        // 2. Save Services
-        // We need a base_price_id to attach services to.
-        // If we just created prices, we might need to wait, but usually there's at least one existing.
-        // Refresh base prices to get new IDs if any
-        const refreshedPrices = await basePriceService.getAll(currentLocationId);
-        setBasePrices(refreshedPrices.prices);
-        
-        // Find owner ID from refreshed data
-        const ownerId = refreshedPrices.prices.find(p => 
-            p.name === selectedProfile.planName && 
-            p.role === selectedProfile.role && 
-            p.age_group_id === selectedProfile.ageGroupId &&
-            p.base_price_id // Ensure it has an ID
-        )?.base_price_id;
 
-        if (ownerId && editedServices.length > 0) {
-            // Ensure all services have the correct ownerId
-            const servicesPayload = editedServices.map(s => ({
-                ...s,
-                membership_program_id: ownerId
-            }));
-            await membershipService.upsertServices(servicesPayload, currentLocationId || undefined);
-        }
+        // 2. Services are now handled independently. No longer saved here.
 
         // Final Refresh
         await fetchData(); // Full refresh
@@ -333,6 +334,129 @@ export const BasePlan = () => {
     } finally {
         setIsSaving(false);
     }
+  };
+
+  const handleDeleteProfile = () => {
+      if (!selectedProfile) return;
+      setDeleteConfirm({
+          open: true,
+          title: 'Delete Base Plan?',
+          message: `Are you sure you want to delete the "${selectedProfile.planName}" (${selectedProfile.role}) plan? This will remove all pricing variations and bundled services. This action cannot be undone.`,
+          onConfirm: async () => {
+              if (!selectedProfile) return;
+              try {
+                  // Find a representative ID
+                  const priceRecord = basePrices.find(p => 
+                      p.name === selectedProfile.planName && 
+                      p.role === selectedProfile.role && 
+                      p.age_group_id === selectedProfile.ageGroupId
+                  );
+                  
+                  if (priceRecord?.base_price_id) {
+                      await basePriceService.delete(priceRecord.base_price_id, currentLocationId || undefined);
+                      setSuccess("Base Plan deleted.");
+                      setSelectedProfile(null);
+                      await fetchData();
+                  } else {
+                      setError("Could not find plan ID to delete.");
+                  }
+              } catch (e: any) {
+                  setError(e.message || "Failed to delete plan.");
+              } finally {
+                  setDeleteConfirm(prev => ({ ...prev, open: false }));
+              }
+          }
+      });
+  };
+
+  const handleDeleteServiceLink = (service: MembershipService) => {
+      setDeleteConfirm({
+          open: true,
+          title: 'Remove Service?',
+          message: `Are you sure you want to remove "${service.service_name || 'this service'}" from this plan?`,
+          onConfirm: async () => {
+              if (!service.membership_service_id) return;
+              try {
+                  await membershipService.deleteServiceLink(service.membership_service_id, currentLocationId || undefined);
+                  setSuccess("Service removed.");
+                  if (selectedProfile) loadBundledServices(selectedProfile);
+              } catch (e: any) {
+                  setError(e.message || "Failed to remove service.");
+              } finally {
+                  setDeleteConfirm(prev => ({ ...prev, open: false }));
+              }
+          }
+      });
+  };
+
+  const handleAddService = async () => {
+      if (!selectedProfile || !newServiceId || !currentLocationId) return;
+      
+      // Find the ID to attach to
+      const priceRecord = basePrices.find(p => 
+          p.name === selectedProfile.planName && 
+          p.role === selectedProfile.role && 
+          p.age_group_id === selectedProfile.ageGroupId &&
+          p.base_price_id
+      );
+
+      if (!priceRecord?.base_price_id) {
+          setError("Cannot add service: Plan not fully initialized. Please save the plan first.");
+          return;
+      }
+
+      setBundledServicesLoading(true);
+      try {
+          const newService: MembershipService = {
+              service_id: newServiceId,
+              membership_program_id: priceRecord.base_price_id,
+              is_included: true,
+              usage_limit: 'Unlimited',
+              is_active: true
+          };
+
+          await membershipService.upsertServices([newService], currentLocationId);
+          setSuccess("Service added.");
+          setIsAddingService(false);
+          setNewServiceId('');
+          await loadBundledServices(selectedProfile);
+      } catch (e: any) {
+          setError(e.message || "Failed to add service.");
+      } finally {
+          setBundledServicesLoading(false);
+      }
+  };
+
+  const handleUpdateService = async (serviceId: string) => {
+      if (!selectedProfile || !currentLocationId) return;
+      
+      // Find original service to merge with
+      const original = bundledServices.find(s => s.membership_service_id === serviceId);
+      if (!original) return;
+
+      const updated = { ...original, ...serviceEditState };
+
+      setBundledServicesLoading(true);
+      try {
+           await membershipService.upsertServices([updated], currentLocationId);
+           setSuccess("Service updated.");
+           setEditingServiceId(null);
+           setServiceEditState({});
+           await loadBundledServices(selectedProfile);
+      } catch (e: any) {
+           setError(e.message || "Failed to update service.");
+      } finally {
+           setBundledServicesLoading(false);
+      }
+  };
+
+  const handleStartEditService = (service: MembershipService) => {
+      setEditingServiceId(service.membership_service_id || null);
+      setServiceEditState({
+          usage_limit: service.usage_limit,
+          is_included: service.is_included,
+          discount: service.discount
+      });
   };
 
 
@@ -469,21 +593,38 @@ export const BasePlan = () => {
                                  </Box>
                                  <Box>
                                     {!isEditing && (
-                                        <Button 
-                                            variant="outlined" 
-                                            startIcon={<Edit />} 
-                                            onClick={handleStartEdit}
-                                            sx={{ 
-                                                borderRadius: 2, 
-                                                textTransform: 'none', 
-                                                fontWeight: 700,
-                                                px: 3,
-                                                color: '#1e293b',
-                                                borderColor: '#e2e8f0'
-                                            }}
-                                        >
-                                            Edit Plan
-                                        </Button>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<Delete />}
+                                                onClick={handleDeleteProfile}
+                                                sx={{ 
+                                                    color: '#ef4444', 
+                                                    borderColor: '#fecaca', 
+                                                    borderRadius: 2, 
+                                                    textTransform: 'none', 
+                                                    fontWeight: 700,
+                                                    '&:hover': { bgcolor: '#fef2f2', borderColor: '#fca5a5' }
+                                                }}
+                                            >
+                                                Delete Plan
+                                            </Button>
+                                            <Button 
+                                                variant="outlined" 
+                                                startIcon={<Edit />} 
+                                                onClick={handleStartEdit}
+                                                sx={{ 
+                                                    borderRadius: 2, 
+                                                    textTransform: 'none', 
+                                                    fontWeight: 700,
+                                                    px: 3,
+                                                    color: '#1e293b',
+                                                    borderColor: '#e2e8f0'
+                                                }}
+                                            >
+                                                Edit Plan
+                                            </Button>
+                                        </Box>
                                     )}
                                  </Box>
                              </Box>
@@ -505,7 +646,7 @@ export const BasePlan = () => {
                                              </Grid>
                                          )}
                                          {subscriptionTerms.map(term => {
-                                             const existingPrice = getExistingPrice(selectedProfile, term.subscription_term_id);
+                                             const existingPrice = getExistingPrice(selectedProfile!, term.subscription_term_id);
                                              const priceValue = isEditing 
                                                  ? (editedPrices[term.subscription_term_id] ?? (existingPrice?.price || ''))
                                                  : existingPrice?.price;
@@ -558,259 +699,219 @@ export const BasePlan = () => {
                                  </Paper>
 
                                  {/* Section 2: Bundled Services */}
-                                 <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
-                                     <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 2, display: 'block' }}>
-                                         BUNDLED SERVICES
-                                     </Typography>
+                                  <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                          <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                              BUNDLED SERVICES
+                                          </Typography>
+                                          <Button 
+                                              startIcon={<Add />} 
+                                              size="small" 
+                                              variant="outlined" 
+                                              onClick={() => setIsAddingService(true)}
+                                              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                                          >
+                                              Add Service
+                                          </Button>
+                                      </Box>
 
-                                     {bundledServicesLoading ? <CircularProgress size={24} /> : (
-                                         <Box>
-                                             {isEditing && (
-                                                 <FormControl size="small" sx={{ mb: 3, width: 300 }}>
-                                                     <InputLabel>Add Service</InputLabel>
-                                                     <Select
-                                                        label="Add Service"
-                                                        value=""
-                                                        onChange={(e) => {
-                                                            const svcId = e.target.value;
-                                                            setEditedServices(prev => [
-                                                                ...prev,
-                                                                {
-                                                                    service_id: svcId as string,
-                                                                    is_included: true,
-                                                                    usage_limit: 'Unlimited',
-                                                                    is_active: true
-                                                                }
-                                                            ]);
-                                                        }}
-                                                     >
-                                                         {allServices
-                                                            .filter(s => !editedServices.find(es => es.service_id === s.service_id && es.is_active !== false))
-                                                            .map(s => <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>)
-                                                         }
-                                                     </Select>
-                                                 </FormControl>
-                                             )}
+                                      {bundledServicesLoading ? <CircularProgress size={24} /> : (
+                                          <Box>
+                                              {/* Add Service Area (Inline or Dialog - doing inline expand for now) */}
+                                              {isAddingService && (
+                                                  <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#f8fafc', borderStyle: 'dashed' }}>
+                                                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Add New Service</Typography>
+                                                      <Box sx={{ display: 'flex', gap: 2 }}>
+                                                          <FormControl size="small" fullWidth>
+                                                              <InputLabel>Select Service</InputLabel>
+                                                              <Select
+                                                                  label="Select Service"
+                                                                  value={newServiceId}
+                                                                  onChange={(e) => setNewServiceId(e.target.value)}
+                                                              >
+                                                                  {allServices
+                                                                      .filter(s => !bundledServices.find(bs => bs.service_id === s.service_id && bs.is_active !== false))
+                                                                      .map(s => <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>)
+                                                                  }
+                                                              </Select>
+                                                          </FormControl>
+                                                          <Button variant="contained" onClick={handleAddService} disabled={!newServiceId}>Add</Button>
+                                                          <Button onClick={() => { setIsAddingService(false); setNewServiceId(''); }}>Cancel</Button>
+                                                      </Box>
+                                                  </Paper>
+                                              )}
 
-                                             <Stack spacing={2}>
-                                                 {editedServices.filter(s => s.is_active !== false).map((svc, idx) => {
-                                                     const serviceRef = allServices.find(as => as.service_id === svc.service_id);
-                                                     const name = svc.service_name || serviceRef?.name || 'Unknown Service';
-                                                     const description = serviceRef?.description || '';
-                                                     const itemKey = svc.membership_service_id || (svc.service_id + idx);
-                                                     
-                                                     const isFree = svc.is_included;
+                                              <Stack spacing={2}>
+                                                  {bundledServices.filter(s => s.is_active !== false).map((svc, idx) => {
+                                                      // ... existing service rendering ...
+                                                      
+                                                      const serviceRef = allServices.find(as => as.service_id === svc.service_id);
+                                                      const name = svc.service_name || serviceRef?.name || 'Unknown Service';
+                                                      const description = serviceRef?.description || '';
+                                                      const itemKey = svc.membership_service_id || (svc.service_id + idx);
+                                                      
+                                                      const isFree = svc.is_included;
+                                                      const isEditingThis = editingServiceId === svc.membership_service_id;
 
-                                                     return (
-                                                         <Paper key={itemKey} elevation={0} sx={{ 
-                                                             p: 3, 
-                                                             display: 'flex', 
-                                                             flexDirection: 'column',
-                                                             gap: 2,
-                                                             bgcolor: '#fff', 
-                                                             border: '1px solid #e2e8f0', 
-                                                             borderRadius: 3 
-                                                         }}>
-                                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                                 <Box>
-                                                                     <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0f172a' }}>{name}</Typography>
-                                                                     {description && (
-                                                                         <Typography variant="caption" sx={{ color: '#64748b', mt: 0.5, display: 'block', maxWidth: 500 }}>
-                                                                             {description}
-                                                                         </Typography>
-                                                                     )}
-                                                                     {serviceRef?.type && (
-                                                                         <Chip 
-                                                                             label={serviceRef.type} 
-                                                                             size="small" 
-                                                                             sx={{ 
-                                                                                 mt: 1, 
-                                                                                 height: 20, 
-                                                                                 fontSize: '0.6rem', 
-                                                                                 fontWeight: 700, 
-                                                                                 bgcolor: '#f1f5f9', 
-                                                                                 color: '#64748b',
-                                                                                 borderRadius: '4px'
-                                                                             }} 
-                                                                         />
-                                                                     )}
-                                                                 </Box>
-                                                                 
-                                                                 {/* View Mode Tags */}
-                                                                 {!isEditing && (
-                                                                     <Stack direction="row" spacing={1} alignItems="center">
-                                                                         {isFree ? (
-                                                                             <Chip 
-                                                                                label="INCLUDED" 
-                                                                                size="small" 
-                                                                                sx={{ 
-                                                                                    bgcolor: '#10b981', 
-                                                                                    color: 'white', 
-                                                                                    fontWeight: 800, 
-                                                                                    fontSize: '0.65rem', 
-                                                                                    height: 24,
-                                                                                    borderRadius: '6px'
-                                                                                }} 
+                                                      return (
+                                                          <Paper key={itemKey} elevation={0} sx={{ 
+                                                              p: 3, 
+                                                              display: 'flex', 
+                                                              flexDirection: 'column',
+                                                              gap: 2,
+                                                              bgcolor: '#fff', 
+                                                              border: '1px solid #e2e8f0', 
+                                                              borderRadius: 3 
+                                                          }}>
+                                                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                                  <Box>
+                                                                      <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#0f172a' }}>{name}</Typography>
+                                                                      {description && (
+                                                                          <Typography variant="caption" sx={{ color: '#64748b', mt: 0.5, display: 'block', maxWidth: 500 }}>
+                                                                              {description}
+                                                                          </Typography>
+                                                                      )}
+                                                                      {serviceRef?.type && (
+                                                                          <Chip 
+                                                                              label={serviceRef.type} 
+                                                                              size="small" 
+                                                                              sx={{ mt: 1, height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} 
+                                                                          />
+                                                                      )}
+                                                                  </Box>
+                                                                  
+                                                                  {/* View Mode Tags & Actions */}
+                                                                  {!isEditingThis && (
+                                                                      <Stack direction="row" spacing={1} alignItems="center">
+                                                                          {svc.is_included ? (
+                                                                              <Chip label="INCLUDED" size="small" sx={{ bgcolor: '#10b981', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} />
+                                                                          ) : (
+                                                                              svc.discount ? (
+                                                                                 <Chip 
+                                                                                     label={svc.discount.includes('%') ? `${svc.discount} OFF` : `$${svc.discount} OFF`} 
+                                                                                     size="small" 
+                                                                                     sx={{ bgcolor: '#f59e0b', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} 
+                                                                                 />
+                                                                              ) : null
+                                                                          )}
+                                                                          
+                                                                          <Box sx={{ bgcolor: '#f1f5f9', px: 1.5, py: 0.5, borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                                             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, fontSize: '0.7rem' }}>
+                                                                                 Limit: <Box component="span" sx={{ color: '#1e293b' }}>{svc.usage_limit || 'Unlimited'}</Box>
+                                                                             </Typography>
+                                                                          </Box>
+                                                                          
+                                                                          <Button 
+                                              size="small" 
+                                              variant="outlined"
+                                              startIcon={<Edit fontSize="small" />}
+                                              onClick={() => handleStartEditService(svc)}
+                                              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, color: '#64748b', borderColor: '#e2e8f0' }}
+                                          >
+                                              Edit
+                                          </Button>
+                                          <Button
+                                             size="small"
+                                             variant="outlined"
+                                             startIcon={<Delete fontSize="small" />}
+                                             onClick={() => handleDeleteServiceLink(svc)}
+                                             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, color: '#94a3b8', borderColor: '#e2e8f0', '&:hover': { color: '#ef4444', borderColor: '#fecaca', bgcolor: '#fef2f2' } }}
+                                          >
+                                              Remove
+                                          </Button>
+                                                                      </Stack>
+                                                                  )}
+                                                              </Box>
+                                                              
+                                                              {/* Independent Edit Mode */}
+                                                              {isEditingThis && (
+                                                                  <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                                                                     
+                                                                     <FormControlLabel 
+                                                                         control={
+                                                                             <Checkbox 
+                                                                                 checked={serviceEditState.is_included ?? svc.is_included}
+                                                                                 onChange={(e) => {
+                                                                                     const checked = e.target.checked;
+                                                                                     setServiceEditState(prev => ({ 
+                                                                                         ...prev, 
+                                                                                         is_included: checked,
+                                                                                         discount: checked ? '' : (prev.discount ?? svc.discount)
+                                                                                     }));
+                                                                                 }}
+                                                                                 sx={{ '&.Mui-checked': { color: '#0f172a' } }}
                                                                              />
-                                                                         ) : (
-                                                                             svc.discount ? (
-                                                                                <Chip 
-                                                                                    label={svc.discount.includes('%') ? `${svc.discount} OFF` : `$${svc.discount} OFF`} 
-                                                                                    size="small" 
-                                                                                    sx={{ 
-                                                                                        bgcolor: '#f59e0b', 
-                                                                                        color: 'white', 
-                                                                                        fontWeight: 800, 
-                                                                                        fontSize: '0.65rem', 
-                                                                                        height: 24,
-                                                                                        borderRadius: '6px'
-                                                                                    }} 
-                                                                                />
-                                                                             ) : null
-                                                                         )}
-                                                                         
-                                                                         <Box sx={{ bgcolor: '#f1f5f9', px: 1.5, py: 0.5, borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                                                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, fontSize: '0.7rem' }}>
-                                                                                Limit: <Box component="span" sx={{ color: '#1e293b' }}>{svc.usage_limit || 'Unlimited'}</Box>
-                                                                            </Typography>
+                                                                         }
+                                                                         label={
+                                                                             <Box>
+                                                                                 <Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a' }}>Included (Free)</Typography>
+                                                                                 <Typography variant="caption" sx={{ color: '#64748b' }}>Full 100% discount</Typography>
+                                                                             </Box>
+                                                                         }
+                                                                     />
+ 
+                                                                     <Divider orientation="vertical" flexItem variant="middle" />
+ 
+                                                                     <Box>
+                                                                         <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#64748b', fontWeight: 600 }}>Usage Limit</Typography>
+                                                                         <TextField 
+                                                                             hiddenLabel
+                                                                             size="small"
+                                                                             placeholder="Unlimited"
+                                                                             value={serviceEditState.usage_limit ?? svc.usage_limit ?? ''}
+                                                                             onChange={(e) => setServiceEditState(prev => ({ ...prev, usage_limit: e.target.value }))}
+                                                                             sx={{ width: 140, bgcolor: 'white' }}
+                                                                         />
+                                                                     </Box>
+ 
+                                                                     {!(serviceEditState.is_included ?? svc.is_included) && (
+                                                                         <Box>
+                                                                            <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#64748b', fontWeight: 600 }}>Discount</Typography>
+                                                                            <Stack direction="row" spacing={1}>
+                                                                                 <TextField 
+                                                                                     size="small" placeholder="$"
+                                                                                     value={!((serviceEditState.discount ?? svc.discount) || '').includes('%') ? (serviceEditState.discount ?? svc.discount) || '' : ''}
+                                                                                     onChange={(e) => {
+                                                                                         const val = e.target.value;
+                                                                                         if (!/^\d*\.?\d*$/.test(val)) return;
+                                                                                         setServiceEditState(prev => ({ ...prev, discount: val }));
+                                                                                     }}
+                                                                                     disabled={((serviceEditState.discount ?? svc.discount) || '').includes('%')}
+                                                                                     sx={{ width: 80, bgcolor: 'white' }}
+                                                                                 />
+                                                                                 <TextField 
+                                                                                     size="small" placeholder="%"
+                                                                                     value={((serviceEditState.discount ?? svc.discount) || '').includes('%') ? ((serviceEditState.discount ?? svc.discount) || '').replace('%', '') : ''}
+                                                                                     onChange={(e) => {
+                                                                                         const val = e.target.value;
+                                                                                         if (!/^\d*\.?\d*$/.test(val)) return;
+                                                                                         setServiceEditState(prev => ({ ...prev, discount: val ? `${val}%` : '' }));
+                                                                                     }}
+                                                                                     disabled={!!(serviceEditState.discount ?? svc.discount) && !(serviceEditState.discount ?? svc.discount)?.includes('%')}
+                                                                                     sx={{ width: 80, bgcolor: 'white' }}
+                                                                                 />
+                                                                            </Stack>
                                                                          </Box>
+                                                                     )}
+                                                                     
+                                                                     <Box sx={{ flex: 1 }} />
+                                                                     
+                                                                     <Stack direction="row" spacing={1}>
+                                                                         <Button size="small" variant="contained" onClick={() => handleUpdateService(svc.membership_service_id!)}>Save</Button>
+                                                                         <Button size="small" onClick={() => { setEditingServiceId(null); setServiceEditState({}); }}>Cancel</Button>
                                                                      </Stack>
-                                                                 )}
-                                                             </Box>
-                                                             
-                                                             {/* Edit Mode Controls */}
-                                                             {isEditing && (
-                                                                 <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-                                                                    
-                                                                    {/* Is Included / Free */}
-                                                                    <FormControlLabel 
-                                                                        control={
-                                                                            <Checkbox 
-                                                                                checked={svc.is_included}
-                                                                                onChange={(e) => {
-                                                                                    const copy = [...editedServices];
-                                                                                    // If checking included, clear discount
-                                                                                    const newDiscount = e.target.checked ? '' : svc.discount;
-                                                                                    copy[editedServices.indexOf(svc)] = { ...svc, is_included: e.target.checked, discount: newDiscount };
-                                                                                    setEditedServices(copy);
-                                                                                }}
-                                                                                sx={{ '&.Mui-checked': { color: '#0f172a' } }}
-                                                                            />
-                                                                        }
-                                                                        label={
-                                                                            <Box>
-                                                                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a' }}>Included (Free)</Typography>
-                                                                                <Typography variant="caption" sx={{ color: '#64748b' }}>Full 100% discount</Typography>
-                                                                            </Box>
-                                                                        }
-                                                                    />
-
-                                                                    <Divider orientation="vertical" flexItem variant="middle" />
-
-                                                                    {/* Usage Limit */}
-                                                                    <Box>
-                                                                        <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#64748b', fontWeight: 600 }}>Usage Limit</Typography>
-                                                                        <TextField 
-                                                                            hiddenLabel
-                                                                            variant="outlined"
-                                                                            size="small"
-                                                                            placeholder="Unlimited"
-                                                                            value={svc.usage_limit || ''}
-                                                                            onChange={(e) => {
-                                                                                const copy = [...editedServices];
-                                                                                copy[editedServices.indexOf(svc)] = { ...svc, usage_limit: e.target.value };
-                                                                                setEditedServices(copy);
-                                                                            }}
-                                                                            sx={{ width: 140, bgcolor: 'white' }}
-                                                                        />
-                                                                    </Box>
-
-                                                                    {/* Discount - Only if NOT included */}
-                                                                    {!svc.is_included && (
-                                                                        <>
-                                                                            <Divider orientation="vertical" flexItem variant="middle" />
-                                                                            <Box>
-                                                                                <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: '#64748b', fontWeight: 600 }}>Discount (Optional)</Typography>
-                                                                                <Stack direction="row" spacing={1}>
-                                                                                    {/* Dual Field Implementation */}
-                                                                                    <TextField
-                                                                                        hiddenLabel
-                                                                                        variant="outlined"
-                                                                                        size="small"
-                                                                                        placeholder="Amount"
-                                                                                        value={!((svc.discount || '').includes('%')) ? svc.discount || '' : ''}
-                                                                                        onChange={(e) => {
-                                                                                            const val = e.target.value;
-                                                                                            if (!/^\d*\.?\d*$/.test(val)) return;
-                                                                                            const copy = [...editedServices];
-                                                                                            copy[editedServices.indexOf(svc)] = { ...svc, discount: val };
-                                                                                            setEditedServices(copy);
-                                                                                        }}
-                                                                                        disabled={(svc.discount || '').includes('%')}
-                                                                                        InputProps={{
-                                                                                            startAdornment: <InputAdornment position="start">$</InputAdornment>
-                                                                                        }}
-                                                                                        sx={{ width: 100, bgcolor: !((svc.discount || '').includes('%')) ? 'white' : '#f1f5f9' }}
-                                                                                    />
-                                                                                     <TextField
-                                                                                        hiddenLabel
-                                                                                        variant="outlined"
-                                                                                        size="small"
-                                                                                        placeholder="Percent"
-                                                                                        value={(svc.discount || '').includes('%') ? (svc.discount || '').replace('%', '') : ''}
-                                                                                        onChange={(e) => {
-                                                                                            const val = e.target.value;
-                                                                                            if (!/^\d*\.?\d*$/.test(val)) return;
-                                                                                            const copy = [...editedServices];
-                                                                                            copy[editedServices.indexOf(svc)] = { ...svc, discount: val ? `${val}%` : '' };
-                                                                                            setEditedServices(copy);
-                                                                                        }}
-                                                                                        disabled={!!svc.discount && !svc.discount.includes('%')}
-                                                                                        InputProps={{
-                                                                                            endAdornment: <InputAdornment position="end">%</InputAdornment>
-                                                                                        }}
-                                                                                        sx={{ width: 100, bgcolor: (svc.discount || '').includes('%') ? 'white' : '#f1f5f9' }}
-                                                                                    />
-                                                                                </Stack>
-                                                                            </Box>
-                                                                        </>
-                                                                    )}
-
-                                                                    <Box sx={{ flex: 1 }} />
-
-                                                                    <IconButton 
-                                                                        size="medium" 
-                                                                        onClick={() => {
-                                                                            const copy = [...editedServices];
-                                                                            if (svc.membership_service_id) {
-                                                                                copy[editedServices.indexOf(svc)] = { ...svc, is_active: false };
-                                                                            } else {
-                                                                                const index = editedServices.indexOf(svc);
-                                                                                if (index > -1) copy.splice(index, 1);
-                                                                            }
-                                                                            setEditedServices(copy);
-                                                                        }}
-                                                                        sx={{ 
-                                                                            color: '#ef4444', 
-                                                                            bgcolor: '#fff', 
-                                                                            border: '1px solid #fecaca',
-                                                                            '&:hover': { bgcolor: '#fef2f2', borderColor: '#fca5a5' } 
-                                                                        }}
-                                                                    >
-                                                                        <Delete fontSize="small" />
-                                                                    </IconButton>
-                                                                 </Box>
-                                                             )}
-                                                         </Paper>
-                                                     );
-                                                 })}
-                                                 {editedServices.filter(s => s.is_active !== false).length === 0 && (
-                                                     <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderStyle: 'dashed' }}>
-                                                         <Typography variant="body2" color="text.secondary">
-                                                             No bundled services configured. Add a service to get started.
-                                                         </Typography>
-                                                     </Paper>
-                                                 )}
+                                                                  </Box>
+                                                              )}
+                                                          </Paper>
+                                                      );
+                                                  })}
+                                                  {bundledServices.filter(s => s.is_active !== false).length === 0 && !isAddingService && (
+                                                      <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderStyle: 'dashed' }}>
+                                                          <Typography variant="body2" color="text.secondary">
+                                                              No bundled services configured. Click "Add Service" to configure.
+                                                          </Typography>
+                                                      </Paper>
+                                                  )}
                                              </Stack>
                                          </Box>
                                      )}
@@ -934,6 +1035,19 @@ export const BasePlan = () => {
         <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
             <Alert severity="success" onClose={() => setSuccess(null)} variant="filled">{success}</Alert>
         </Snackbar>
+        <Dialog
+            open={deleteConfirm.open}
+            onClose={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}
+        >
+            <DialogTitle>{deleteConfirm.title}</DialogTitle>
+            <DialogContent>
+                <Typography>{deleteConfirm.message}</Typography>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}>Cancel</Button>
+                <Button onClick={deleteConfirm.onConfirm} color="error" variant="contained">Delete</Button>
+            </DialogActions>
+        </Dialog>
     </Box>
   );
 };

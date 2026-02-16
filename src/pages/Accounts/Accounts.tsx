@@ -152,6 +152,7 @@ export const Accounts = () => {
         ]}
         action={
             <Box sx={{ display: 'flex', gap: 2 }}>
+                {/* Hide Reindex button for now
                 <Tooltip title="Update search index for all accounts">
                     <span>
                         <Button
@@ -175,6 +176,7 @@ export const Accounts = () => {
                         </Button>
                     </span>
                 </Tooltip>
+                */}
                 <Button
                   variant="contained"
                   startIcon={<PersonAddIcon />}

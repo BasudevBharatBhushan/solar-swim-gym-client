@@ -23,11 +23,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  IconButton,
+
   Alert,
   Snackbar,
   Stack,
-  Checkbox
+  Checkbox,
+  IconButton
 } from '@mui/material';
 import { 
   Add, 
@@ -67,6 +68,19 @@ export const Memberships = () => {
   const [openAddService, setOpenAddService] = useState(false);
   const [createProgramName, setCreateProgramName] = useState('');
   const [newServiceId, setNewServiceId] = useState('');
+
+  // -- Delete Confirmation State --
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+      open: boolean;
+      title: string;
+      message: string;
+      onConfirm: () => Promise<void>;
+  }>({
+      open: false,
+      title: '',
+      message: '',
+      onConfirm: async () => {}
+  });
   
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -79,6 +93,10 @@ export const Memberships = () => {
   // Services State (Read-only view)
   const [categoryServices, setCategoryServices] = useState<IMembershipService[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
+
+  // Service Independent Edit State
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [serviceEditState, setServiceEditState] = useState<Partial<IMembershipService>>({});
 
   // Computed: Active Program
   const activeProgram = programs.find(p => p.membership_program_id === selectedProgramId);
@@ -294,8 +312,9 @@ export const Memberships = () => {
               if (savedCat) targetCategoryId = savedCat.category_id;
           }
 
-          // 4. Save Services (if we have a valid target ID)
-          if (targetCategoryId && draftServices.length > 0) {
+          // 4. Save Services (ONLY if we are creating a NEW category)
+          // For existing categories, services are managed independently.
+          if (selectedCategoryId === 'new' && targetCategoryId && draftServices.length > 0) {
                // Ensure correct owner ID
                const servicesToSave = draftServices.map(s => ({
                    ...s,
@@ -355,23 +374,150 @@ export const Memberships = () => {
       setDraftCategory({ ...draftCategory, rules: newRules });
   };
 
-  // --- Service Updaters (Draft) ---
+  const handleDeleteProgram = () => {
+      if (!activeProgram) return;
+      setDeleteConfirm({
+          open: true,
+          title: 'Delete Membership Program?',
+          message: `Are you sure you want to delete "${activeProgram.name}"? This is a nuclear action that will delete all categories, fees, rules, and service links associated with this program.`,
+          onConfirm: async () => {
+              try {
+                  await membershipService.deleteMembershipProgram(activeProgram.membership_program_id!, currentLocationId || undefined);
+                  setSuccess("Program deleted.");
+                  // Reset selection and refetch
+                  setSelectedProgramId('');
+                  setSelectedCategoryId(null);
+                  setDraftCategory(null);
+                  setIsEditing(false);
+                  await fetchData(true);
+              } catch (e: any) {
+                  setError(e.message || "Failed to delete program.");
+              } finally {
+                   setDeleteConfirm(prev => ({ ...prev, open: false }));
+              }
+          }
+      });
+  };
 
-  const handleDraftAddService = () => {
-      if (!newServiceId || !draftCategory) return;
+  const handleDeleteCategory = (categoryId: string) => {
+      setDeleteConfirm({
+          open: true,
+          title: 'Delete Category?',
+          message: 'Are you sure you want to delete this category? All associated fees and rules will be removed.',
+          onConfirm: async () => {
+              try {
+                  await membershipService.deleteMembershipCategory(categoryId, currentLocationId || undefined);
+                  setSuccess("Category deleted.");
+                  // Select another category or none
+                  setSelectedCategoryId('');
+                  setDraftCategory(null);
+                  setIsEditing(false);
+                  await fetchData(true);
+              } catch (e: any) {
+                  setError(e.message || "Failed to delete category.");
+              } finally {
+                   setDeleteConfirm(prev => ({ ...prev, open: false }));
+              }
+          }
+      });
+  };
+
+  const handleDeleteServiceLink = (service: IMembershipService) => {
+       setDeleteConfirm({
+          open: true,
+          title: 'Remove Service?',
+          message: `Are you sure you want to remove "${service.service_name || 'this service'}" from this category?`,
+          onConfirm: async () => {
+              if (!service.membership_service_id) return;
+              try {
+                  await membershipService.deleteServiceLink(service.membership_service_id, currentLocationId || undefined);
+                  setSuccess("Service removed.");
+                  if (selectedCategoryId && selectedCategoryId !== 'new') {
+                      const freshServices = await membershipService.getServices(selectedCategoryId, currentLocationId || undefined);
+                      setCategoryServices(freshServices);
+                  }
+                  // Also update draft services if editing
+                  if (isEditing && draftCategory) {
+                      setDraftServices(prev => prev.filter(s => s.membership_service_id !== service.membership_service_id));
+                  }
+              } catch (e: any) {
+                  setError(e.message || "Failed to remove service.");
+              } finally {
+                   setDeleteConfirm(prev => ({ ...prev, open: false }));
+              }
+          }
+      });
+  };
+
+  const handleAddServiceSubmit = async () => {
+      if (!newServiceId) return;
+
+      if (selectedCategoryId === 'new') {
+          // DRAFT MODE
+          const newService: IMembershipService = {
+              service_id: newServiceId,
+              membership_program_id: '', 
+              is_included: true,
+              usage_limit: 'Unlimited', 
+              is_part_of_base_plan: false,
+              is_active: true
+          };
+          setDraftServices(prev => [...prev, newService]);
+          setOpenAddService(false);
+          setNewServiceId('');
+      } else if (activeCategory) {
+          // LIVE MODE
+          try {
+              const newService: IMembershipService = {
+                  service_id: newServiceId,
+                  membership_program_id: activeCategory.category_id!,
+                  is_included: true,
+                  usage_limit: 'Unlimited',
+                  is_active: true
+              };
+              await membershipService.upsertServices([newService], currentLocationId || undefined);
+              setSuccess("Service added.");
+              setOpenAddService(false);
+              setNewServiceId('');
+              // Refresh
+              if (selectedCategoryId) {
+                  const fresh = await membershipService.getServices(selectedCategoryId, currentLocationId || undefined);
+                  setCategoryServices(fresh);
+              }
+          } catch (e: any) {
+              setError(e.message || "Failed to add service.");
+          }
+      }
+  };
+
+  const handleUpdateServiceLive = async (serviceId: string) => {
+      if (!selectedCategoryId || selectedCategoryId === 'new') return;
       
-      const newService: IMembershipService = {
-          service_id: newServiceId,
-          membership_program_id: selectedCategoryId === 'new' ? '' : selectedCategoryId!, 
-          is_included: true,
-          usage_limit: 'Unlimited', 
-          is_part_of_base_plan: false,
-          is_active: true
-      };
-      
-      setDraftServices(prev => [...prev, newService]);
-      setOpenAddService(false);
-      setNewServiceId('');
+      const original = categoryServices.find(s => s.membership_service_id === serviceId);
+      if (!original) return;
+
+      const updated = { ...original, ...serviceEditState };
+
+      try {
+           await membershipService.upsertServices([updated], currentLocationId || undefined);
+           setSuccess("Service updated.");
+           setEditingServiceId(null);
+           setServiceEditState({});
+           // Refresh
+           const fresh = await membershipService.getServices(selectedCategoryId, currentLocationId || undefined);
+           setCategoryServices(fresh);
+      } catch (e: any) {
+           setError(e.message || "Failed to update service.");
+      }
+  };
+
+  const handleStartEditServiceLive = (service: IMembershipService) => {
+      setEditingServiceId(service.membership_service_id || null);
+      setServiceEditState({
+          usage_limit: service.usage_limit,
+          is_included: service.is_included,
+          discount: service.discount
+      });
   };
 
   const updateDraftService = (index: number, updates: Partial<IMembershipService>) => {
@@ -539,6 +685,41 @@ export const Memberships = () => {
             }
         />
 
+        <Dialog open={openCreateProgram} onClose={() => setOpenCreateProgram(false)}>
+            <DialogTitle>Create New Membership Program</DialogTitle>
+            <DialogContent>
+                <TextField
+                    autoFocus
+                    margin="dense"
+                    label="Program Name"
+                    type="text"
+                    fullWidth
+                    variant="outlined"
+                    value={createProgramName}
+                    onChange={(e) => setCreateProgramName(e.target.value)}
+                />
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setOpenCreateProgram(false)}>Cancel</Button>
+                <Button variant="contained" onClick={handleCreateProgram} disabled={!createProgramName}>
+                    Create
+                </Button>
+            </DialogActions>
+        </Dialog>
+
+        <Dialog
+            open={deleteConfirm.open}
+            onClose={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}
+        >
+            <DialogTitle>{deleteConfirm.title}</DialogTitle>
+            <DialogContent>
+                <Typography>{deleteConfirm.message}</Typography>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}>Cancel</Button>
+                <Button onClick={deleteConfirm.onConfirm} color="error" variant="contained">Delete</Button>
+            </DialogActions>
+        </Dialog>
 
 
         {loading ? (
@@ -622,7 +803,7 @@ export const Memberships = () => {
                                         onClick={handleAddNewCategory}
                                         sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, borderColor: '#e2e8f0', color: '#64748b', '&:hover': { borderColor: '#94a3b8', color: '#475569' } }}
                                     >
-                                        Add Category
+                                        Add
                                     </Button>
                                 </Box>
                              )}
@@ -661,14 +842,32 @@ export const Memberships = () => {
                                      </Box>
                                      <Box>
                                          {!isEditing ? (
-                                             <Button 
-                                                 variant="outlined" 
-                                                 startIcon={<Edit />} 
-                                                 onClick={handleStartEdit}
-                                                 sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, color: '#1e293b', borderColor: '#e2e8f0' }}
-                                             >
-                                                 Category
-                                             </Button>
+                                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                              <Button 
+                                                  variant="outlined" 
+                                                  startIcon={<Edit />} 
+                                                  onClick={handleStartEdit}
+                                                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, color: '#1e293b', borderColor: '#e2e8f0' }}
+                                              >
+                                                   Edit
+                                              </Button>
+                                              
+                                                <Button
+                                                    variant="outlined"
+                                                    startIcon={<Delete />}
+                                                    onClick={() => activeCategory?.category_id && handleDeleteCategory(activeCategory.category_id)}
+                                                    sx={{ 
+                                                        color: '#ef4444', 
+                                                        borderColor: '#fecaca', 
+                                                        borderRadius: 2, 
+                                                        textTransform: 'none', 
+                                                        fontWeight: 700,
+                                                        '&:hover': { bgcolor: '#fef2f2', borderColor: '#fca5a5' }
+                                                    }}
+                                                >
+                                                    Delete
+                                                </Button>
+                                           </Box>
                                          ) : (
                                              <Box sx={{ display: 'flex', gap: 1 }}>
                                                  <Chip label="Editing Mode" color="warning" sx={{ fontWeight: 700 }} />
@@ -729,7 +928,10 @@ export const Memberships = () => {
                                              <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                                  BUNDLED SERVICES
                                              </Typography>
-                                             {isEditing && (
+                                             {/* Always allow Adding Service unless in pure view mode AND it's not a new category. 
+                                                 Actually we want to allow adding services in view mode for existing categories now.
+                                             */}
+                                             {(selectedCategoryId === 'new' || !isEditing) && (
                                                  <Button 
                                                      size="small" 
                                                      startIcon={<Add />} 
@@ -744,15 +946,19 @@ export const Memberships = () => {
                                          
                                          {servicesLoading ? <CircularProgress size={24} /> : (
                                          <Stack spacing={2}>
-                                             {(isEditing ? draftServices : categoryServices)
+                                             {(selectedCategoryId === 'new' ? draftServices : categoryServices)
                                                  .filter(s => s.is_active !== false)
                                                  .map((svc, idx) => {
                                                      const serviceRef = availableServices.find(as => as.service_id === svc.service_id);
                                                      const name = svc.service_name || serviceRef?.name || 'Unknown Service';
                                                      const description = serviceRef?.description || '';
+                                                     const itemKey = svc.membership_service_id || idx;
                                                      
+                                                     const isEditingThis = editingServiceId === svc.membership_service_id;
+                                                     const isDraft = selectedCategoryId === 'new';
+
                                                      return (
-                                                         <Paper key={idx} elevation={0} sx={{ 
+                                                         <Paper key={itemKey} elevation={0} sx={{ 
                                                              p: 3, 
                                                              display: 'flex', 
                                                              flexDirection: 'column',
@@ -771,7 +977,7 @@ export const Memberships = () => {
                                                                      )}
                                                                  </Box>
                                                                  
-                                                                 {!isEditing && (
+                                                                 {!isEditingThis && (
                                                                      <Stack direction="row" spacing={1} alignItems="center">
                                                                          {svc.is_included ? (
                                                                              <Chip label="INCLUDED" size="small" sx={{ bgcolor: '#10b981', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} />
@@ -780,14 +986,7 @@ export const Memberships = () => {
                                                                                  <Chip 
                                                                                      label={svc.discount.includes('%') ? `${svc.discount} OFF` : `$${svc.discount} OFF`} 
                                                                                      size="small" 
-                                                                                     sx={{ 
-                                                                                         bgcolor: '#f59e0b', 
-                                                                                         color: 'white', 
-                                                                                         fontWeight: 800, 
-                                                                                         fontSize: '0.65rem', 
-                                                                                         height: 24,
-                                                                                         borderRadius: '6px'
-                                                                                     }} 
+                                                                                     sx={{ bgcolor: '#f59e0b', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} 
                                                                                  />
                                                                              ) : null
                                                                          )}
@@ -796,72 +995,149 @@ export const Memberships = () => {
                                                                                  Limit: <Box component="span" sx={{ color: '#1e293b' }}>{svc.usage_limit || 'Unlimited'}</Box>
                                                                              </Typography>
                                                                          </Box>
+                                                                         
+                                                                         {/* Mode Specific Controls */}
+                                                                         {isDraft ? (
+                                                                            <Button 
+                                                                                size="small" 
+                                                                                variant="outlined"
+                                                                                startIcon={<Delete fontSize="small" />}
+                                                                                onClick={() => removeDraftService(idx)} 
+                                                                                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, color: '#ef4444', borderColor: '#fecaca', '&:hover': { bgcolor: '#fef2f2', borderColor: '#fca5a5' } }}
+                                                                            >
+                                                                                Remove
+                                                                            </Button>
+                                                                         ) : (
+                                                                            <>
+                                                                                 {/* LIVE MODE Edit/Delete */}
+                                                                                 {!isEditing && (
+                                                                                     <>
+                                                                                         <Button
+                                                                                              size="small"
+                                                                                              variant="outlined"
+                                                                                              startIcon={<Edit fontSize="small" />}
+                                                                                              onClick={() => handleStartEditServiceLive(svc)}
+                                                                                              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, color: '#64748b', borderColor: '#e2e8f0' }}
+                                                                                         >
+                                                                                              Edit
+                                                                                         </Button>
+                                                                                         <Button 
+                                                                                             size="small" 
+                                                                                             variant="outlined"
+                                                                                             startIcon={<Delete fontSize="small" />}
+                                                                                             onClick={() => handleDeleteServiceLink(svc)}
+                                                                                             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, color: '#94a3b8', borderColor: '#e2e8f0', '&:hover': { color: '#ef4444', borderColor: '#fecaca', bgcolor: '#fef2f2' } }}
+                                                                                         >
+                                                                                             Remove
+                                                                                         </Button>
+                                                                                     </>
+                                                                                 )}
+                                                                            </>
+                                                                         )}
                                                                      </Stack>
                                                                  )}
                                                              </Box>
 
-                                                             {isEditing && (
+                                                             {/* Independent Edit Mode (LIVE Only) */}
+                                                             {isEditingThis && !isDraft && (
                                                                  <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                                                                    <FormControlLabel 
+                                                                        control={
+                                                                            <Checkbox 
+                                                                                checked={serviceEditState.is_included ?? svc.is_included}
+                                                                                onChange={(e) => {
+                                                                                     const checked = e.target.checked;
+                                                                                     setServiceEditState(prev => ({ 
+                                                                                         ...prev, 
+                                                                                         is_included: checked,
+                                                                                         discount: checked ? '' : (prev.discount ?? svc.discount)
+                                                                                     }));
+                                                                                }}
+                                                                                sx={{ '&.Mui-checked': { color: '#0f172a' } }}
+                                                                            />
+                                                                        }
+                                                                        label={<Box><Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a' }}>Included (Free)</Typography></Box>}
+                                                                    />
+                                                                    <Divider orientation="vertical" flexItem variant="middle" />
+                                                                    <TextField 
+                                                                        label="Usage Limit" size="small" placeholder="Unlimited"
+                                                                        value={serviceEditState.usage_limit ?? svc.usage_limit ?? ''}
+                                                                        onChange={(e) => setServiceEditState(prev => ({ ...prev, usage_limit: e.target.value }))}
+                                                                        sx={{ width: 140, bgcolor: 'white' }}
+                                                                    />
+                                                                    {!(serviceEditState.is_included ?? svc.is_included) && (
+                                                                        <Stack direction="row" spacing={1}>
+                                                                            <TextField 
+                                                                                label="Discount ($)" size="small" placeholder="Amount"
+                                                                                 value={!((serviceEditState.discount ?? svc.discount) || '').includes('%') ? (serviceEditState.discount ?? svc.discount) || '' : ''}
+                                                                                 onChange={(e) => {
+                                                                                     const val = e.target.value;
+                                                                                     if (!/^\d*\.?\d*$/.test(val)) return;
+                                                                                     setServiceEditState(prev => ({ ...prev, discount: val }));
+                                                                                 }}
+                                                                                disabled={((serviceEditState.discount ?? svc.discount) || '').includes('%')}
+                                                                                InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
+                                                                                sx={{ width: 120, bgcolor: 'white' }}
+                                                                            />
+                                                                            <TextField 
+                                                                                label="Discount (%)" size="small" placeholder="Percent"
+                                                                                 value={((serviceEditState.discount ?? svc.discount) || '').includes('%') ? ((serviceEditState.discount ?? svc.discount) || '').replace('%', '') : ''}
+                                                                                 onChange={(e) => {
+                                                                                     const val = e.target.value;
+                                                                                     if (!/^\d*\.?\d*$/.test(val)) return;
+                                                                                     setServiceEditState(prev => ({ ...prev, discount: val ? `${val}%` : '' }));
+                                                                                 }}
+                                                                                disabled={!!(serviceEditState.discount ?? svc.discount) && !(serviceEditState.discount ?? svc.discount)?.includes('%')}
+                                                                                InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }}
+                                                                                sx={{ width: 120, bgcolor: 'white' }}
+                                                                            />
+                                                                        </Stack>
+                                                                    )}
+                                                                    <Box sx={{ flex: 1 }} />
+                                                                    <Stack direction="row" spacing={1}>
+                                                                         <Button size="small" variant="contained" onClick={() => handleUpdateServiceLive(svc.membership_service_id!)}>Save</Button>
+                                                                         <Button size="small" onClick={() => { setEditingServiceId(null); setServiceEditState({}); }}>Cancel</Button>
+                                                                    </Stack>
+                                                                 </Box>
+                                                             )}
+
+                                                             {/* DRAFT Mode Edit (Inline controls always visible for Draft?) 
+                                                                 Actually for draft it's easier to keep the old style or just allowing delete.
+                                                                 Let's keep it simple for draft: Delete only, or maybe rudimentary edit.
+                                                                 The original implementation had inline editing for draft.
+                                                                 Let's re-implement inline editing for DRAFT mode.
+                                                             */}
+                                                             {isDraft && (
+                                                                <Box sx={{ mt: 2, p: 2, bgcolor: '#f8fafc', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
                                                                      <FormControlLabel 
                                                                          control={
                                                                              <Checkbox 
                                                                                  checked={svc.is_included}
                                                                                  onChange={(e) => updateDraftService(idx, { is_included: e.target.checked, discount: e.target.checked ? '' : svc.discount })}
-                                                                                 sx={{ '&.Mui-checked': { color: '#0f172a' } }}
                                                                              />
                                                                          }
-                                                                         label={<Box><Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a' }}>Included (Free)</Typography></Box>}
+                                                                         label={<Typography variant="body2">Included</Typography>}
                                                                      />
-                                                                     <Divider orientation="vertical" flexItem variant="middle" />
                                                                      <TextField 
-                                                                         label="Usage Limit" size="small" placeholder="Unlimited"
-                                                                         value={svc.usage_limit || ''}
-                                                                         onChange={(e) => updateDraftService(idx, { usage_limit: e.target.value })}
-                                                                         sx={{ width: 140, bgcolor: 'white' }}
+                                                                        label="Limit" size="small" value={svc.usage_limit || ''}
+                                                                        onChange={(e) => updateDraftService(idx, { usage_limit: e.target.value })}
+                                                                        sx={{ width: 120, bgcolor: 'white' }}
                                                                      />
+                                                                     {/* Simplified discount for draft */}
                                                                      {!svc.is_included && (
-                                                                         <Stack direction="row" spacing={1}>
-                                                                             <TextField 
-                                                                                 label="Discount ($)" size="small" placeholder="Amount"
-                                                                                 value={!((svc.discount || '').includes('%')) ? svc.discount || '' : ''}
-                                                                                 onChange={(e) => {
-                                                                                     const val = e.target.value;
-                                                                                     if (!/^\d*\.?\d*$/.test(val)) return;
-                                                                                     updateDraftService(idx, { discount: val });
-                                                                                 }}
-                                                                                 disabled={(svc.discount || '').includes('%')}
-                                                                                 InputProps={{
-                                                                                     startAdornment: <InputAdornment position="start">$</InputAdornment>
-                                                                                 }}
-                                                                                 sx={{ width: 120, bgcolor: !((svc.discount || '').includes('%')) ? 'white' : '#f1f5f9' }}
-                                                                             />
-                                                                             <TextField 
-                                                                                 label="Discount (%)" size="small" placeholder="Percent"
-                                                                                 value={(svc.discount || '').includes('%') ? (svc.discount || '').replace('%', '') : ''}
-                                                                                 onChange={(e) => {
-                                                                                     const val = e.target.value;
-                                                                                     if (!/^\d*\.?\d*$/.test(val)) return;
-                                                                                     updateDraftService(idx, { discount: val ? `${val}%` : '' });
-                                                                                 }}
-                                                                                 disabled={!!svc.discount && !svc.discount.includes('%')}
-                                                                                 InputProps={{
-                                                                                     endAdornment: <InputAdornment position="end">%</InputAdornment>
-                                                                                 }}
-                                                                                 sx={{ width: 120, bgcolor: (svc.discount || '').includes('%') ? 'white' : '#f1f5f9' }}
-                                                                             />
-                                                                         </Stack>
+                                                                         <TextField 
+                                                                             label="Discount" size="small" value={svc.discount || ''}
+                                                                             onChange={(e) => updateDraftService(idx, { discount: e.target.value })}
+                                                                             sx={{ width: 120, bgcolor: 'white' }}
+                                                                         />
                                                                      )}
-                                                                     <Box sx={{ flex: 1 }} />
-                                                                     <IconButton size="small" onClick={() => removeDraftService(idx)} sx={{ color: '#ef4444', bgcolor: '#fff', border: '1px solid #fecaca' }}>
-                                                                         <Delete fontSize="small" />
-                                                                     </IconButton>
-                                                                 </Box>
+                                                                </Box>
                                                              )}
                                                          </Paper>
                                                      );
                                                  })
                                              }
-                                             {(isEditing ? draftServices : categoryServices).filter(s => s.is_active !== false).length === 0 && (
+                                             {(selectedCategoryId === 'new' ? draftServices : categoryServices).filter(s => s.is_active !== false).length === 0 && (
                                                  <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', bgcolor: '#f8fafc', borderStyle: 'dashed' }}>
                                                      <Typography variant="body2" color="text.secondary">
                                                          No bundled services configured. Add a service to get started.
@@ -953,7 +1229,7 @@ export const Memberships = () => {
              </DialogContent>
              <DialogActions>
                  <Button onClick={() => setOpenAddService(false)}>Cancel</Button>
-                 <Button onClick={handleDraftAddService} variant="contained" disabled={!newServiceId}>Add</Button>
+                  <Button onClick={handleAddServiceSubmit} variant="contained" disabled={!newServiceId}>Add</Button>
              </DialogActions>
         </Dialog>
 
@@ -964,6 +1240,20 @@ export const Memberships = () => {
             <Alert severity="success">{success}</Alert>
         </Snackbar>
 
+
+        <Dialog
+            open={deleteConfirm.open}
+            onClose={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}
+        >
+            <DialogTitle>{deleteConfirm.title}</DialogTitle>
+            <DialogContent>
+                <Typography>{deleteConfirm.message}</Typography>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}>Cancel</Button>
+                <Button onClick={deleteConfirm.onConfirm} color="error" variant="contained">Delete</Button>
+            </DialogActions>
+        </Dialog>
     </Box>
   );
 };

@@ -103,9 +103,14 @@ export const AgeProfiles = () => {
         setSuccess('Profile deleted successfully');
         fetchData();
         refreshAgeGroups();
-    } catch (err) {
+    } catch (err: any) {
         console.error(err);
-        setError('Delete operation not supported or failed');
+        const errorMsg = err.response?.data?.error || err.message || '';
+        if (errorMsg.includes('foreign key constraint')) {
+            setError('Cannot delete this age profile because it is linked to pricing or services. Please remove those links first.');
+        } else {
+            setError('Failed to delete age profile');
+        }
     }
   };
 

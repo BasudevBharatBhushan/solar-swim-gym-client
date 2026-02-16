@@ -501,6 +501,37 @@
                     "response": []
                 },
                 {
+                    "name": "Delete Age Group",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/config/age-groups/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "config",
+                                "age-groups",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "{{lastAgeGroupId}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
                     "name": "Get Subscription Terms",
                     "request": {
                         "method": "GET",
@@ -531,7 +562,7 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Monthly\",\n    \"duration_months\": 1,\n    \"payment_mode\": \"RECURRING\"\n}",
+                            "raw": "{\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Monthly\",\n    \"duration_months\": 1,\n    \"payment_mode\": \"RECURRING\",\n    \"recurrence_unit\": \"MONTH\",\n    \"recurrence_unit_value\": 1\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -585,7 +616,7 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"subscription_term_id\": \"{{lastTermId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Monthly Updated\",\n    \"duration_months\": 1,\n    \"payment_mode\": \"RECURRING\"\n}",
+                            "raw": "{\n    \"subscription_term_id\": \"{{lastTermId}}\",\n    \"location_id\": \"{{lastLocationId}}\",\n    \"name\": \"Monthly Updated\",\n    \"duration_months\": 1,\n    \"payment_mode\": \"RECURRING\",\n    \"recurrence_unit\": \"MONTH\",\n    \"recurrence_unit_value\": 1\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -600,6 +631,42 @@
                             "path": [
                                 "config",
                                 "subscription-terms"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Subscription Term",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/config/subscription-terms/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "config",
+                                "subscription-terms",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "{{lastTermId}}"
+                                }
                             ]
                         }
                     },
@@ -943,6 +1010,41 @@
                         }
                     },
                     "response": []
+                },
+                {
+                    "name": "Delete Base Plan",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/base-prices/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "base-prices",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "{{lastBasePriceId}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         },
@@ -1000,6 +1102,41 @@
                         }
                     },
                     "description": "Upsert services. 'membership_program_id' acts as a generic parent ID.\n\n- If ID is a **Category**: Services are linked directly to that category.\n- If ID is a **Base Price**: The system resolves its components (Location, Role, Age Group) and links services to that *profile*. This means services are **SHARED** across all subscription terms for that base plan.\n\nExample: Adding a service to 'Adult Primary (Monthly)' automatically adds it to 'Adult Primary (Annual)'.",
+                    "response": []
+                },
+                {
+                    "name": "Delete Membership Service Link",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/membership-services/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "membership-services",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "{{lastMembershipServiceId}}"
+                                }
+                            ]
+                        }
+                    },
                     "response": []
                 }
             ]
@@ -1203,6 +1340,66 @@
                         }
                     },
                     "response": []
+                },
+                {
+                    "name": "Delete Service",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/services/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "services",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "{{lastServiceId}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Service Pack",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/service-packs/:servicePackId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "service-packs",
+                                ":servicePackId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "servicePackId",
+                                    "value": "{{lastServicePackId}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
                 }
             ]
         },
@@ -1279,6 +1476,77 @@
                             ],
                             "path": [
                                 "memberships"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Membership Program",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/memberships/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "memberships",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "{{lastProgramId}}"
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Membership Category",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{adminToken}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "x-location-id",
+                                "value": "{{lastLocationId}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/memberships/category/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "memberships",
+                                "category",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "{{lastCategoryId}}"
+                                }
                             ]
                         }
                     },
@@ -1838,6 +2106,34 @@
                                     "key": "profile_id",
                                     "value": "{{lastProfileId}}"
                                 }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Link Profile to Signed Waiver",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"profile_id\": \"{{lastProfileId}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/signed-waivers/{{lastSignedWaiverId}}/link-profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "signed-waivers",
+                                "{{lastSignedWaiverId}}",
+                                "link-profile"
                             ]
                         }
                     },

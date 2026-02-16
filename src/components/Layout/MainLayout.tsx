@@ -19,24 +19,37 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If SuperAdmin and locations are not loaded, fetch them
-    if (isAuthenticated && role === 'SUPERADMIN' && locations.length === 0) {
-      axios.get(`${API_URL}/locations`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .then(res => {
-        setLocations(res.data);
-        // Set default location if not set
-        if (!currentLocationId && res.data.length > 0) {
-            // TODO: will change later - static location preselect
-            const targetId = "490f7013-a95d-4664-b750-1ecbb98bd463";
-            const targetExists = res.data.find((l: any) => l.location_id === targetId);
-            setCurrentLocationId(targetExists ? targetId : res.data[0].location_id);
-        }
-      })
-      .catch(err => console.error("Failed to fetch locations", err));
+    if (isAuthenticated && role === 'SUPERADMIN') {
+      if (locations.length === 0) {
+        axios.get(`${API_URL}/locations`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        .then(res => {
+          // Normalize location data (handle id vs location_id)
+          const normalizedLocations = res.data.map((l: any) => ({
+              ...l,
+              location_id: l.location_id || l.id
+          }));
+          setLocations(normalizedLocations);
+          
+          // Set default location if not set
+          if (!currentLocationId && normalizedLocations.length > 0) {
+              const targetId = "490f7013-a95d-4664-b750-1ecbb98bd463";
+              const targetExists = normalizedLocations.find((l: any) => l.location_id === targetId);
+              setCurrentLocationId(targetExists ? targetId : normalizedLocations[0].location_id);
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch locations", err);
+        });
+      } else if (!currentLocationId && locations.length > 0) {
+          // Locations already loaded but no current location set
+          const targetId = "490f7013-a95d-4664-b750-1ecbb98bd463";
+          const targetExists = locations.find((l: any) => l.location_id === targetId);
+          setCurrentLocationId(targetExists ? targetId : locations[0].location_id);
+      }
     }
-  }, [isAuthenticated, role, locations.length, token, currentLocationId, setLocations, setCurrentLocationId]);
+  }, [isAuthenticated, role, locations, token, currentLocationId, setLocations, setCurrentLocationId]);
 
   if (!isAuthenticated) {
     return <Navigate to="/admin/login" />;

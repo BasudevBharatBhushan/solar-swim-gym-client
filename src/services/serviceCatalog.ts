@@ -61,6 +61,11 @@ export const serviceCatalog = {
     });
   },
 
+  deleteService: async (serviceId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.delete(`/services/${serviceId}`, options);
+  },
+
   // --- Packs ---
   getServicePacks: async (serviceId: string, locationId?: string) => {
       const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
@@ -71,6 +76,11 @@ export const serviceCatalog = {
       // packData should include service_id
       const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
       return apiClient.post('/service-packs/upsert', packData, options);
+  },
+
+  deleteServicePack: async (servicePackId: string, locationId?: string) => {
+      const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+      return apiClient.delete(`/service-packs/${servicePackId}`, options);
   },
 
   // --- Prices ---

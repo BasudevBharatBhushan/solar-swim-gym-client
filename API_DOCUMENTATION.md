@@ -96,6 +96,11 @@ This document defines the backend API contracts, logic, and pseudo-code implemen
 - **Payload**: `{ "age_group_id": "optional-uuid", "name": "Adult", "min_age": 18, "max_age": 64 }`
 - **Logic**: Upsert based on `age_group_id`.
 
+**DELETE** `/config/age-groups/:id`
+- **Purpose**: Delete an Age Group.
+- **Header**: `Authorization: Bearer <token>`
+- **Response**: `{ "message": "Age Group deleted successfully" }` / `{ "error": "Age Group ID is required" }`
+
 ### 3.2 Subscription Terms
 **GET** `/config/subscription-terms`
 - **Response**: List of `subscription_term` (e.g., Monthly, 3-Month).
@@ -103,6 +108,11 @@ This document defines the backend API contracts, logic, and pseudo-code implemen
 - **Purpose**: Create or Update Subscription Term.
 - **Payload**: `{ "subscription_term_id": "optional-uuid", ... }`
 - **Logic**: Upsert based on `subscription_term_id`.
+
+**DELETE** `/config/subscription-terms/:id`
+- **Purpose**: Delete a Subscription Term.
+- **Header**: `Authorization: Bearer <token>`, `x-location-id: <location_id>`
+- **Response**: `{ "message": "Subscription term deleted successfully" }` / `{ "error": "Term ID is required" }`
 
 ### 3.3 Waiver Programs
 **GET** `/config/waiver-programs`

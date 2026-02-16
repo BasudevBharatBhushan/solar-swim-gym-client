@@ -191,6 +191,7 @@ export const Leads = () => {
                 />
             </Box>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                {/* Hide Reindex button for now
                 <Tooltip title="Sync lead index with search engine" arrow>
                   <Button 
                     startIcon={<RefreshIcon sx={{ fontSize: 18 }} />} 
@@ -200,6 +201,7 @@ export const Leads = () => {
                       Reindex
                   </Button>
                 </Tooltip>
+                */}
                 <Button 
                     variant="contained" 
                     startIcon={<AddIcon />} 
@@ -329,7 +331,13 @@ export const Leads = () => {
                         </TableRow>
                     ))}
                     {!loading && leads.length === 0 && (
-                        <TableRow><TableCell colSpan={8} align="center" sx={{ py: 8, color: 'text.secondary' }}>No leads found matching your search.</TableCell></TableRow>
+                        <TableRow>
+                            <TableCell colSpan={8} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                                {!currentLocationId 
+                                    ? "Please select a location from the top menu to view leads." 
+                                    : "No leads found matching your search."}
+                            </TableCell>
+                        </TableRow>
                     )}
                 </TableBody>
             </Table>

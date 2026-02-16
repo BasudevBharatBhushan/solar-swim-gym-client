@@ -21,6 +21,7 @@ export const crmService = {
     if (params.size !== undefined) queryParams.size = params.size.toString();
     if (params.sort) queryParams.sort = params.sort;
     if (params.order) queryParams.order = params.order;
+    queryParams.elastic = 'false';
     
     const options = params.locationId ? { headers: { 'x-location-id': params.locationId } } : {};
     return apiClient.get('/leads/search', queryParams, options);
@@ -57,6 +58,7 @@ export const crmService = {
     if (params.size !== undefined) queryParams.size = params.size.toString();
     if (params.sort) queryParams.sort = params.sort;
     if (params.order) queryParams.order = params.order;
+    queryParams.elastic = 'false';
 
     const options = params.locationId ? { headers: { 'x-location-id': params.locationId } } : {};
     return apiClient.get('/accounts/search', queryParams, options);

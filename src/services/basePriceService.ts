@@ -41,4 +41,10 @@ export const basePriceService = {
         }
         return response.prices ? response.prices[0] : response;
     },
+    // Delete Base Plan (Profile)
+    // Deletes all prices for the profile + bundled services
+    delete: async (basePriceId: string, locationId?: string): Promise<void> => {
+        const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+        return apiClient.delete(`/base-prices/${basePriceId}`, options);
+    },
 };

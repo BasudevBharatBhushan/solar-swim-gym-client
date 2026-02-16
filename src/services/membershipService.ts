@@ -71,6 +71,18 @@ export const membershipService = {
      return apiClient.post('/memberships', programData, options);
   },
 
+  // Delete Membership Program
+  deleteMembershipProgram: async (programId: string, locationId?: string): Promise<void> => {
+      const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+      return apiClient.delete(`/memberships/${programId}`, options);
+  },
+
+  // Delete Membership Category
+  deleteMembershipCategory: async (categoryId: string, locationId?: string): Promise<void> => {
+      const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+      return apiClient.delete(`/memberships/category/${categoryId}`, options);
+  },
+
   // --- Unified Service Management ---
 
   // Fetch Services by Owner (Category OR Base Price)
@@ -78,6 +90,12 @@ export const membershipService = {
     // Route: GET /api/membership-services/:ownerId
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.get(`/membership-services/${ownerId}`, {}, options);
+  },
+  
+  // Delete Membership Service Link
+  deleteServiceLink: async (membershipServiceId: string, locationId?: string): Promise<void> => {
+      const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+      return apiClient.delete(`/membership-services/${membershipServiceId}`, options);
   },
 
   // Upsert Services (Generic)

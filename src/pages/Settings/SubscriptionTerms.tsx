@@ -102,9 +102,15 @@ export const SubscriptionTerms = () => {
         await configService.deleteSubscriptionTerm(id, currentLocationId || undefined);
         setSuccess('Term deleted');
         fetchData();
-    } catch (err) {
+        await refreshSubscriptionTerms();
+    } catch (err: any) {
         console.error(err);
-        setError('Failed to delete term');
+        const errorMsg = err.response?.data?.error || err.message || '';
+        if (errorMsg.includes('foreign key constraint')) {
+            setError('Cannot delete this term because it is linked to pricing or subscriptions. Please remove those links first.');
+        } else {
+            setError('Failed to delete term');
+        }
     }
   };
 
