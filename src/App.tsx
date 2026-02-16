@@ -27,11 +27,12 @@ import { MyAccount } from './pages/Portal/MyAccount';
 import { LayoutProvider } from './context/LayoutContext';
 import { StaffManagement } from './pages/Settings/StaffManagement';
 import { AdminActivation } from './pages/AdminActivation';
+import { Profiles } from './pages/Profiles/Profiles';
 
 
 
 import { ComingSoon } from './components/Common/ComingSoon';
-import { CreditCard, AccountBox, Subscriptions } from '@mui/icons-material';
+import { CreditCard, Subscriptions } from '@mui/icons-material';
 
 function App() {
   return (
@@ -68,7 +69,7 @@ function App() {
             <Route path="/admin/accounts" element={<MainLayout><Accounts /></MainLayout>} />
             <Route path="/admin/accounts/:accountId" element={<MainLayout><AccountDetail /></MainLayout>} />
             <Route path="/admin/accounts/:accountId/marketplace" element={<MainLayout><Marketplace /></MainLayout>} />
-            <Route path="/admin/profiles" element={<MainLayout><ComingSoon title="Profiles" icon={<AccountBox sx={{ fontSize: 60, color: '#3b82f6' }} />} breadcrumbs={[{ label: 'System', href: '/admin' }, { label: 'Profiles', active: true }]} /></MainLayout>} />
+            <Route path="/admin/profiles" element={<MainLayout><Profiles /></MainLayout>} />
             <Route path="/admin/staff" element={<MainLayout><StaffManagement /></MainLayout>} />
             <Route path="/admin/subscription" element={<MainLayout><ComingSoon title="Subscription" icon={<Subscriptions sx={{ fontSize: 60, color: '#3b82f6' }} />} breadcrumbs={[{ label: 'System', href: '/admin' }, { label: 'Subscription', active: true }]} /></MainLayout>} />
             <Route path="/admin/billing" element={<MainLayout><ComingSoon title="Billing" icon={<CreditCard sx={{ fontSize: 60, color: '#3b82f6' }} />} breadcrumbs={[{ label: 'Settings', href: '/admin/settings' }, { label: 'Billing', active: true }]} /></MainLayout>} />

@@ -26,6 +26,9 @@ import { ReviewStep } from './Steps/ReviewStep';
 import { WaiverSigningStep } from './Steps/WaiverSigningStep';
 import { authService } from '../../../services/authService';
 import { useAuth } from '../../../context/AuthContext';
+import { waiverService } from '../../../services/waiverService';
+import { emailService } from '../../../services/emailService';
+import { crmService } from '../../../services/crmService';
 
 
 interface ClientOnboardingModalProps {
@@ -58,6 +61,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   const [signedWaivers, setSignedWaivers] = useState<Record<string, string>>({});
   const [allSigned, setAllSigned] = useState(false);
+  const [createdAccount, setCreatedAccount] = useState<any>(null);
 
   const [errors, setErrors] = useState<any>({});
   const [loading, setLoading] = useState(false);
@@ -170,7 +174,9 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
           console.log("Submitting Payload:", payload);
           // Actual API Call
-          await authService.registerUser(payload);
+          const response = await authService.registerUser(payload);
+          console.log('Registration response:', response);
+          setCreatedAccount(response.account || response);
           
           onSuccess();
           setIsSuccess(true);
@@ -179,6 +185,105 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       } catch (error: any) {
           console.error("Registration failed", error);
           showToast(error.message || "Failed to create account. Please try again.", "error");
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const handleSendWaiverEmail = async () => {
+      if (!createdAccount || !currentLocationId) return;
+
+      setLoading(true);
+      try {
+          // 1. Ensure we have full account details including profiles
+          let account = createdAccount;
+          if (!account.profiles && account.account_id) {
+               const res = await crmService.getAccountDetails(account.account_id, currentLocationId);
+               account = res.data || res;
+          }
+          const profiles = account.profiles || account.profile || [];
+          if (profiles.length === 0) {
+              showToast("No profiles found for this account.", "warning");
+              setLoading(false);
+              return;
+          }
+
+          // 2. Fetch signed waivers for all profiles
+          const attachments: File[] = [];
+          for (const profile of profiles) {
+              const waivers = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
+              if (waivers.data && waivers.data.length > 0) {
+                  // Get the latest waiver
+                  const latestWaiver = waivers.data[0]; 
+                  const waiverHtml = `
+                    <html>
+                        <head><title>Signed Waiver</title></head>
+                        <body>
+                            <h2>Waiver for ${profile.first_name} ${profile.last_name}</h2>
+                            <div style="border: 1px solid #ccc; padding: 20px;">
+                                ${latestWaiver.content}
+                            </div>
+                            ${latestWaiver.signature_url ? `
+                                <div style="margin-top: 30px;">
+                                    <p>Signed on: ${new Date(latestWaiver.signed_at).toLocaleString()}</p>
+                                    <img src="${latestWaiver.signature_url}" alt="Signature" style="max-height: 100px;" />
+                                </div>
+                            ` : ''}
+                        </body>
+                    </html>
+                  `;
+                  
+                  // Create a File object
+                  const blob = new Blob([waiverHtml], { type: 'text/html' });
+                  const fileName = `Waiver_${profile.first_name}_${profile.last_name}.html`;
+                  const file = new File([blob], fileName, { type: 'text/html' });
+                  attachments.push(file);
+              }
+          }
+
+          if (attachments.length === 0) {
+              showToast("No signed waivers found to send.", "warning");
+              setLoading(false);
+              return;
+          }
+
+          // 3. Prepare Email
+          const profileNames = profiles.map((p: any) => `${p.first_name} ${p.last_name}`).join(', ');
+          const templateName = 'Waiver to Join Solar Swim Gym Membership';
+          
+          let subject = templateName;
+          let body = `Please find attached the signed waivers for: ${profileNames}.`;
+          let templateId = undefined;
+
+          // Try to find the template
+          try {
+              const templates = await emailService.getTemplates(currentLocationId);
+              const template = templates.find(t => t.subject === templateName || t.subject.includes('Waiver'));
+              if (template) {
+                  subject = template.subject;
+                  templateId = template.email_template_id;
+              }
+          } catch (e) {
+              console.warn("Could not fetch templates, using default subject");
+          }
+
+          // 4. Send Email
+          await emailService.sendEmail({
+             to: account.email || profiles[0].email, 
+             subject: subject,
+             body: `${body} <br/><br/> Profiles included: ${profileNames}`,
+             isHtml: true,
+             location_id: currentLocationId,
+             account_id: account.account_id,
+             email_template_id: templateId,
+             attachments: attachments
+          });
+
+          showToast("Waiver email sent successfully!", "success");
+
+      } catch (error: any) {
+          console.error("Failed to send waiver email", error);
+          showToast("Failed to send waiver email. " + error.message, "error");
       } finally {
           setLoading(false);
       }
@@ -279,6 +384,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                         <Button 
                             variant="outlined" 
                             fullWidth 
+                            onClick={handleSendWaiverEmail}
                             startIcon={<EmailIcon />}
                             endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
                             sx={{ 
@@ -354,6 +460,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                                     });
                                     setFamilyMembers([]);
                                     setSignedWaivers({});
+                                    setCreatedAccount(null);
                                     onClose();
                                 }}
                                 sx={{ 
@@ -392,6 +499,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                             });
                             setFamilyMembers([]);
                             setSignedWaivers({});
+                            setCreatedAccount(null);
                             onClose();
                         }}
                         sx={{ 

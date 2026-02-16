@@ -41,6 +41,7 @@ import {
   Settings
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
+import { useConfig } from '../../context/ConfigContext';
 import { serviceCatalog, Service } from '../../services/serviceCatalog';
 import { 
   membershipService, 
@@ -52,6 +53,7 @@ import { PageHeader } from '../../components/Common/PageHeader';
 
 export const Memberships = () => {
   const { currentLocationId } = useAuth();
+  const { dropdownValues } = useConfig();
   
   // Data State
   const [programs, setPrograms] = useState<MembershipProgram[]>([]);
@@ -975,6 +977,22 @@ export const Memberships = () => {
                                                                              {description}
                                                                          </Typography>
                                                                      )}
+                                                                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                                                          {serviceRef?.type && (
+                                                                              <Chip 
+                                                                                  label={serviceRef.type} 
+                                                                                  size="small" 
+                                                                                  sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} 
+                                                                              />
+                                                                          )}
+                                                                          {serviceRef?.service_type && (
+                                                                              <Chip 
+                                                                                  label={serviceRef.service_type} 
+                                                                                  size="small" 
+                                                                                  sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#eff6ff', color: '#3b82f6', borderRadius: '4px' }} 
+                                                                              />
+                                                                          )}
+                                                                      </Stack>
                                                                  </Box>
                                                                  
                                                                  {!isEditingThis && (
@@ -1221,7 +1239,25 @@ export const Memberships = () => {
                              // Filter out services already in the DRAFT list
                              .filter(s => !draftServices.find(ds => ds.service_id === s.service_id && ds.is_active !== false))
                              .map(s => (
-                                 <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>
+                                 (s => {
+                                  const typeLabel = dropdownValues?.find(v => 
+                                      v.module?.toLowerCase() === 'services' && 
+                                      v.label?.toUpperCase() === 'TYPE' && 
+                                      v.value?.toLowerCase() === s.type?.toLowerCase()
+                                  )?.value || s.type || 'Group';
+
+                                  const catLabel = dropdownValues?.find(v => 
+                                      v.module?.toLowerCase() === 'services' && 
+                                      v.label?.toUpperCase() === 'CATEGORY' && 
+                                      v.value?.toLowerCase() === s.service_type?.toLowerCase()
+                                  )?.value || s.service_type || 'Training';
+
+                                  return (
+                                      <MenuItem key={s.service_id} value={s.service_id}>
+                                          {s.name} [{typeLabel}] ({catLabel})
+                                      </MenuItem>
+                                  );
+                              })(s)
                              ))
                          }
                      </Select>

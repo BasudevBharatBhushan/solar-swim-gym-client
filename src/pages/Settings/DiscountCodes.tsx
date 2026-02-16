@@ -28,7 +28,7 @@ import {
   FormControl,
   FormHelperText
 } from '@mui/material';
-import { Add, FilterList, Download, Edit, Delete, LocalOffer, MonetizationOn, InfoOutlined } from '@mui/icons-material';
+import { Add, FilterList, Download, Edit, Delete, LocalOffer, MonetizationOn, InfoOutlined, CalendarToday } from '@mui/icons-material';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { discountService, Discount } from '../../services/discountService';
 import { serviceCatalog, Service } from '../../services/serviceCatalog';
@@ -47,6 +47,8 @@ export const DiscountCodes = () => {
     const [discountValue, setDiscountValue] = useState('');
     const [selectedServiceId, setSelectedServiceId] = useState<string>('all');
     const [isActive, setIsActive] = useState(true);
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success'|'error', text: string } | null>(null);
@@ -97,6 +99,8 @@ export const DiscountCodes = () => {
         setDiscountValue(discount.discount.replace('%', ''));
         setSelectedServiceId(discount.service_id || 'all');
         setIsActive(discount.is_active);
+        setStartDate(discount.start_date ? discount.start_date.split('T')[0] : '');
+        setEndDate(discount.end_date ? discount.end_date.split('T')[0] : '');
     };
 
     const resetForm = () => {
@@ -106,6 +110,8 @@ export const DiscountCodes = () => {
         setDiscountValue('');
         setSelectedServiceId('all');
         setIsActive(true);
+        setStartDate('');
+        setEndDate('');
         
         // Use a small timeout to ensure field exists if we toggle something
         setTimeout(() => {
@@ -135,7 +141,9 @@ export const DiscountCodes = () => {
                 is_active: isActive,
                 staff_name: staffName,
                 location_id: locationId,
-                service_id: selectedServiceId === 'all' ? null : selectedServiceId
+                service_id: selectedServiceId === 'all' ? null : selectedServiceId,
+                start_date: startDate || null,
+                end_date: endDate || null
             };
 
             if (editingDiscountId) {
@@ -248,7 +256,9 @@ export const DiscountCodes = () => {
                                         <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>TYPE</TableCell>
                                         <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>VALUE</TableCell>
                                         <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>STATUS</TableCell>
+                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>VALIDITY</TableCell>
                                         <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>SERVICE</TableCell>
+                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>STAFF</TableCell>
                                         <TableCell align="right" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>ACTIONS</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -296,7 +306,23 @@ export const DiscountCodes = () => {
                                                 />
                                             </TableCell>
                                             <TableCell>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <CalendarToday sx={{ fontSize: 14, color: '#90A4AE' }} />
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <Typography variant="caption" sx={{ color: '#78909C', fontSize: '0.65rem', fontWeight: 700 }}>
+                                                            {discount.start_date ? new Date(discount.start_date).toLocaleDateString() : 'No Start'}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: '#78909C', fontSize: '0.65rem', fontWeight: 700 }}>
+                                                            {discount.end_date ? new Date(discount.end_date).toLocaleDateString() : 'No End'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell>
                                                 <Typography variant="body2" sx={{ color: '#263238', fontWeight: 600 }}>{serviceName}</Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography variant="body2" sx={{ color: '#455A64', fontSize: '0.75rem', fontWeight: 500 }}>{discount.staff_name || 'System'}</Typography>
                                             </TableCell>
                                             <TableCell align="right">
                                                 <IconButton size="small" sx={{ color: '#90A4AE' }} onClick={() => handleEditClick(discount)}>
@@ -432,6 +458,31 @@ export const DiscountCodes = () => {
                                     </FormHelperText>
                                 </FormControl>
                             </Box>
+
+                            <Grid container spacing={2}>
+                                <Grid size={{ xs: 6 }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>START DATE</Typography>
+                                    <TextField 
+                                        fullWidth 
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => setStartDate(e.target.value)}
+                                        InputLabelProps={{ shrink: true }}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                                    />
+                                </Grid>
+                                <Grid size={{ xs: 6 }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>END DATE</Typography>
+                                    <TextField 
+                                        fullWidth 
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => setEndDate(e.target.value)}
+                                        InputLabelProps={{ shrink: true }}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                                    />
+                                </Grid>
+                            </Grid>
 
                             <Box>
                                 <FormControlLabel 

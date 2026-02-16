@@ -9,6 +9,8 @@ export interface Discount {
     discount: string; // e.g. "6%" or "50.00"
     staff_name?: string;
     is_active: boolean;
+    start_date?: string | null;
+    end_date?: string | null;
     created_at?: string;
     updated_at?: string;
 }

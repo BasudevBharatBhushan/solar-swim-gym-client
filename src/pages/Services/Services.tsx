@@ -13,6 +13,7 @@ import { serviceCatalog, ServicePack, ServicePrice } from '../../services/servic
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
+import { dropdownService, DropdownValue } from '../../services/dropdownService';
 
 
 // Types
@@ -140,13 +141,17 @@ interface ServiceBasicInfoProps {
     onDelete: () => void;
     categories?: { value: string, label: string }[];
     types?: { value: string, label: string }[];
+    onAddCategory: () => void;
+    onAddType: () => void;
 }
 
 const ServiceBasicInfo = memo(({
     name, description, type, serviceType, isActive, imageUrl, lessonRegistrationFee, isCreating,
     onNameChange, onDescriptionChange, onTypeChange, onServiceTypeChange, onActiveChange, onLessonRegistrationFeeChange, onSave, onImageUpload, onDelete,
     categories = [],
-    types = []
+    types = [],
+    onAddCategory,
+    onAddType
 }: ServiceBasicInfoProps) => {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files && event.target.files[0]) {
@@ -291,6 +296,15 @@ const ServiceBasicInfo = memo(({
                                 value={serviceType} 
                                 onChange={(e) => onServiceTypeChange(e.target.value)} 
                                 size="small"
+                                InputProps={{
+                                    endAdornment: (
+                                        <InputAdornment position="end" sx={{ mr: 2 }}>
+                                            <IconButton size="small" onClick={onAddCategory} edge="end">
+                                                <AddIcon fontSize="small" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
                                 sx={{ 
                                     '& .MuiOutlinedInput-root': { 
                                         bgcolor: '#ffffff', 
@@ -312,6 +326,15 @@ const ServiceBasicInfo = memo(({
                                 value={type} 
                                 onChange={(e) => onTypeChange(e.target.value)} 
                                 size="small"
+                                InputProps={{
+                                    endAdornment: (
+                                        <InputAdornment position="end" sx={{ mr: 2 }}>
+                                            <IconButton size="small" onClick={onAddType} edge="end">
+                                                <AddIcon fontSize="small" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    )
+                                }}
                                 sx={{ 
                                     '& .MuiOutlinedInput-root': { 
                                         bgcolor: '#ffffff', 
@@ -508,7 +531,7 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
 
 export const Services = () => {
     const { currentLocationId } = useAuth();
-    const { ageGroups, dropdownValues } = useConfig();
+    const { ageGroups, dropdownValues, refreshDropdownValues } = useConfig();
 
     const serviceCategories = useMemo(() => {
         return (dropdownValues || [])
@@ -568,6 +591,11 @@ export const Services = () => {
     // Feedback
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+
+    // Dropdown Logic
+    const [isDropdownDialogOpen, setIsDropdownDialogOpen] = useState(false);
+    const [newDropdownLabel, setNewDropdownLabel] = useState(''); // 'Category' or 'Type'
+    const [newDropdownValue, setNewDropdownValue] = useState('');
 
     // --- Data Fetching ---
 
@@ -802,18 +830,51 @@ export const Services = () => {
         }
 
         try {
-            await serviceCatalog.deleteServicePack(deletePackId, currentLocationId);
-            setSuccess('Service pack deleted successfully');
+            await serviceCatalog.deleteServicePack(deletePackId);
+            setSuccess('Pack deleted successfully');
             setDeletePackId(null);
-            // Re-fetch parent service packs to ensure sync
             if (selectedService) {
                 fetchPacks(selectedService.service_id || selectedService.id || '');
             }
         } catch (err: any) {
             // Revert
             setPacks(prevPacks);
-            setSelectedPack(prevSelectedPack);
-            setError(err.message || 'Failed to delete service pack');
+            if (prevSelectedPack) setSelectedPack(prevSelectedPack);
+            setError(err.message || 'Failed to delete pack');
+        }
+    };
+
+    // --- Handlers: Dropdowns ---
+
+    const handleAddDropdown = (label: string) => {
+        setNewDropdownLabel(label);
+        setNewDropdownValue('');
+        setIsDropdownDialogOpen(true);
+    };
+
+    const handleSaveDropdown = async () => {
+        if (!currentLocationId) return;
+        if (!newDropdownValue.trim()) return setError('Value is required');
+
+        try {
+            await dropdownService.upsert({
+                module: 'Services',
+                label: newDropdownLabel,
+                value: newDropdownValue
+            }, currentLocationId);
+            
+            await refreshDropdownValues();
+            setSuccess(`${newDropdownLabel} added successfully`);
+            setIsDropdownDialogOpen(false);
+            
+            // Auto-select the new value
+            if (newDropdownLabel === 'Category') {
+                setServiceCategory(newDropdownValue);
+            } else if (newDropdownLabel === 'Type') {
+                setServiceType(newDropdownValue);
+            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to add value');
         }
     };
 
@@ -829,7 +890,7 @@ export const Services = () => {
             />
 
             <Grid container spacing={3}>
-                {/* Left Panel: Services List (3 cols) */}
+                {/* Left Panel: Services List */}
                 <Grid size={{ xs: 12, md: 3, lg: 3 }} sx={{ display: 'flex', flexDirection: 'column' }}>
                     <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                         <Box sx={{ p: 2, bgcolor: '#ffffff', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -853,54 +914,66 @@ export const Services = () => {
                     </Paper>
                 </Grid>
 
-                {/* Right Panel: Details, Packs, Prices (9 cols) */}
-                <Grid size={{ xs: 12, md: 9, lg: 9 }}>
-                    <Grid container spacing={3}>
-                        {/* Service Details on Top */}
-                        <Grid size={{ xs: 12 }}>
-                            <ServiceBasicInfo 
-                                name={serviceName} 
-                                description={serviceDesc}
-                                type={serviceType} 
-                                serviceType={serviceCategory} 
-                                isActive={serviceActive} 
-                                imageUrl={serviceImageUrl} 
-                                lessonRegistrationFee={serviceLessonRegistrationFee}
-                                isCreating={isCreatingService}
-                                onNameChange={setServiceName} 
-                                onDescriptionChange={setServiceDesc}
-                                onTypeChange={setServiceType} 
-                                onServiceTypeChange={setServiceCategory} 
-                                onActiveChange={setServiceActive}
-                                onLessonRegistrationFeeChange={setServiceLessonRegistrationFee}
-                                onSave={handleSaveService}
-                                onImageUpload={handleImageUpload}
-                                onDelete={handleDeleteServiceClick}
-                                categories={serviceCategories}
-                                types={serviceTypes}
-                            />
-                        </Grid>
+                {/* Right Panel */}
+                <Grid size={{ xs: 12, md: 9, lg: 9 }} container spacing={3} sx={{ alignContent: 'flex-start' }}>
+                    {/* Service Basic Info */}
+                    <Grid size={{ xs: 12 }}>
+                        {isCreatingService || selectedService ? (
+                            <Box sx={{ animation: 'fadeIn 0.3s ease-in-out', '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateY(10px)' }, to: { opacity: 1, transform: 'translateY(0)' } } }}>
+                                <ServiceBasicInfo 
+                                    name={serviceName}
+                                    description={serviceDesc}
+                                    type={serviceType}
+                                    serviceType={serviceCategory}
+                                    isActive={serviceActive}
+                                    imageUrl={serviceImageUrl}
+                                    lessonRegistrationFee={serviceLessonRegistrationFee}
+                                    isCreating={isCreatingService}
+                                    onNameChange={setServiceName}
+                                    onDescriptionChange={setServiceDesc}
+                                    onTypeChange={setServiceType}
+                                    onServiceTypeChange={setServiceCategory}
+                                    onActiveChange={setServiceActive}
+                                    onLessonRegistrationFeeChange={setServiceLessonRegistrationFee}
+                                    onSave={handleSaveService}
+                                    onImageUpload={handleImageUpload}
+                                    onDelete={handleDeleteServiceClick}
+                                    categories={serviceCategories}
+                                    types={serviceTypes}
+                                    onAddCategory={() => handleAddDropdown('Category')}
+                                    onAddType={() => handleAddDropdown('Type')}
+                                />
+                            </Box>
+                        ) : (
+                            <Paper elevation={0} sx={{ p: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', flexDirection: 'column', gap: 2, border: '1px dashed #e2e8f0', borderRadius: 2, height: '400px' }}>
+                                <Box sx={{ fontSize: '4rem', opacity: 0.2 }}>👈</Box>
+                                <Typography variant="body1" fontWeight={500}>Select a service to view details</Typography>
+                            </Paper>
+                        )}
+                    </Grid>
 
-                        {selectedService && !isCreatingService && (
-                            <>
-                                {/* Service Packs (Left half of bottom) */}
-                                <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-                                     <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', height: '100%', width: '100%' }}>
-                                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                                            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#64748b', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                                                SERVICE PACKS
-                                            </Typography>
-                                            <Button 
-                                                startIcon={<AddIcon />} 
-                                                variant="contained" 
-                                                size="small" 
-                                                onClick={() => handleOpenPackModal()} 
-                                                sx={{ bgcolor: '#3b82f6', textTransform: 'none', fontWeight: 700, borderRadius: '6px' }}
-                                            >
-                                                ADD PACK
-                                            </Button>
-                                        </Box>
-                                        
+                    {/* Packs & Prices (Only if Service Selected and Not Creating) */}
+                    {selectedService && !isCreatingService && (
+                        <>
+                            {/* Service Packs */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', height: '100%', width: '100%', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
+                                    <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#64748b', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                                            SERVICE PACKS
+                                        </Typography>
+                                        <Button 
+                                            startIcon={<AddIcon />} 
+                                            variant="contained" 
+                                            size="small" 
+                                            onClick={() => handleOpenPackModal()} 
+                                            sx={{ bgcolor: '#3b82f6', textTransform: 'none', fontWeight: 700, borderRadius: '6px' }}
+                                        >
+                                            ADD PACK
+                                        </Button>
+                                    </Box>
+                                    
+                                    <Box sx={{ flex: 1, overflowY: 'auto' }}>
                                         {packs.length === 0 ? (
                                             <Box sx={{ p: 4, textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem' }}>No packs defined.</Box>
                                         ) : (
@@ -967,26 +1040,26 @@ export const Services = () => {
                                                 })}
                                             </List>
                                         )}
-                                    </Paper>
-                                </Grid>
+                                    </Box>
+                                </Paper>
+                            </Grid>
 
-                                {/* Pack Prices (Right half of bottom) */}
-                                <Grid size={{ xs: 12, md: 6 }} sx={{ display: 'flex' }}>
-                                    {selectedPack ? (
-                                        <PricingPanel 
-                                            pack={selectedPack} 
-                                            ageGroups={ageGroups} 
-                                            onSave={handleSavePackPrices} 
-                                        />
-                                    ) : (
-                                         <Paper sx={{ p: 3, textAlign: 'center', color: '#94a3b8', bgcolor: '#f8fafc', border: '1px dashed #e2e8f0', borderRadius: 2, height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            Select a Service Pack to manage prices.
-                                        </Paper>
-                                    )}
-                                </Grid>
-                            </>
-                        )}
-                    </Grid>
+                            {/* Pricing Panel */}
+                            <Grid size={{ xs: 12, md: 6 }}>
+                                {selectedPack ? (
+                                    <PricingPanel 
+                                        pack={selectedPack} 
+                                        ageGroups={ageGroups} 
+                                        onSave={handleSavePackPrices} 
+                                    />
+                                ) : (
+                                     <Paper sx={{ p: 3, textAlign: 'center', color: '#94a3b8', bgcolor: '#f8fafc', border: '1px dashed #e2e8f0', borderRadius: 2, height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        Select a Service Pack to manage prices.
+                                    </Paper>
+                                )}
+                            </Grid>
+                        </>
+                    )}
                 </Grid>
             </Grid>
 
@@ -1128,13 +1201,34 @@ export const Services = () => {
                 </DialogTitle>
                 <DialogContent>
                     <Typography>
-                        Delete this Service Pack? This will remove the pack and its associated prices.
+                        Are you sure you want to delete this Service Pack? This will remove the pack and its associated prices.
                     </Typography>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setIsDeletePackModalOpen(false)} sx={{ color: '#64748b' }}>Cancel</Button>
-                    <Button onClick={handleConfirmDeletePack} color="error" variant="contained" autoFocus>
-                        Delete
+                    <Button onClick={() => setIsDeletePackModalOpen(false)}>Cancel</Button>
+                    <Button onClick={handleConfirmDeletePack} color="error" variant="contained">Delete</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* New Dropdown Value Dialog */}
+            <Dialog open={isDropdownDialogOpen} onClose={() => setIsDropdownDialogOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ borderBottom: '1px solid #e2e8f0', px: 3, py: 2 }}>
+                    Add New {newDropdownLabel}
+                </DialogTitle>
+                <DialogContent sx={{ p: 3, pt: '24px !important' }}>
+                    <TextField
+                        autoFocus
+                        label="Name"
+                        fullWidth
+                        value={newDropdownValue}
+                        onChange={(e) => setNewDropdownValue(e.target.value)}
+                        placeholder={`e.g. New ${newDropdownLabel}`}
+                    />
+                </DialogContent>
+                <DialogActions sx={{ borderTop: '1px solid #e2e8f0', p: 2 }}>
+                    <Button onClick={() => setIsDropdownDialogOpen(false)} color="inherit">Cancel</Button>
+                    <Button onClick={handleSaveDropdown} variant="contained" disabled={!newDropdownValue.trim()}>
+                        Add
                     </Button>
                 </DialogActions>
             </Dialog>

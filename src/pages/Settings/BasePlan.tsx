@@ -46,7 +46,7 @@ interface ProfileKey {
 
 export const BasePlan = () => {
   const { currentLocationId } = useAuth();
-  const { ageGroups, subscriptionTerms } = useConfig();
+  const { ageGroups, subscriptionTerms, dropdownValues } = useConfig();
   
   // -- Data State --
   const [basePrices, setBasePrices] = useState<BasePrice[]>([]);
@@ -731,7 +731,25 @@ export const BasePlan = () => {
                                                               >
                                                                   {allServices
                                                                       .filter(s => !bundledServices.find(bs => bs.service_id === s.service_id && bs.is_active !== false))
-                                                                      .map(s => <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>)
+                                                                      .map(s => {
+                                                                          const typeLabel = dropdownValues?.find(v => 
+                                                                              v.module?.toLowerCase() === 'services' && 
+                                                                              v.label?.toUpperCase() === 'TYPE' && 
+                                                                              v.value?.toLowerCase() === s.type?.toLowerCase()
+                                                                          )?.value || s.type || 'Group';
+
+                                                                          const catLabel = dropdownValues?.find(v => 
+                                                                              v.module?.toLowerCase() === 'services' && 
+                                                                              v.label?.toUpperCase() === 'CATEGORY' && 
+                                                                              v.value?.toLowerCase() === s.service_type?.toLowerCase()
+                                                                          )?.value || s.service_type || 'Training';
+
+                                                                          return (
+                                                                              <MenuItem key={s.service_id} value={s.service_id}>
+                                                                                  {s.name} [{typeLabel}] ({catLabel})
+                                                                              </MenuItem>
+                                                                          );
+                                                                      })
                                                                   }
                                                               </Select>
                                                           </FormControl>
@@ -771,13 +789,30 @@ export const BasePlan = () => {
                                                                               {description}
                                                                           </Typography>
                                                                       )}
-                                                                      {serviceRef?.type && (
-                                                                          <Chip 
-                                                                              label={serviceRef.type} 
-                                                                              size="small" 
-                                                                              sx={{ mt: 1, height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} 
-                                                                          />
-                                                                      )}
+                                                                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                                                          {(serviceRef?.type || 'Group') && (
+                                                                              <Chip 
+                                                                                  label={(dropdownValues?.find(v => 
+                                                                                      v.module?.toLowerCase() === 'services' && 
+                                                                                      v.label?.toUpperCase() === 'TYPE' && 
+                                                                                      v.value?.toLowerCase() === serviceRef?.type?.toLowerCase()
+                                                                                  )?.value || serviceRef?.type || 'Group').toUpperCase()} 
+                                                                                  size="small" 
+                                                                                  sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} 
+                                                                              />
+                                                                          )}
+                                                                          {(serviceRef?.service_type || 'Training') && (
+                                                                              <Chip 
+                                                                                  label={(dropdownValues?.find(v => 
+                                                                                      v.module?.toLowerCase() === 'services' && 
+                                                                                      v.label?.toUpperCase() === 'CATEGORY' && 
+                                                                                      v.value?.toLowerCase() === serviceRef?.service_type?.toLowerCase()
+                                                                                  )?.value || serviceRef?.service_type || 'Training').toUpperCase()} 
+                                                                                  size="small" 
+                                                                                  sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#eff6ff', color: '#3b82f6', borderRadius: '4px' }} 
+                                                                              />
+                                                                          )}
+                                                                      </Stack>
                                                                   </Box>
                                                                   
                                                                   {/* View Mode Tags & Actions */}
