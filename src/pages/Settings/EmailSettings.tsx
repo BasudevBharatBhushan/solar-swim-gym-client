@@ -14,12 +14,16 @@ import {
   IconButton,
   Divider,
   Alert,
-  Snackbar
+  Snackbar,
+  Dialog,
+  DialogContent
 } from '@mui/material';
-import { Visibility, VisibilityOff, Construction, Email } from '@mui/icons-material';
+import { Visibility, VisibilityOff, Email } from '@mui/icons-material';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { emailConfigService, EmailConfig } from '../../services/emailConfigService';
 import { useAuth } from '../../context/AuthContext';
+import { TemplateList } from '../../components/Email/TemplateList';
+import { EmailComposer } from '../../components/Email/EmailComposer';
 
 export const EmailSettings = () => {
     const { currentLocationId: locationId } = useAuth();
@@ -27,6 +31,7 @@ export const EmailSettings = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [openTestEmail, setOpenTestEmail] = useState(false);
     
     const INITIAL_CONFIG: Partial<EmailConfig> = {
         smtp_host: '',
@@ -260,6 +265,7 @@ export const EmailSettings = () => {
                                             bgcolor: 'rgba(0,0,0,0.02)'
                                         }
                                     }}
+                                    onClick={() => setOpenTestEmail(true)}
                                 >
                                     Send Test Email
                                 </Button>
@@ -273,77 +279,7 @@ export const EmailSettings = () => {
                     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 3 }}>
                         
                         {/* Templates Card */}
-                        <Paper sx={{ p: 3, flex: 1, borderRadius: 2, border: '1px solid #E0E0E0', display: 'flex', flexDirection: 'column' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                                <Box sx={{ 
-                                    bgcolor: '#F5F5F5', 
-                                    p: 1.25, 
-                                    borderRadius: 1.5,
-                                    display: 'flex'
-                                }}>
-                                    <Typography variant="body2" sx={{ fontWeight: 'bold', color: '#757575' }}>≡</Typography>
-                                </Box>
-                                <Typography variant="h6" fontWeight="bold">Email Templates</Typography>
-                            </Box>
-                            
-                            <Box sx={{ 
-                                flex: 1, 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                border: '2px dashed #EEEEEE',
-                                borderRadius: 3,
-                                p: 4,
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}>
-                                <Box sx={{ 
-                                    width: 80, 
-                                    height: 80, 
-                                    bgcolor: '#FAFAFA', 
-                                    borderRadius: '50%', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center',
-                                    mb: 2,
-                                    position: 'relative',
-                                    zIndex: 2
-                                }}>
-                                    <Construction sx={{ color: '#90CAF9', fontSize: 32 }} />
-                                    <Chip 
-                                        label="LAB" 
-                                        size="small" 
-                                        sx={{ 
-                                            position: 'absolute', 
-                                            top: -5, 
-                                            right: -10, 
-                                            bgcolor: '#2196F3', 
-                                            color: 'white', 
-                                            height: 20, 
-                                            fontSize: '0.65rem', 
-                                            fontWeight: 800
-                                        }} 
-                                    />
-                                </Box>
-                                <Typography variant="h6" align="center" sx={{ fontWeight: 800, color: '#263238', mb: 1, zIndex: 2 }}>
-                                    Coming Soon
-                                </Typography>
-                                <Typography variant="body2" align="center" color="text.secondary" sx={{ maxWidth: 280, mb: 4, zIndex: 2 }}>
-                                    Our drag-and-drop email template builder is currently in development. Soon you'll be able to customize lesson reminders and enrollment confirmations.
-                                </Typography>
-                                
-                                {/* Background Decorative Blobs/Cards */}
-                                <Box sx={{ position: 'absolute', bottom: 30, display: 'flex', gap: 2, opacity: 0.3, zIndex: 1, filter: 'blur(1px)' }}>
-                                    <Box sx={{ width: 100, height: 60, bgcolor: '#F5F5F5', borderRadius: 2 }} />
-                                    <Box sx={{ width: 100, height: 60, bgcolor: '#F5F5F5', borderRadius: 2 }} />
-                                </Box>
-                                <Box sx={{ position: 'absolute', bottom: -10, display: 'flex', gap: 2, opacity: 0.5, zIndex: 1, filter: 'blur(0.5px)' }}>
-                                    <Box sx={{ width: 100, height: 60, bgcolor: '#F5F5F5', borderRadius: 2 }} />
-                                    <Box sx={{ width: 100, height: 60, bgcolor: '#F5F5F5', borderRadius: 2 }} />
-                                </Box>
-                            </Box>
-                        </Paper>
+                        <TemplateList />
 
                         {/* Newsletter Card */}
                         <Paper sx={{ p: 4, borderRadius: 2, border: '1px solid #E0E0E0' }}>
@@ -367,7 +303,19 @@ export const EmailSettings = () => {
             <Paper sx={{ mt: 3, p: 4, borderRadius: 2, mb: 4, border: '1px solid #E0E0E0' }}>
                 <Typography variant="h6" fontWeight="bold">Notification Preferences</Typography>
             </Paper>
+            
+            <Dialog open={openTestEmail} onClose={() => setOpenTestEmail(false)} maxWidth="md" fullWidth>
+                <DialogContent>
+                    <EmailComposer 
+                        onClose={() => setOpenTestEmail(false)} 
+                        initialTo={config.sender_email || ''} // Default to sender email for testing
+                        initialSubject="Test Email from Solar Swim Gym"
+                        initialBody="This is a test email to verify your SMTP configuration."
+                    />
+                </DialogContent>
+            </Dialog>
 
         </Box>
     );
 };
+

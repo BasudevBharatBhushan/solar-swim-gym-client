@@ -11,8 +11,15 @@ import {
   Box,
   Typography,
   Snackbar,
-  Alert
+  Alert,
+  Stack,
+  Divider
 } from '@mui/material';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import EmailIcon from '@mui/icons-material/Email';
+import LinkIcon from '@mui/icons-material/Link';
+import LaunchIcon from '@mui/icons-material/Launch';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { ProfileStep } from './Steps/ProfileStep';
 import { FamilyStep } from './Steps/FamilyStep';
 import { ReviewStep } from './Steps/ReviewStep';
@@ -25,11 +32,12 @@ interface ClientOnboardingModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  mode?: 'staff' | 'user';
 }
 
 const steps = ['Profile', 'Family Details', 'Waiver Signing', 'Review'];
 
-export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess }) => {
+export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, mode = 'staff' }) => {
   const [activeStep, setActiveStep] = useState(0);
   const { currentLocationId, locations } = useAuth();
   
@@ -53,6 +61,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
   const [errors, setErrors] = useState<any>({});
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'error' | 'success' | 'warning' | 'info' }>({
     open: false,
     message: '',
@@ -164,20 +173,9 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           await authService.registerUser(payload);
           
           onSuccess();
-          onClose();
+          setIsSuccess(true);
           
-          // Reset State
-          setActiveStep(0);
-          setProfileData({
-            first_name: '',
-            last_name: '',
-            email: '',
-            mobile: '',
-            date_of_birth: null,
-            family_count: 1
-          });
-          setFamilyMembers([]);
-          setSignedWaivers({});
+          // State will be reset when closed
       } catch (error: any) {
           console.error("Registration failed", error);
           showToast(error.message || "Failed to create account. Please try again.", "error");
@@ -219,23 +217,199 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
-      <DialogTitle sx={{ textAlign: 'center', pb: 0 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Join {locationName}</Typography>
+    <Dialog 
+      open={open} 
+      onClose={isSuccess ? undefined : onClose} 
+      maxWidth={isSuccess ? "sm" : "lg"} 
+      fullWidth
+    >
+      <DialogTitle sx={{ textAlign: 'center', pt: 3, pb: 0 }}>
+        {!isSuccess ? (
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>Join {locationName}</Typography>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ 
+                bgcolor: '#f0fdf4', 
+                color: '#16a34a', 
+                width: 60, 
+                height: 60, 
+                borderRadius: '50%', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                mb: 1
+            }}>
+                <CheckCircleOutlineIcon sx={{ fontSize: 40 }} />
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a' }}>Account Created Successfully!</Typography>
+            <Typography variant="body2" color="text.secondary">
+                {mode === 'staff' 
+                    ? "Client details have been saved and the account is now active."
+                    : "Your registration is complete."
+                }
+            </Typography>
+          </Box>
+        )}
       </DialogTitle>
       
-      <DialogContent sx={{ mt: 2 }}>
-        <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-        
-        <Box sx={{ minHeight: '300px', p: 1 }}>
-            {renderStepContent(activeStep)}
-        </Box>
+      <DialogContent sx={{ mt: 2, px: 4 }}>
+        {!isSuccess ? (
+          <>
+            <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+            
+            <Box sx={{ minHeight: '300px', p: 1 }}>
+                {renderStepContent(activeStep)}
+            </Box>
+          </>
+        ) : (
+          <Box sx={{ py: 4 }}>
+            {mode === 'staff' ? (
+                <>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 3, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
+                        Next Actions
+                    </Typography>
+                    
+                    <Stack spacing={2}>
+                        <Button 
+                            variant="outlined" 
+                            fullWidth 
+                            startIcon={<EmailIcon />}
+                            endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
+                            sx={{ 
+                                justifyContent: 'space-between', 
+                                py: 2, 
+                                px: 3, 
+                                borderRadius: 2, 
+                                borderColor: '#e2e8f0', 
+                                color: '#1e293b',
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' }
+                            }}
+                        >
+                            Send Waiver via Email
+                        </Button>
+
+                        <Button 
+                            variant="outlined" 
+                            fullWidth 
+                            startIcon={<LinkIcon />}
+                            endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
+                            sx={{ 
+                                justifyContent: 'space-between', 
+                                py: 2, 
+                                px: 3, 
+                                borderRadius: 2, 
+                                borderColor: '#e2e8f0', 
+                                color: '#1e293b',
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' }
+                            }}
+                        >
+                            Send Account Activation Link
+                        </Button>
+
+                        <Button 
+                            variant="outlined" 
+                            fullWidth 
+                            startIcon={<PersonAddIcon />}
+                            endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
+                            sx={{ 
+                                justifyContent: 'space-between', 
+                                py: 2, 
+                                px: 3, 
+                                borderRadius: 2, 
+                                borderColor: '#e2e8f0', 
+                                color: '#1e293b',
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' }
+                            }}
+                        >
+                            View Client Profile
+                        </Button>
+
+                        <Divider sx={{ my: 1 }} />
+
+                        <Box sx={{ textAlign: 'center' }}>
+                            <Button 
+                                variant="contained" 
+                                onClick={() => {
+                                    setIsSuccess(false);
+                                    setActiveStep(0);
+                                    setProfileData({
+                                        first_name: '',
+                                        last_name: '',
+                                        email: '',
+                                        mobile: '',
+                                        date_of_birth: null,
+                                        family_count: 1
+                                    });
+                                    setFamilyMembers([]);
+                                    setSignedWaivers({});
+                                    onClose();
+                                }}
+                                sx={{ 
+                                    bgcolor: '#0f172a', 
+                                    '&:hover': { bgcolor: '#334155' },
+                                    px: 8,
+                                    py: 1.5,
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    fontWeight: 700
+                                }}
+                            >
+                                Return to Accounts
+                            </Button>
+                        </Box>
+                    </Stack>
+                </>
+            ) : (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                    <Typography variant="body1" sx={{ color: '#475569', mb: 4, lineHeight: 1.6 }}>
+                        An account activation link has been sent to your email. 
+                        Kindly use it to reset your password and login to your new account.
+                    </Typography>
+                    <Button 
+                        variant="contained" 
+                        onClick={() => {
+                            setIsSuccess(false);
+                            setActiveStep(0);
+                            setProfileData({
+                                first_name: '',
+                                last_name: '',
+                                email: '',
+                                mobile: '',
+                                date_of_birth: null,
+                                family_count: 1
+                            });
+                            setFamilyMembers([]);
+                            setSignedWaivers({});
+                            onClose();
+                        }}
+                        sx={{ 
+                            bgcolor: '#2563eb', 
+                            '&:hover': { bgcolor: '#1d4ed8' },
+                            px: 8,
+                            py: 1.5,
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 700
+                        }}
+                    >
+                        Back to Login
+                    </Button>
+                </Box>
+            )}
+          </Box>
+        )}
 
         <Snackbar 
             open={toast.open} 
@@ -249,26 +423,66 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
         </Snackbar>
       </DialogContent>
 
-      <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
-        <Button
-          disabled={activeStep === 0 || loading}
-          onClick={handleBack}
-          sx={{ color: 'text.secondary' }}
-        >
-          Back
-        </Button>
-        <Box>
-            {activeStep === steps.length - 1 ? (
-                <Button variant="contained" onClick={handleFinish} disabled={loading}>
-                    {loading ? 'Creating Account...' : 'Create Account'}
-                </Button>
-            ) : (
-                <Button variant="contained" onClick={handleNext}>
-                    Next Step
-                </Button>
-            )}
-        </Box>
-      </DialogActions>
+      {!isSuccess && (
+        <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
+          <Button
+            disabled={activeStep === 0 || loading}
+            onClick={handleBack}
+            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 600 }}
+          >
+            Back
+          </Button>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+              {activeStep === 2 && mode === 'staff' && (
+                  <Button 
+                      variant="outlined" 
+                      onClick={() => setActiveStep(3)}
+                      sx={{ 
+                          borderRadius: '8px', 
+                          textTransform: 'none', 
+                          fontWeight: 600,
+                          color: '#64748b',
+                          borderColor: '#cbd5e1'
+                      }}
+                  >
+                      Skip Waiver
+                  </Button>
+              )}
+              {activeStep === steps.length - 1 ? (
+                  <Button 
+                    variant="contained" 
+                    onClick={handleFinish} 
+                    disabled={loading}
+                    sx={{ 
+                        borderRadius: '8px', 
+                        textTransform: 'none', 
+                        fontWeight: 700,
+                        bgcolor: '#0f172a',
+                        px: 4,
+                        '&:hover': { bgcolor: '#334155' }
+                    }}
+                  >
+                      {loading ? 'Creating Account...' : 'Create Account'}
+                  </Button>
+              ) : (
+                  <Button 
+                    variant="contained" 
+                    onClick={handleNext}
+                    sx={{ 
+                        borderRadius: '8px', 
+                        textTransform: 'none', 
+                        fontWeight: 700,
+                        bgcolor: '#0f172a',
+                        px: 4,
+                        '&:hover': { bgcolor: '#334155' }
+                    }}
+                  >
+                      Next Step
+                  </Button>
+              )}
+          </Box>
+        </DialogActions>
+      )}
     </Dialog>
   );
 };

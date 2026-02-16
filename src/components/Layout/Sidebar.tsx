@@ -63,8 +63,14 @@ const menuItems: MenuItem[] = [
       { text: 'Age Profile', icon: <DateRange />, path: '/admin/settings/age-profiles' },
       { text: 'Subscription Term', icon: <CardMembership />, path: '/admin/settings/subscription-terms' },
       { text: 'Services', icon: <Pool />, path: '/admin/services' },
-      { text: 'Base Plan', icon: <MonetizationOn />, path: '/admin/settings/base-plan' },
-      { text: 'Membership', icon: <Loyalty />, path: '/admin/memberships' },
+      {
+        text: 'Membership',
+        icon: <Loyalty />,
+        children: [
+          { text: 'Member Pricing', icon: <MonetizationOn />, path: '/admin/settings/base-plan' },
+          { text: 'Household Rules', icon: <Assignment />, path: '/admin/memberships' },
+        ]
+      },
       { text: 'Regional Center Program', icon: <Description />, path: '/admin/settings/waiver-programs' },
       { text: 'Discount Codes', icon: <LocalOffer />, path: '/admin/discounts' },
       { text: 'Waiver Templates', icon: <Assignment />, path: '/admin/settings/waiver-templates' },

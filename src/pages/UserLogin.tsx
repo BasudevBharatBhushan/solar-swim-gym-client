@@ -21,6 +21,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import logo from '../assets/logo.png';
+import { ClientOnboardingModal } from './Accounts/ClientOnboarding/ClientOnboardingModal';
 
 export const UserLogin = () => {
   const [email, setEmail] = useState('');
@@ -29,6 +30,7 @@ export const UserLogin = () => {
   const [error, setError] = useState<string | null>(null);
   const { login, setCurrentLocationId } = useAuth();
   const navigate = useNavigate();
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -274,6 +276,35 @@ export const UserLogin = () => {
             >
               Sign In
             </Button>
+
+            <Box sx={{ position: 'relative', my: 2 }}>
+              <Divider>
+                <Typography variant="caption" sx={{ color: '#94a3b8', px: 1, fontWeight: 600 }}>
+                  OR
+                </Typography>
+              </Divider>
+            </Box>
+
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={() => setIsRegisterOpen(true)}
+              sx={{
+                height: 52,
+                borderRadius: 3,
+                textTransform: 'none',
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: '#2563eb',
+                borderColor: '#e2e8f0',
+                '&:hover': {
+                  bgcolor: '#f8fafc',
+                  borderColor: '#2563eb',
+                },
+              }}
+            >
+              Create New Account
+            </Button>
             
             <Typography
               variant="caption"
@@ -289,6 +320,14 @@ export const UserLogin = () => {
           </Box>
         </Paper>
       </Container>
+      <ClientOnboardingModal 
+        open={isRegisterOpen}
+        onClose={() => setIsRegisterOpen(false)}
+        onSuccess={() => {
+            // Success state is handled inside the modal for 'user' mode
+        }}
+        mode="user"
+      />
     </Box>
   );
 };
