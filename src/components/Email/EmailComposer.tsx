@@ -16,11 +16,12 @@ import {
     IconButton,
     List,
     ListItem,
+    ListItemButton,
     ListItemText,
-    ListItemSecondaryAction,
+    Divider,
     Paper
 } from '@mui/material';
-import { Send, AttachFile, Delete } from '@mui/icons-material';
+import { Send, AttachFile, Delete, OpenInNew } from '@mui/icons-material';
 import { emailService, EmailTemplate } from '../../services/emailService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -28,25 +29,45 @@ interface EmailComposerProps {
     onClose?: () => void;
     onSuccess?: () => void;
     initialTo?: string;
+    initialCc?: string;
+    initialBcc?: string;
     initialSubject?: string;
     initialBody?: string;
+    initialTemplateId?: string;
+    initialAttachments?: File[];
+    initialAccountId?: string;
 }
 
-export const EmailComposer = ({ onClose, onSuccess, initialTo = '', initialSubject = '', initialBody = '' }: EmailComposerProps) => {
+export const EmailComposer = ({
+    onClose,
+    onSuccess,
+    initialTo = '',
+    initialCc = '',
+    initialBcc = '',
+    initialSubject = '',
+    initialBody = '',
+    initialTemplateId = '',
+    initialAttachments = [],
+    initialAccountId
+}: EmailComposerProps) => {
     const { currentLocationId } = useAuth();
     
     // Form State
     const [to, setTo] = useState(initialTo);
-    const [cc, setCc] = useState('');
-    const [bcc, setBcc] = useState('');
+    const [cc, setCc] = useState(initialCc);
+    const [bcc, setBcc] = useState(initialBcc);
     const [subject, setSubject] = useState(initialSubject);
     const [body, setBody] = useState(initialBody);
     const [isHtml, setIsHtml] = useState(true);
-    const [attachments, setAttachments] = useState<File[]>([]);
+    const [attachments, setAttachments] = useState<File[]>(initialAttachments);
+    const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState(
+        initialAttachments.length > 0 ? 0 : -1
+    );
+    const [selectedAttachmentUrl, setSelectedAttachmentUrl] = useState<string | null>(null);
     
     // Template State
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialTemplateId);
     
     // Status State
     const [loading, setLoading] = useState(false);
@@ -55,10 +76,49 @@ export const EmailComposer = ({ onClose, onSuccess, initialTo = '', initialSubje
     const [success, setSuccess] = useState(false);
 
     useEffect(() => {
+        setTo(initialTo);
+        setCc(initialCc);
+        setBcc(initialBcc);
+        setSubject(initialSubject);
+        setBody(initialBody);
+        setSelectedTemplateId(initialTemplateId);
+        setAttachments(initialAttachments);
+        setSelectedAttachmentIndex(initialAttachments.length > 0 ? 0 : -1);
+    }, [initialTo, initialCc, initialBcc, initialSubject, initialBody, initialTemplateId, initialAttachments]);
+
+    useEffect(() => {
         if (currentLocationId) {
             fetchTemplates();
         }
     }, [currentLocationId]);
+
+    useEffect(() => {
+        if (!initialTemplateId || templates.length === 0) return;
+        const template = templates.find((t: EmailTemplate) => t.email_template_id === initialTemplateId);
+        if (!template) return;
+
+        setSelectedTemplateId(initialTemplateId);
+        if (!initialSubject.trim()) {
+            setSubject(template.subject);
+        }
+        if (!initialBody.trim()) {
+            setBody(template.body_content);
+            setIsHtml(true);
+        }
+    }, [initialTemplateId, initialSubject, initialBody, templates]);
+
+    useEffect(() => {
+        if (selectedAttachmentIndex < 0 || selectedAttachmentIndex >= attachments.length) {
+            setSelectedAttachmentUrl(null);
+            return;
+        }
+
+        const selected = attachments[selectedAttachmentIndex];
+        const nextUrl = URL.createObjectURL(selected);
+        setSelectedAttachmentUrl(nextUrl);
+
+        return () => URL.revokeObjectURL(nextUrl);
+    }, [attachments, selectedAttachmentIndex]);
 
     const fetchTemplates = async () => {
         setLoading(true);
@@ -86,11 +146,24 @@ export const EmailComposer = ({ onClose, onSuccess, initialTo = '', initialSubje
         if (e.target.files) {
             const newFiles = Array.from(e.target.files);
             setAttachments((prev: File[]) => [...prev, ...newFiles]);
+            setSelectedAttachmentIndex((prevIndex) => {
+                if (prevIndex >= 0) return prevIndex;
+                return newFiles.length > 0 ? 0 : -1;
+            });
         }
     };
 
     const removeAttachment = (index: number) => {
-        setAttachments((prev: File[]) => prev.filter((_: File, i: number) => i !== index));
+        setAttachments((prev: File[]) => {
+            const next = prev.filter((_: File, i: number) => i !== index);
+            setSelectedAttachmentIndex((prevIndex) => {
+                if (next.length === 0) return -1;
+                if (prevIndex === index) return Math.min(index, next.length - 1);
+                if (prevIndex > index) return prevIndex - 1;
+                return prevIndex;
+            });
+            return next;
+        });
     };
 
     const handleSend = async () => {
@@ -106,9 +179,10 @@ export const EmailComposer = ({ onClose, onSuccess, initialTo = '', initialSubje
         try {
             await emailService.sendEmail({
                 location_id: currentLocationId!,
+                account_id: initialAccountId,
                 to,
-                cc,
-                bcc,
+                cc: cc || undefined,
+                bcc: bcc || undefined,
                 subject,
                 body,
                 isHtml,
@@ -125,6 +199,16 @@ export const EmailComposer = ({ onClose, onSuccess, initialTo = '', initialSubje
             setSending(false);
         }
     };
+
+    const selectedAttachment =
+        selectedAttachmentIndex >= 0 && selectedAttachmentIndex < attachments.length
+            ? attachments[selectedAttachmentIndex]
+            : null;
+    const selectedAttachmentName = selectedAttachment?.name.toLowerCase() || '';
+    const canPreviewPdf = !!selectedAttachment && (
+        selectedAttachment.type === 'application/pdf' || selectedAttachmentName.endsWith('.pdf')
+    );
+    const canPreviewImage = !!selectedAttachment && selectedAttachment.type.startsWith('image/');
 
     if (success) {
         return (
@@ -260,24 +344,85 @@ export const EmailComposer = ({ onClose, onSuccess, initialTo = '', initialSubje
                     </Box>
                     
                     {attachments.length > 0 && (
-                        <Paper variant="outlined" sx={{ maxHeight: 120, overflow: 'auto', bgcolor: '#fbfbfb' }}>
-                            <List dense>
-                                {attachments.map((file: File, index: number) => (
-                                    <ListItem key={`${file.name}-${index}`}>
-                                        <ListItemText 
-                                            primary={file.name} 
-                                            secondary={`${(file.size / 1024).toFixed(1)} KB`}
-                                            primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                        <Grid container spacing={2}>
+                            <Grid size={{ xs: 12, md: 5 }}>
+                                <Paper variant="outlined" sx={{ maxHeight: 220, overflow: 'auto', bgcolor: '#fbfbfb' }}>
+                                    <List dense disablePadding>
+                                        {attachments.map((file: File, index: number) => (
+                                            <ListItem
+                                                key={`${file.name}-${index}`}
+                                                disablePadding
+                                                secondaryAction={
+                                                    <IconButton edge="end" size="small" onClick={() => removeAttachment(index)} disabled={sending}>
+                                                        <Delete fontSize="small" />
+                                                    </IconButton>
+                                                }
+                                            >
+                                                <ListItemButton
+                                                    selected={index === selectedAttachmentIndex}
+                                                    onClick={() => setSelectedAttachmentIndex(index)}
+                                                >
+                                                    <ListItemText
+                                                        primary={file.name}
+                                                        secondary={`${(file.size / 1024).toFixed(1)} KB`}
+                                                        primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+                                                    />
+                                                </ListItemButton>
+                                            </ListItem>
+                                        ))}
+                                    </List>
+                                </Paper>
+                            </Grid>
+                            <Grid size={{ xs: 12, md: 7 }}>
+                                <Paper variant="outlined" sx={{ minHeight: 220, p: 1.5, bgcolor: '#fff' }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                        <Typography variant="caption" color="text.secondary">
+                                            Attachment Preview
+                                        </Typography>
+                                        <Button
+                                            size="small"
+                                            variant="text"
+                                            startIcon={<OpenInNew fontSize="small" />}
+                                            disabled={!selectedAttachmentUrl}
+                                            onClick={() => {
+                                                if (!selectedAttachmentUrl) return;
+                                                window.open(selectedAttachmentUrl, '_blank', 'noopener,noreferrer');
+                                            }}
+                                        >
+                                            Open
+                                        </Button>
+                                    </Box>
+                                    <Divider sx={{ mb: 1 }} />
+                                    {!selectedAttachment ? (
+                                        <Typography variant="body2" color="text.secondary">
+                                            Select an attachment to preview.
+                                        </Typography>
+                                    ) : canPreviewPdf && selectedAttachmentUrl ? (
+                                        <Box
+                                            component="iframe"
+                                            src={selectedAttachmentUrl}
+                                            title={selectedAttachment.name}
+                                            sx={{ width: '100%', height: 300, border: '1px solid #e2e8f0', borderRadius: 1 }}
                                         />
-                                        <ListItemSecondaryAction>
-                                            <IconButton edge="end" size="small" onClick={() => removeAttachment(index)} disabled={sending}>
-                                                <Delete fontSize="small" />
-                                            </IconButton>
-                                        </ListItemSecondaryAction>
-                                    </ListItem>
-                                ))}
-                            </List>
-                        </Paper>
+                                    ) : canPreviewImage && selectedAttachmentUrl ? (
+                                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 300 }}>
+                                            <img
+                                                src={selectedAttachmentUrl}
+                                                alt={selectedAttachment.name}
+                                                style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
+                                            />
+                                        </Box>
+                                    ) : (
+                                        <Box sx={{ p: 1 }}>
+                                            <Typography variant="body2" fontWeight={600}>{selectedAttachment.name}</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                Preview not available for this file type.
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </Paper>
+                            </Grid>
+                        </Grid>
                     )}
                 </Grid>
             </Grid>

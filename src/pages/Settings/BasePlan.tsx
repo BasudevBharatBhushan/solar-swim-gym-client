@@ -60,6 +60,7 @@ export const BasePlan = () => {
   
   // -- Edit State --
   const [editedPrices, setEditedPrices] = useState<Record<string, number>>({}); // termId -> price
+  const [editedPlanName, setEditedPlanName] = useState('');
   const [bundledServices, setBundledServices] = useState<MembershipService[]>([]);
   const [bundledServicesLoading, setBundledServicesLoading] = useState(false);
 
@@ -235,21 +236,33 @@ export const BasePlan = () => {
         if (existing) prices[t.subscription_term_id] = existing.price;
     });
     setEditedPrices(prices);
+    setEditedPlanName(selectedProfile.planName);
     setIsEditing(true);
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedPrices({});
+    setEditedPlanName('');
     // Re-load services to reset changes
     if (selectedProfile) loadBundledServices(selectedProfile);
   };
 
   const handleSaveChanges = async () => {
       if (!selectedProfile || !currentLocationId) return;
+      const trimmedPlanName = editedPlanName.trim();
+      if (!trimmedPlanName) {
+          setError("Plan name is required.");
+          return;
+      }
       setIsSaving(true);
       
       try {
+        const nameChanged = trimmedPlanName !== selectedProfile.planName;
+        const updatedProfile: ProfileKey = {
+            ...selectedProfile,
+            planName: trimmedPlanName
+        };
         // 1. Save Prices (Bulk Upsert)
         const pricesPayload: BasePrice[] = [];
         for (const [termId, price] of Object.entries(editedPrices)) {
@@ -262,12 +275,12 @@ export const BasePlan = () => {
             }
             
             // Only add to payload if changed or new
-            if (existing && existing.price === price) continue;
+            if (existing && existing.price === price && !nameChanged) continue;
             
             pricesPayload.push({
                 base_price_id: existing?.base_price_id,
                 location_id: currentLocationId,
-                name: selectedProfile.planName, // CRITICAL: Backend needs this for uniqueness
+                name: trimmedPlanName, // CRITICAL: Backend needs this for uniqueness
                 role: selectedProfile.role,     // CRITICAL: Backend needs this for uniqueness
                 age_group_id: selectedProfile.ageGroupId,
                 subscription_term_id: termId,
@@ -291,10 +304,12 @@ export const BasePlan = () => {
         // Final Refresh
         await fetchData(); // Full refresh
         // Services refresh
-        if (selectedProfile) loadBundledServices(selectedProfile);
+        setSelectedProfile(updatedProfile);
+        loadBundledServices(updatedProfile);
 
         setSuccess("Changes saved successfully.");
         setIsEditing(false);
+        setEditedPlanName('');
 
       } catch (e) {
           console.error(e);
@@ -573,10 +588,28 @@ export const BasePlan = () => {
                                      <Typography variant="caption" sx={{ textTransform: 'uppercase', color: '#64748b', fontWeight: 800, letterSpacing: '0.05em' }}>
                                          {getAgeGroupName(selectedProfile.ageGroupId)}
                                      </Typography>
-                                     <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
-                                        <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e293b', textTransform: 'uppercase' }}>
-                                            {selectedProfile.planName} 
-                                        </Typography>
+                                     <Stack
+                                        direction="row"
+                                        spacing={2}
+                                        alignItems="center"
+                                        sx={{ mt: 2, flexWrap: 'wrap', rowGap: 1.5 }}
+                                     >
+                                        {isEditing ? (
+                                            <TextField
+                                                label="Plan Name"
+                                                value={editedPlanName}
+                                                onChange={(e) => setEditedPlanName(e.target.value)}
+                                                size="medium"
+                                                sx={{
+                                                    minWidth: { xs: '100%', sm: 380, md: 440 },
+                                                    maxWidth: { xs: '100%', md: 520 }
+                                                }}
+                                            />
+                                        ) : (
+                                            <Typography variant="h4" sx={{ fontWeight: 900, color: '#1e293b', textTransform: 'uppercase' }}>
+                                                {selectedProfile.planName}
+                                            </Typography>
+                                        )}
                                         <Chip 
                                             label={selectedProfile.role} 
                                             size="small" 
@@ -968,7 +1001,7 @@ export const BasePlan = () => {
                                     <Button 
                                         variant="contained" 
                                         onClick={handleSaveChanges} 
-                                        disabled={isSaving} 
+                                        disabled={isSaving || !editedPlanName.trim()} 
                                         startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : <Save />}
                                         sx={{ 
                                             borderRadius: 2, 

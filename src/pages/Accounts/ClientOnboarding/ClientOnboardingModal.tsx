@@ -29,6 +29,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { waiverService } from '../../../services/waiverService';
 import { emailService } from '../../../services/emailService';
 import { crmService } from '../../../services/crmService';
+import { createWaiverPdfAttachment } from '../../../utils/waiverPdf';
+import { EmailComposer } from '../../../components/Email/EmailComposer';
 
 
 interface ClientOnboardingModalProps {
@@ -39,6 +41,15 @@ interface ClientOnboardingModalProps {
 }
 
 const steps = ['Profile', 'Family Details', 'Waiver Signing', 'Review'];
+
+interface WaiverComposeDraft {
+  to: string;
+  subject: string;
+  body: string;
+  templateId?: string;
+  attachments: File[];
+  accountId?: string;
+}
 
 export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, mode = 'staff' }) => {
   const [activeStep, setActiveStep] = useState(0);
@@ -66,6 +77,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const [errors, setErrors] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [openCompose, setOpenCompose] = useState(false);
+  const [composeDraft, setComposeDraft] = useState<WaiverComposeDraft | null>(null);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'error' | 'success' | 'warning' | 'info' }>({
     open: false,
     message: '',
@@ -78,6 +91,15 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
   const handleCloseToast = () => {
     setToast(prev => ({ ...prev, open: false }));
+  };
+
+  const handleCloseCompose = () => {
+    setOpenCompose(false);
+    setComposeDraft(null);
+  };
+
+  const handleComposerSuccess = () => {
+    showToast('Waiver email sent successfully!', 'success');
   };
 
   // Debugging state sync
@@ -207,42 +229,50 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
               setLoading(false);
               return;
           }
+          const recipientEmail = account.email || profiles[0]?.email;
+          if (!recipientEmail) {
+              showToast("No recipient email found for this account.", "warning");
+              setLoading(false);
+              return;
+          }
 
           // 2. Fetch signed waivers for all profiles
           const attachments: File[] = [];
+          const missingWaiverProfiles: string[] = [];
+          const failedPdfProfiles: string[] = [];
           for (const profile of profiles) {
               const waivers = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
               if (waivers.data && waivers.data.length > 0) {
-                  // Get the latest waiver
-                  const latestWaiver = waivers.data[0]; 
-                  const waiverHtml = `
-                    <html>
-                        <head><title>Signed Waiver</title></head>
-                        <body>
-                            <h2>Waiver for ${profile.first_name} ${profile.last_name}</h2>
-                            <div style="border: 1px solid #ccc; padding: 20px;">
-                                ${latestWaiver.content}
-                            </div>
-                            ${latestWaiver.signature_url ? `
-                                <div style="margin-top: 30px;">
-                                    <p>Signed on: ${new Date(latestWaiver.signed_at).toLocaleString()}</p>
-                                    <img src="${latestWaiver.signature_url}" alt="Signature" style="max-height: 100px;" />
-                                </div>
-                            ` : ''}
-                        </body>
-                    </html>
-                  `;
-                  
-                  // Create a File object
-                  const blob = new Blob([waiverHtml], { type: 'text/html' });
-                  const fileName = `Waiver_${profile.first_name}_${profile.last_name}.html`;
-                  const file = new File([blob], fileName, { type: 'text/html' });
-                  attachments.push(file);
+                  const latestWaiver = waivers.data[0];
+                  try {
+                    const pdfFile = await createWaiverPdfAttachment(
+                      { first_name: profile.first_name, last_name: profile.last_name },
+                      latestWaiver
+                    );
+                    attachments.push(pdfFile);
+                  } catch (pdfError) {
+                    console.error(`Failed to create waiver PDF for ${profile.first_name} ${profile.last_name}`, pdfError);
+                    failedPdfProfiles.push(`${profile.first_name} ${profile.last_name}`);
+                  }
+              } else {
+                  missingWaiverProfiles.push(`${profile.first_name} ${profile.last_name}`);
               }
           }
 
+          if (missingWaiverProfiles.length > 0) {
+              showToast(`Missing signed waiver for: ${missingWaiverProfiles.join(', ')}`, "error");
+              setLoading(false);
+              return;
+          }
+
+          if (failedPdfProfiles.length > 0) {
+              showToast(`Failed to generate waiver PDF for: ${failedPdfProfiles.join(', ')}`, "error");
+              setLoading(false);
+              return;
+          }
+
           if (attachments.length === 0) {
-              showToast("No signed waivers found to send.", "warning");
+              showToast("No signed waivers could be converted to PDF.", "warning");
               setLoading(false);
               return;
           }
@@ -253,7 +283,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           
           let subject = templateName;
           let body = `Please find attached the signed waivers for: ${profileNames}.`;
-          let templateId = undefined;
+          let templateId: string | undefined = undefined;
 
           // Try to find the template
           try {
@@ -261,29 +291,28 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
               const template = templates.find(t => t.subject === templateName || t.subject.includes('Waiver'));
               if (template) {
                   subject = template.subject;
+                  body = template.body_content;
                   templateId = template.email_template_id;
               }
           } catch (e) {
               console.warn("Could not fetch templates, using default subject");
           }
 
-          // 4. Send Email
-          await emailService.sendEmail({
-             to: account.email || profiles[0].email, 
-             subject: subject,
-             body: `${body} <br/><br/> Profiles included: ${profileNames}`,
-             isHtml: true,
-             location_id: currentLocationId,
-             account_id: account.account_id,
-             email_template_id: templateId,
-             attachments: attachments
+          // 4. Open composer with preloaded draft
+          setComposeDraft({
+             to: recipientEmail,
+             subject,
+             body,
+             templateId,
+             attachments,
+             accountId: account.account_id
           });
-
-          showToast("Waiver email sent successfully!", "success");
+          setOpenCompose(true);
+          showToast("Email draft prepared. Review details and send.", "info");
 
       } catch (error: any) {
-          console.error("Failed to send waiver email", error);
-          showToast("Failed to send waiver email. " + error.message, "error");
+          console.error("Failed to prepare waiver email", error);
+          showToast("Failed to prepare waiver email. " + error.message, "error");
       } finally {
           setLoading(false);
       }
@@ -461,6 +490,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                                     setFamilyMembers([]);
                                     setSignedWaivers({});
                                     setCreatedAccount(null);
+                                    setComposeDraft(null);
+                                    setOpenCompose(false);
                                     onClose();
                                 }}
                                 sx={{ 
@@ -500,6 +531,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                             setFamilyMembers([]);
                             setSignedWaivers({});
                             setCreatedAccount(null);
+                            setComposeDraft(null);
+                            setOpenCompose(false);
                             onClose();
                         }}
                         sx={{ 
@@ -529,6 +562,23 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 {toast.message}
             </Alert>
         </Snackbar>
+
+        <Dialog open={openCompose} onClose={handleCloseCompose} maxWidth="md" fullWidth>
+            <DialogContent>
+                {composeDraft && (
+                    <EmailComposer
+                        onClose={handleCloseCompose}
+                        onSuccess={handleComposerSuccess}
+                        initialTo={composeDraft.to}
+                        initialSubject={composeDraft.subject}
+                        initialBody={composeDraft.body}
+                        initialTemplateId={composeDraft.templateId}
+                        initialAttachments={composeDraft.attachments}
+                        initialAccountId={composeDraft.accountId}
+                    />
+                )}
+            </DialogContent>
+        </Dialog>
       </DialogContent>
 
       {!isSuccess && (

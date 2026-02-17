@@ -136,7 +136,11 @@ export const AccountDetail = () => {
                         <SubscriptionsTab accountId={account.account_id} selectedProfileId={selectedProfileId} />
                     )}
                     {tabValue === 2 && (
-                        <WaiversTab profiles={account.profiles || []} selectedProfileId={selectedProfileId} />
+                        <WaiversTab
+                          profiles={account.profiles || []}
+                          selectedProfileId={selectedProfileId}
+                          accountId={account.account_id}
+                        />
                     )}
                 </Box>
             </Paper>
