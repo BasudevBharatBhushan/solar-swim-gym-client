@@ -29,6 +29,7 @@ export const ActivateAccount = () => {
   const navigate = useNavigate();
   
   const [token, setToken] = useState<string | null>(null);
+  const [waiverSign, setWaiverSign] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
   const [email, setEmail] = useState('');
@@ -43,6 +44,11 @@ export const ActivateAccount = () => {
   // Extract token and validate on mount
   useEffect(() => {
     const tokenFromUrl = searchParams.get('token');
+    const waiverSignParam = searchParams.get('waiver_sign');
+    
+    if (waiverSignParam === 'true') {
+      setWaiverSign(true);
+    }
     
     if (!tokenFromUrl) {
       setError('No activation token found in the link.');
@@ -93,8 +99,14 @@ export const ActivateAccount = () => {
       await authService.activateAccount(token, password);
       
       setActivated(true);
+      
+      // Redirect based on waiver_sign param
+      const redirectPath = waiverSign 
+        ? '/login?redirect=/portal/my-account&tab=waivers'
+        : '/login';
+      
       setTimeout(() => {
-        navigate('/login');
+        navigate(redirectPath);
       }, 3000);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to activate account. Please try again.';
@@ -125,11 +137,14 @@ export const ActivateAccount = () => {
               Account Activated!
             </Typography>
             <Typography variant="body1" sx={{ color: '#64748b', mb: 3 }}>
-              Your account has been successfully activated. Redirecting you to the login page...
+              {waiverSign 
+                ? 'Your account has been activated. Redirecting you to sign your waiver...'
+                : 'Your account has been successfully activated. Redirecting you to the login page...'
+              }
             </Typography>
             <Button
               variant="contained"
-              onClick={() => navigate('/login')}
+              onClick={() => navigate(waiverSign ? '/login?redirect=/portal/my-account&tab=waivers' : '/login')}
               sx={{
                 bgcolor: '#2563eb',
                 borderRadius: 3,
@@ -139,7 +154,7 @@ export const ActivateAccount = () => {
                 fontWeight: 700,
               }}
             >
-              Go to Login Now
+              {waiverSign ? 'Sign Your Waiver' : 'Go to Login Now'}
             </Button>
           </Box>
         </Fade>

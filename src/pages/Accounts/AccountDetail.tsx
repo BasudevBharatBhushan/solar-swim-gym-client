@@ -7,10 +7,12 @@ import EmailIcon from '@mui/icons-material/Email';
 import LinkIcon from '@mui/icons-material/Link';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import LaunchIcon from '@mui/icons-material/Launch';
+import DrawIcon from '@mui/icons-material/Draw';
 import { authService } from '../../services/authService';
 import { billingService } from '../../services/billingService';
 import { waiverService } from '../../services/waiverService';
 import { emailService } from '../../services/emailService';
+import { configService } from '../../services/configService';
 import { createWaiverPdfAttachment } from '../../utils/waiverPdf';
 import { EmailComposer } from '../../components/Email/EmailComposer';
 import { crmService } from '../../services/crmService';
@@ -42,6 +44,9 @@ export const AccountDetail = () => {
   
   // Right Panel Tabs
   const [tabValue, setTabValue] = useState(0);
+
+  // Waiver status tracking
+  const [hasUnsignedWaivers, setHasUnsignedWaivers] = useState(false);
 
   // Actions State
   const [actionLoading, setActionLoading] = useState(false);
@@ -98,7 +103,8 @@ export const AccountDetail = () => {
     }
   };
 
-  const handleSendWaiverEmail = async () => {
+  // Send signed waiver PDFs via email (existing behavior)
+  const handleSendSignedWaiverEmail = async () => {
       if (!account || !currentLocationId) return;
       setActionLoading(true);
 
@@ -137,7 +143,6 @@ export const AccountDetail = () => {
                     failedPdfProfiles.push(`${profile.first_name} ${profile.last_name}`);
                   }
               } else {
-                  // Only flag missing if we strictly require it, or just mention it
                   missingWaiverProfiles.push(`${profile.first_name} ${profile.last_name}`);
               }
           }
@@ -186,6 +191,85 @@ export const AccountDetail = () => {
       }
   };
 
+  // Send waiver for signing - based on account status
+  const handleSendWaiverForSigning = async () => {
+      if (!account || !currentLocationId) return;
+      setActionLoading(true);
+
+      try {
+          const profiles = account.profiles || [];
+          const recipientEmail = account.email || profiles.find((p: any) => p.is_primary)?.email || profiles[0]?.email;
+
+          if (!recipientEmail) {
+              showToast("No recipient email found for this account.", "warning");
+              setActionLoading(false);
+              return;
+          }
+
+          if (account.status === 'PENDING') {
+              // Account is pending - send activation link with waiver_sign=true
+              await authService.sendResetPasswordLink(account.account_id, { waiver_sign: true });
+              showToast("Activation link with waiver signing sent successfully!", "success");
+          } else {
+              // Account is active - send contract signing email using template
+              const templateName = 'Your Contract is Ready for Signing';
+              let subject = templateName;
+              let body = `Your contract is ready for signing. Please click the link below to sign your waiver.`;
+              let templateId: string | undefined = undefined;
+
+              try {
+                  const templates = await emailService.getTemplates(currentLocationId);
+                  const template = templates.find(t => t.subject === templateName || t.subject.includes('Contract'));
+                  if (template) {
+                      subject = template.subject;
+                      body = template.body_content;
+                      templateId = template.email_template_id;
+                  }
+              } catch (e) {
+                  console.warn("Could not fetch templates, using default");
+              }
+
+              setComposeDraft({
+                  to: recipientEmail,
+                  subject,
+                  body,
+                  templateId,
+                  attachments: [],
+                  accountId: account.account_id
+              });
+              setOpenCompose(true);
+              showToast("Email draft prepared. Review details and send.", "info");
+          }
+      } catch (error: any) {
+          console.error("Failed to send waiver for signing", error);
+          showToast(error.message || "Failed to send waiver for signing.", "error");
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
+  // Unified handler - decides between sending signed waiver or sending for signing
+  const handleWaiverButtonClick = () => {
+      if (hasUnsignedWaivers) {
+          handleSendWaiverForSigning();
+      } else {
+          handleSendSignedWaiverEmail();
+      }
+  };
+
+  // Helper to calculate age
+  const calculateAge = (dob: string | null | undefined) => {
+    if (!dob) return 0;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   useEffect(() => {
     const fetchAccount = async () => {
       if (!accountId || !currentLocationId) return;
@@ -203,6 +287,41 @@ export const AccountDetail = () => {
         setAccount(normalizedData);
         // Default to 'All Members' (null)
         setSelectedProfileId(null);
+
+        // Check waiver status for all profiles
+        try {
+          const profiles = normalizedData.profiles || [];
+          if (profiles.length > 0) {
+            const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
+              waiverService.getWaiverTemplates(currentLocationId),
+              configService.getAgeGroups(currentLocationId)
+            ]);
+            const templates = (waiverTemplatesRes as any).data || [];
+            const ageGroups = (ageGroupsRes as any) || [];
+
+            let foundUnsigned = false;
+            for (const profile of profiles) {
+              const age = calculateAge(profile.date_of_birth);
+              const group = ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+              const matchedTemplate = templates.find((t: any) => 
+                t.is_active && (t.ageprofile_id === group?.age_group_id || !t.ageprofile_id)
+              );
+
+              if (matchedTemplate) {
+                const signedRes = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
+                const signed = signedRes.data || [];
+                const hasRegistration = signed.some((w: any) => w.waiver_type === 'REGISTRATION');
+                if (!hasRegistration) {
+                  foundUnsigned = true;
+                  break;
+                }
+              }
+            }
+            setHasUnsignedWaivers(foundUnsigned);
+          }
+        } catch (waiverErr) {
+          console.warn('Could not determine waiver status', waiverErr);
+        }
 
       } catch (err: any) {
         console.error("Failed to fetch account details", err);
@@ -259,15 +378,16 @@ export const AccountDetail = () => {
         action={
             <Stack direction="row" spacing={1}>
                  <Button 
-                    startIcon={<EmailIcon />} 
+                    startIcon={hasUnsignedWaivers ? <DrawIcon /> : <EmailIcon />} 
                     endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                    onClick={handleSendWaiverEmail}
+                    onClick={handleWaiverButtonClick}
                     disabled={actionLoading}
                     variant="outlined"
                     size="small"
+                    color={hasUnsignedWaivers ? 'warning' : 'primary'}
                     sx={{ textTransform: 'none' }}
                 >
-                    Send Waiver
+                    {hasUnsignedWaivers ? 'Send Waiver for Signing' : 'Send Signed Waiver'}
                 </Button>
                 <Button 
                     startIcon={<LinkIcon />} 
@@ -323,7 +443,7 @@ export const AccountDetail = () => {
                     <Tabs value={tabValue} onChange={handleTabChange} aria-label="account detail tabs">
                         <Tab label="Profile Details" />
                         <Tab label="Subscriptions" />
-                        <Tab label="Signed Waivers" />
+                        <Tab label="Waivers" />
                     </Tabs>
                 </Box>
                 <Box sx={{ p: 3 }}>

@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { 
   Box, 
   Typography, 
@@ -18,16 +18,27 @@ import {
   DialogActions,
   Chip,
   Snackbar,
-  Alert
+  Alert,
+  Tabs,
+  Tab,
+  Checkbox,
+  FormControlLabel,
+  Divider
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EmailIcon from '@mui/icons-material/Email';
+import DrawIcon from '@mui/icons-material/Draw';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useAuth } from '../../../context/AuthContext';
-import { waiverService, SignedWaiver } from '../../../services/waiverService';
+import { waiverService, SignedWaiver, WaiverTemplate } from '../../../services/waiverService';
 import { emailService } from '../../../services/emailService';
+import { configService } from '../../../services/configService';
 import { Profile } from '../../../types';
 import { createWaiverPdfAttachment } from '../../../utils/waiverPdf';
 import { EmailComposer } from '../../../components/Email/EmailComposer';
+import { WaiverPreview } from '../../../components/Waiver/WaiverPreview';
+import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../../../components/Waiver/SignaturePad';
 
 interface WaiversTabProps {
   profiles: Profile[];
@@ -44,9 +55,16 @@ interface WaiverEmailDraft {
   accountId?: string;
 }
 
+interface PendingWaiver {
+  profile: Profile;
+  waiverTemplate: WaiverTemplate;
+  ageGroupName: string;
+}
+
 export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTabProps) => {
   const { currentLocationId } = useAuth();
-  const [waivers, setWaivers] = useState<SignedWaiver[]>([]);
+  const [signedWaivers, setSignedWaivers] = useState<SignedWaiver[]>([]);
+  const [pendingWaivers, setPendingWaivers] = useState<PendingWaiver[]>([]);
   const [loading, setLoading] = useState(false);
   const [sendingWaiverId, setSendingWaiverId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,9 +76,19 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
     severity: 'info'
   });
   
-  // Dialog state
+  // Sub-tab state: 0 = Pending, 1 = Signed
+  const [subTab, setSubTab] = useState(0);
+  
+  // Dialog state for viewing signed waivers
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedWaiver, setSelectedWaiver] = useState<SignedWaiver | null>(null);
+
+  // Signing dialog state
+  const [signingProfile, setSigningProfile] = useState<PendingWaiver | null>(null);
+  const [openSignDialog, setOpenSignDialog] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const signaturePadRef = useRef<SignaturePadRef>(null);
 
   const showToast = (message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'info') => {
     setToast({ open: true, message, severity });
@@ -70,54 +98,121 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
     setToast(prev => ({ ...prev, open: false }));
   };
 
+  const calculateAge = (dob: string | null | undefined) => {
+    if (!dob) return 0;
+    const birthDate = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
   useEffect(() => {
-    const fetchWaivers = async () => {
+    const fetchWaiverData = async () => {
       if (!currentLocationId) return;
       
       setLoading(true);
       setError(null);
-      setWaivers([]);
+      setSignedWaivers([]);
+      setPendingWaivers([]);
 
       try {
-        let profilesToFetch = [];
+        let profilesToFetch: Profile[] = [];
         if (selectedProfileId) {
-            profilesToFetch = profiles.filter(p => p.profile_id === selectedProfileId);
+          profilesToFetch = profiles.filter(p => p.profile_id === selectedProfileId);
         } else {
-            profilesToFetch = profiles;
+          profilesToFetch = profiles;
         }
 
         if (profilesToFetch.length === 0) {
-            setLoading(false);
-            return;
+          setLoading(false);
+          return;
         }
 
-        // Fetch waivers for each relevant profile
-        const promises = profilesToFetch.map(p => 
+        // Fetch waiver templates, age groups, and signed waivers in parallel
+        const [waiverTemplatesRes, ageGroupsRes, ...signedResults] = await Promise.all([
+          waiverService.getWaiverTemplates(currentLocationId),
+          configService.getAgeGroups(currentLocationId),
+          ...profilesToFetch.map(p => 
             waiverService.getSignedWaivers(p.profile_id, currentLocationId)
-                .then(res => res.data || [])
-                .catch(err => {
-                    console.error(`Failed to fetch waivers for profile ${p.profile_id}`, err);
-                    return [] as SignedWaiver[];
-                })
-        );
+              .then(res => ({ profileId: p.profile_id, waivers: res.data || [] }))
+              .catch(err => {
+                console.error(`Failed to fetch waivers for profile ${p.profile_id}`, err);
+                return { profileId: p.profile_id, waivers: [] as SignedWaiver[] };
+              })
+          )
+        ]);
 
-        const results = await Promise.all(promises);
-        // Flatten and sort by signed_at descending
-        const allWaivers = results.flat().sort((a, b) => 
-            new Date(b.signed_at).getTime() - new Date(a.signed_at).getTime()
+        const templates: WaiverTemplate[] = (waiverTemplatesRes as any).data || [];
+        const ageGroups: any[] = (ageGroupsRes as any) || [];
+
+        // Build map of signed waivers by profile
+        const signedByProfile: Record<string, SignedWaiver[]> = {};
+        const allSigned: SignedWaiver[] = [];
+
+        for (const result of signedResults) {
+          const r = result as { profileId: string; waivers: SignedWaiver[] };
+          signedByProfile[r.profileId] = r.waivers;
+          allSigned.push(...r.waivers);
+        }
+
+        // Sort signed waivers by signed_at descending
+        allSigned.sort((a, b) => 
+          new Date(b.signed_at).getTime() - new Date(a.signed_at).getTime()
         );
-        
-        setWaivers(allWaivers);
+        setSignedWaivers(allSigned);
+
+        // Determine pending registration waivers
+        const pending: PendingWaiver[] = [];
+
+        for (const profile of profilesToFetch) {
+          const age = calculateAge(profile.date_of_birth);
+          const group = ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+
+          // Find the template for this age profile
+          let matchedTemplate = templates.find(t => 
+            t.is_active && t.ageprofile_id === group?.age_group_id
+          );
+          if (!matchedTemplate) {
+            matchedTemplate = templates.find(t => t.is_active && !t.ageprofile_id);
+          }
+
+          if (!matchedTemplate) continue;
+
+          // Check if this profile already has a signed REGISTRATION waiver
+          const profileSigned = signedByProfile[profile.profile_id] || [];
+          const hasRegistrationWaiver = profileSigned.some(w => w.waiver_type === 'REGISTRATION');
+
+          if (!hasRegistrationWaiver) {
+            pending.push({
+              profile,
+              waiverTemplate: matchedTemplate,
+              ageGroupName: group?.name || 'Unknown'
+            });
+          }
+        }
+
+        setPendingWaivers(pending);
+
+        // Auto-switch to pending tab if there are pending waivers
+        if (pending.length > 0) {
+          setSubTab(0);
+        } else if (allSigned.length > 0) {
+          setSubTab(1);
+        }
 
       } catch (err: any) {
-        console.error("Failed to fetch waivers", err);
+        console.error("Failed to fetch waiver data", err);
         setError("Failed to load waivers.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchWaivers();
+    fetchWaiverData();
   }, [selectedProfileId, currentLocationId, profiles]);
 
   const handleViewWaiver = (waiver: SignedWaiver) => {
@@ -148,6 +243,83 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
     showToast('Waiver email sent successfully.', 'success');
   };
 
+  // --- Signing Dialog Logic ---
+  const handleOpenSignDialog = (pendingWaiver: PendingWaiver) => {
+    setSigningProfile(pendingWaiver);
+    setAgreed(false);
+    setSigning(false);
+    setOpenSignDialog(true);
+  };
+
+  const handleCloseSignDialog = () => {
+    setOpenSignDialog(false);
+    setSigningProfile(null);
+    setAgreed(false);
+  };
+
+  const handleSignWaiver = async () => {
+    if (!signingProfile || !signaturePadRef.current || !currentLocationId) return;
+
+    if (signaturePadRef.current.isEmpty()) {
+      showToast('Please sign to continue.', 'warning');
+      return;
+    }
+
+    const canvas = signaturePadRef.current.getCanvas();
+    if (!canvas) return;
+
+    setSigning(true);
+    try {
+      const blob = await getSignatureBlob(canvas);
+      if (!blob) throw new Error('Failed to capture signature');
+
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        try {
+          const base64 = reader.result as string;
+          const sigResponse = await waiverService.uploadSignature(base64);
+          
+          let content = signingProfile.waiverTemplate.content;
+          const fullName = `${signingProfile.profile.first_name} ${signingProfile.profile.last_name}`;
+          content = content.replace(/\[FullName\]/g, fullName);
+          content = content.replace(/\[CurrentDate\]/g, new Date().toLocaleDateString());
+          
+          await waiverService.upsertSignedWaiver({
+            profile_id: signingProfile.profile.profile_id,
+            waiver_template_id: signingProfile.waiverTemplate.waiver_template_id,
+            waiver_type: 'REGISTRATION',
+            content,
+            signature_url: sigResponse.signature_url
+          }, currentLocationId);
+
+          showToast(`Waiver signed successfully for ${fullName}!`, 'success');
+          handleCloseSignDialog();
+
+          // Refresh waiver data by re-triggering the effect
+          // Simple approach: update profiles reference to trigger refetch
+          // But we can just refetch manually
+          setPendingWaivers(prev => prev.filter(pw => pw.profile.profile_id !== signingProfile.profile.profile_id));
+          
+          // Fetch the newly signed waivers for this profile
+          const newSigned = await waiverService.getSignedWaivers(signingProfile.profile.profile_id, currentLocationId);
+          if (newSigned.data) {
+            setSignedWaivers(prev => [...newSigned.data, ...prev]);
+          }
+        } catch (err: any) {
+          console.error('Signing failed', err);
+          showToast(err.message || 'Signing failed', 'error');
+          setSigning(false);
+        }
+      };
+    } catch (err: any) {
+      console.error('Signing failed', err);
+      showToast(err.message || 'Signing failed', 'error');
+      setSigning(false);
+    }
+  };
+
+  // --- Email Draft Logic ---
   const prepareWaiverEmailDraft = async (waiver: SignedWaiver) => {
     if (!currentLocationId) return;
 
@@ -206,83 +378,206 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
     return <Typography color="error">{error}</Typography>;
   }
 
-  if (waivers.length === 0) {
+  const hasPending = pendingWaivers.length > 0;
+  const hasSigned = signedWaivers.length > 0;
+
+  if (!hasPending && !hasSigned) {
      return (
         <Box sx={{ py: 4, textAlign: 'center' }}>
-            <Typography color="text.secondary">No signed waivers found.</Typography>
+            <Typography color="text.secondary">No waivers found.</Typography>
         </Box>
      );
   }
 
   return (
     <Box>
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Signed Waivers</Typography>
+      {/* Sub-tabs: Pending / Signed */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <Tabs 
+          value={subTab} 
+          onChange={(_, v) => setSubTab(v)} 
+          aria-label="waiver status tabs"
+          sx={{
+            '& .MuiTab-root': { textTransform: 'none', fontWeight: 600 }
+          }}
+        >
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <PendingActionsIcon sx={{ fontSize: 18 }} />
+                Pending
+                {hasPending && (
+                  <Chip label={pendingWaivers.length} size="small" color="warning" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                )}
+              </Box>
+            } 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckCircleIcon sx={{ fontSize: 18 }} />
+                Signed
+                {hasSigned && (
+                  <Chip label={signedWaivers.length} size="small" color="success" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                )}
+              </Box>
+            } 
+          />
+        </Tabs>
       </Box>
 
-      <TableContainer component={Paper} elevation={0} variant="outlined">
-        <Table>
-            <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                <TableRow>
+      {/* Pending Waivers Tab */}
+      {subTab === 0 && (
+        <Box>
+          {pendingWaivers.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <CheckCircleIcon sx={{ fontSize: 48, color: '#10b981', mb: 1 }} />
+              <Typography color="text.secondary" fontWeight={600}>All registration waivers are signed!</Typography>
+            </Box>
+          ) : (
+            <TableContainer component={Paper} elevation={0} variant="outlined">
+              <Table>
+                <TableHead sx={{ bgcolor: '#fffbeb' }}>
+                  <TableRow>
+                    <TableCell>Profile</TableCell>
+                    <TableCell>Age Group</TableCell>
+                    <TableCell>Waiver Type</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pendingWaivers.map((pw) => (
+                    <TableRow key={pw.profile.profile_id} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>
+                          {pw.profile.first_name} {pw.profile.last_name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={pw.ageGroupName} 
+                          size="small" 
+                          variant="outlined" 
+                          sx={{ fontWeight: 600, fontSize: '0.75rem' }} 
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label="REGISTRATION" 
+                          size="small" 
+                          color="info" 
+                          variant="outlined" 
+                          sx={{ fontWeight: 600 }} 
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label="Pending" 
+                          size="small" 
+                          color="warning" 
+                          sx={{ fontWeight: 700 }} 
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          startIcon={<DrawIcon />}
+                          size="small"
+                          variant="contained"
+                          onClick={() => handleOpenSignDialog(pw)}
+                          sx={{ 
+                            textTransform: 'none', 
+                            fontWeight: 600,
+                            bgcolor: '#2563eb',
+                            '&:hover': { bgcolor: '#1d4ed8' }
+                          }}
+                        >
+                          Sign Waiver
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+      )}
+
+      {/* Signed Waivers Tab */}
+      {subTab === 1 && (
+        <Box>
+          {signedWaivers.length === 0 ? (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">No signed waivers found.</Typography>
+            </Box>
+          ) : (
+            <TableContainer component={Paper} elevation={0} variant="outlined">
+              <Table>
+                <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                  <TableRow>
                     <TableCell>Waiver Type</TableCell>
                     <TableCell>Signed By</TableCell>
                     <TableCell>Signed Date</TableCell>
                     <TableCell>Signature</TableCell>
                     <TableCell align="right">Actions</TableCell>
-                </TableRow>
-            </TableHead>
-            <TableBody>
-                {waivers.map((waiver) => (
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {signedWaivers.map((waiver) => (
                     <TableRow key={waiver.signed_waiver_id} hover>
-                        <TableCell>
-                            <Chip 
-                                label={waiver.waiver_type || 'General'} 
-                                size="small" 
-                                color="primary" 
-                                variant="outlined" 
-                                sx={{ fontWeight: 600 }}
-                            />
-                        </TableCell>
-                        <TableCell>
-                            <Typography variant="body2">{getProfileName(waiver.profile_id)}</Typography>
-                        </TableCell>
-                        <TableCell>
-                            <Typography variant="body2">
-                                {new Date(waiver.signed_at).toLocaleDateString()} {new Date(waiver.signed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                            </Typography>
-                        </TableCell>
-                         <TableCell>
-                            {waiver.signature_url ? (
-                                <img src={waiver.signature_url} alt="Signature" style={{ height: 40, border: '1px solid #ddd', borderRadius: 4, backgroundColor: '#fff' }} />
-                            ) : (
-                                <Typography variant="caption" color="text.secondary">No Image</Typography>
-                            )}
-                        </TableCell>
-                        <TableCell align="right">
-                            <Button
-                                startIcon={<EmailIcon />}
-                                size="small"
-                                onClick={() => prepareWaiverEmailDraft(waiver)}
-                                disabled={sendingWaiverId === waiver.signed_waiver_id}
-                                sx={{ mr: 1 }}
-                            >
-                                {sendingWaiverId === waiver.signed_waiver_id ? 'Sending...' : 'Email'}
-                            </Button>
-                            <Button 
-                                startIcon={<VisibilityIcon />} 
-                                size="small" 
-                                onClick={() => handleViewWaiver(waiver)}
-                            >
-                                View
-                            </Button>
-                        </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={waiver.waiver_type || 'General'} 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined" 
+                          sx={{ fontWeight: 600 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{getProfileName(waiver.profile_id)}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {new Date(waiver.signed_at).toLocaleDateString()} {new Date(waiver.signed_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {waiver.signature_url ? (
+                          <img src={waiver.signature_url} alt="Signature" style={{ height: 40, border: '1px solid #ddd', borderRadius: 4, backgroundColor: '#fff' }} />
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">No Image</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          startIcon={<EmailIcon />}
+                          size="small"
+                          onClick={() => prepareWaiverEmailDraft(waiver)}
+                          disabled={sendingWaiverId === waiver.signed_waiver_id}
+                          sx={{ mr: 1 }}
+                        >
+                          {sendingWaiverId === waiver.signed_waiver_id ? 'Sending...' : 'Email'}
+                        </Button>
+                        <Button 
+                          startIcon={<VisibilityIcon />} 
+                          size="small" 
+                          onClick={() => handleViewWaiver(waiver)}
+                        >
+                          View
+                        </Button>
+                      </TableCell>
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-      </TableContainer>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Box>
+      )}
 
-      {/* Waiver Content Dialog */}
+      {/* View Waiver Content Dialog */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog}
@@ -321,6 +616,83 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
         </DialogActions>
       </Dialog>
 
+      {/* Sign Waiver Dialog */}
+      <Dialog
+        open={openSignDialog}
+        onClose={handleCloseSignDialog}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+      >
+        <DialogTitle>
+          <Box>
+            <Typography variant="h6" fontWeight={700}>Sign Registration Waiver</Typography>
+            {signingProfile && (
+              <Typography variant="subtitle2" color="text.secondary">
+                For {signingProfile.profile.first_name} {signingProfile.profile.last_name} ({signingProfile.ageGroupName})
+              </Typography>
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
+          {signingProfile && (
+            <Box>
+              <WaiverPreview
+                content={signingProfile.waiverTemplate.content}
+                data={{
+                  first_name: signingProfile.profile.first_name,
+                  last_name: signingProfile.profile.last_name,
+                }}
+                agreed={agreed}
+                onAgreeChange={setAgreed}
+                hideCheckbox={true}
+                fullHeight={false}
+                signatureComponent={
+                  <SignaturePad
+                    ref={signaturePadRef}
+                    width={500}
+                    height={150}
+                  />
+                }
+              />
+              <Divider sx={{ my: 2 }} />
+              <FormControlLabel
+                control={
+                  <Checkbox 
+                    checked={agreed} 
+                    onChange={(e) => setAgreed(e.target.checked)} 
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="body2" fontWeight={600}>
+                    I have read and agree to all terms above
+                  </Typography>
+                }
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseSignDialog} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSignWaiver}
+            disabled={!agreed || signing}
+            sx={{ 
+              textTransform: 'none', 
+              fontWeight: 700,
+              bgcolor: '#2563eb',
+              '&:hover': { bgcolor: '#1d4ed8' },
+              px: 4
+            }}
+          >
+            {signing ? 'Signing...' : 'Complete & Sign Waiver'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Email Compose Dialog */}
       <Dialog open={openCompose} onClose={handleCloseCompose} maxWidth="md" fullWidth>
         <DialogContent>
           {composeDraft && (

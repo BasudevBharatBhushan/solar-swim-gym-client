@@ -336,6 +336,28 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       }
   };
 
+  const handleSendWaiverForSigning = async () => {
+      if (!createdAccount?.account_id) {
+          showToast("Account details not found.", "error");
+          return;
+      }
+
+      setLoading(true);
+      try {
+          // Send activation link with waiver_sign=true
+          await authService.sendResetPasswordLink(createdAccount.account_id, { waiver_sign: true });
+          showToast("Activation link with waiver signing sent successfully!", "success");
+      } catch (error: any) {
+          console.error("Failed to send waiver for signing", error);
+          showToast(error.message || "Failed to send waiver for signing. Please try again.", "error");
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  // Determine if waivers were signed during onboarding
+  const waiversWereSigned = Object.keys(signedWaivers).length > 0;
+
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -431,22 +453,23 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                         <Button 
                             variant="outlined" 
                             fullWidth 
-                            onClick={handleSendWaiverEmail}
+                            onClick={waiversWereSigned ? handleSendWaiverEmail : handleSendWaiverForSigning}
                             startIcon={<EmailIcon />}
                             endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
+                            disabled={loading}
                             sx={{ 
                                 justifyContent: 'space-between', 
                                 py: 2, 
                                 px: 3, 
                                 borderRadius: 2, 
-                                borderColor: '#e2e8f0', 
-                                color: '#1e293b',
+                                borderColor: waiversWereSigned ? '#e2e8f0' : '#f59e0b', 
+                                color: waiversWereSigned ? '#1e293b' : '#b45309',
                                 textTransform: 'none',
                                 fontWeight: 600,
-                                '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' }
+                                '&:hover': { bgcolor: '#f8fafc', borderColor: waiversWereSigned ? '#cbd5e1' : '#d97706' }
                             }}
                         >
-                            Send Waiver via Email
+                            {waiversWereSigned ? 'Send Signed Waiver via Email' : 'Send Waiver for Signing'}
                         </Button>
 
                         <Button 

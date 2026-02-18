@@ -188,7 +188,7 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                 const response = await waiverService.upsertSignedWaiver({
                     profile_id: null,
                     waiver_template_id: member.waiverTemplate!.waiver_template_id,
-                    waiver_type: 'AGE_PROFILE',
+                    waiver_type: 'REGISTRATION',
                     content,
                     signature_url: sigResponse.signature_url
                 }, currentLocationId!);
