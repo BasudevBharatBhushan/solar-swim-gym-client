@@ -65,6 +65,7 @@ import {
     RuleRange,
     classifyAgeFromDob,
 } from './membershipSuggestion';
+import { PaymentDialog } from './PaymentDialog';
 
 interface CoverageProfile {
     profile_id: string;
@@ -191,6 +192,7 @@ export const Marketplace = () => {
     const [feeDialogOpen, setFeeDialogOpen] = useState(false);
     const [pendingMembershipCandidate, setPendingMembershipCandidate] = useState<CategoryCandidate | null>(null);
     const [selectedFeeType, setSelectedFeeType] = useState<'JOINING' | 'ANNUAL' | ''>('');
+    const [paymentOpen, setPaymentOpen] = useState(false);
 
     // Per-item discount state: keyed by CartItem.id
     interface ItemDiscountState {
@@ -842,7 +844,6 @@ export const Marketplace = () => {
             ageGroupId: pendingBaseCard.ageGroupId,
             metadata: {
                 subscription_term_id: selectedTerm.subscription_term_id,
-                age_group_id: pendingBaseCard.ageGroupId,
             },
         };
 
@@ -980,14 +981,15 @@ export const Marketplace = () => {
                     }
 
                     if (item.metadata) {
-                        Object.assign(payload, item.metadata);
+                        const { age_group_id, ...otherMetadata } = item.metadata as any;
+                        Object.assign(payload, otherMetadata);
                     }
 
                     return billingService.createSubscription(payload, currentLocationId || undefined);
                 })
             );
 
-            navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`);
+            setPaymentOpen(true);
         } catch (error) {
             console.error('Failed to create subscriptions', error);
         } finally {
@@ -2041,6 +2043,18 @@ export const Marketplace = () => {
                     <Button onClick={() => setMembershipInfoOpen(false)}>Close</Button>
                 </DialogActions>
             </Dialog>
+
+            <PaymentDialog
+                open={paymentOpen}
+                onClose={() => setPaymentOpen(false)}
+                total={cart.reduce((sum, item) => sum + item.price, 0)}
+                itemCount={cart.length}
+                items={cart.map(i => ({ name: i.name, price: i.price }))}
+                onSuccess={() => {
+                    setPaymentOpen(false);
+                    navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`);
+                }}
+            />
         </Box>
     );
 };
