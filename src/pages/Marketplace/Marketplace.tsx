@@ -47,7 +47,7 @@ import StarIcon from '@mui/icons-material/Star';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
-import { getAgeGroupName } from '../../lib/ageUtils';
+import { getAgeGroupName, calculateAge } from '../../lib/ageUtils';
 import { basePriceService, BasePrice } from '../../services/basePriceService';
 import { billingService } from '../../services/billingService';
 import { crmService } from '../../services/crmService';
@@ -62,6 +62,8 @@ import {
     getBaseCartMissingDobProfileIds,
     getSpecificityScore,
     getSuggestedCategory,
+    RuleRange,
+    classifyAgeFromDob,
 } from './membershipSuggestion';
 
 interface CoverageProfile {
@@ -95,6 +97,10 @@ interface CartItem {
     subscriptionTermId?: string;
     /** The service_id this item is linked to (for discount applicability check) */
     serviceId?: string;
+    /** Age group validation for BASE plans */
+    ageGroupId?: string;
+    /** Household rule validation for MEMBERSHIP plans */
+    membershipRange?: RuleRange;
 }
 
 interface AccountProfile {
@@ -194,8 +200,13 @@ export const Marketplace = () => {
         appliedDiscount?: Discount;
         manualAmount: string;
         manualPercentage: string;
+        membershipDiscountExplanation?: string;
+        autoDiscountDisabled?: boolean;
     }
     const [itemDiscounts, setItemDiscounts] = useState<Record<string, ItemDiscountState>>({});
+
+    // Track discounts provided by memberships in the cart: service_pack_id -> { discount, explanation }
+    const [membershipDiscounts, setMembershipDiscounts] = useState<Record<string, { value: string; explanation: string }>>({});
 
     // Only SUPERADMIN / ADMIN / STAFF may enter manual discounts
     const canApplyManualDiscount = ['SUPERADMIN', 'ADMIN', 'STAFF'].includes(role ?? '');
@@ -354,6 +365,122 @@ export const Marketplace = () => {
 
         loadData();
     }, [accountId, currentLocationId, userParams]);
+
+    // Fetch discounts from memberships and base plans in the cart
+    useEffect(() => {
+        const fetchMembershipDiscounts = async () => {
+            const applicableItems = cart.filter(item => 
+                (item.type === 'MEMBERSHIP' && item.membershipCategoryId) || 
+                (item.type === 'BASE' && item.referenceId)
+            );
+            
+            if (applicableItems.length === 0) {
+                setMembershipDiscounts({});
+                return;
+            }
+
+            const newDiscounts: Record<string, { value: string; explanation: string }> = {};
+
+            await Promise.all(applicableItems.map(async (item) => {
+                try {
+                    const ownerId = item.type === 'MEMBERSHIP' ? item.membershipCategoryId! : item.referenceId;
+                    const services = await membershipService.getServices(ownerId, currentLocationId || undefined);
+                    services.forEach(s => {
+                        if (s.service_pack_id && s.discount) {
+                            newDiscounts[s.service_pack_id] = {
+                                value: s.discount,
+                                explanation: `${item.type === 'BASE' ? 'Base Plan' : 'Membership'} Discount: ${item.name}`
+                            };
+                        }
+                    });
+                } catch (error) {
+                    console.error('Failed to fetch membership/base services for discount', error);
+                }
+            }));
+
+            setMembershipDiscounts(newDiscounts);
+        };
+
+        fetchMembershipDiscounts();
+    }, [
+        JSON.stringify(cart.filter(item => item.type === 'MEMBERSHIP' || item.type === 'BASE').map(i => i.id)), 
+        currentLocationId
+    ]);
+
+    // Apply membership discounts to service packs in the cart
+    useEffect(() => {
+        if (Object.keys(membershipDiscounts).length === 0) {
+            // If no membership discounts, but some items have membership explanation, maybe remove them?
+            // Only if they haven't been manually overriden.
+            setCart(prev => prev.map(item => {
+                if (item.type === 'SERVICE' && item.discountCode === 'MEMBERSHIP') {
+                    return {
+                        ...item,
+                        price: item.actualPrice ?? item.price,
+                        actualPrice: undefined,
+                        discountAmount: undefined,
+                        discountPercentage: undefined,
+                        discountCode: undefined
+                    };
+                }
+                return item;
+            }));
+            return;
+        }
+
+        setCart(prev => prev.map(item => {
+            if (item.type !== 'SERVICE') return item;
+            
+            const disc = membershipDiscounts[item.referenceId];
+            const discState = getItemDiscount(item.id);
+
+            if (!disc || discState.autoDiscountDisabled) {
+                // Remove membership discount if it was there but no longer valid for this item or disabled
+                if (item.discountCode === 'MEMBERSHIP') {
+                    return {
+                        ...item,
+                        price: item.actualPrice ?? item.price,
+                        actualPrice: undefined,
+                        discountAmount: undefined,
+                        discountPercentage: undefined,
+                        discountCode: undefined
+                    };
+                }
+                return item;
+            }
+
+            // Skip if user already applied a different code or manual discount
+            if (item.discountCode && item.discountCode !== 'MEMBERSHIP') return item;
+            // Check if it's already applied (to avoid infinite loop if price changes)
+            if (item.discountCode === 'MEMBERSHIP' && item.metadata?.membershipExplanation === disc.explanation) return item;
+
+            const originalPrice = item.actualPrice ?? item.price;
+            const { amount, percentage } = parseDiscountValue(disc.value, originalPrice);
+            const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
+
+            // Update itemDiscounts state for the explanation
+            setItemDiscounts(prevDisc => ({
+                ...prevDisc,
+                [item.id]: {
+                    ...getItemDiscount(item.id),
+                    membershipDiscountExplanation: disc.explanation
+                }
+            }));
+
+            return {
+                ...item,
+                actualPrice: originalPrice,
+                price: discountedPrice,
+                discountAmount: amount,
+                discountPercentage: percentage,
+                discountCode: 'MEMBERSHIP',
+                metadata: {
+                    ...item.metadata,
+                    membershipExplanation: disc.explanation
+                }
+            };
+        }));
+    }, [membershipDiscounts, cart.length]); // Re-run when discounts change or cart items change
 
     const basePlanCards = useMemo(() => {
         const grouped = new Map<string, BasePlanCard>();
@@ -589,6 +716,9 @@ export const Marketplace = () => {
 
     /** Remove any applied discount from a cart item, restoring original price */
     const removeDiscount = useCallback((itemId: string) => {
+        const item = cart.find(i => i.id === itemId);
+        const isMembership = item?.discountCode === 'MEMBERSHIP';
+
         setCart((prev) => prev.map((item) => {
             if (item.id !== itemId) return item;
             return {
@@ -602,14 +732,49 @@ export const Marketplace = () => {
         }));
         setItemDiscounts((prev) => ({
             ...prev,
-            [itemId]: { code: '', codeStatus: 'idle', codeError: undefined, appliedDiscount: undefined, manualAmount: '', manualPercentage: '' },
+            [itemId]: { 
+                code: '', 
+                codeStatus: 'idle', 
+                codeError: undefined, 
+                appliedDiscount: undefined, 
+                manualAmount: '', 
+                manualPercentage: '',
+                autoDiscountDisabled: isMembership ? true : prev[itemId]?.autoDiscountDisabled
+            },
         }));
-    }, []);
+    }, [cart]);
 
     const openCoverageDialogForItem = (item: CartItem) => {
         const existing = cart.find((cartItem) => cartItem.id === item.id);
         setPendingItem(item);
-        setSelectedProfileIds(existing?.coverage?.map((profile) => profile.profile_id) || (primaryProfileId ? [primaryProfileId] : []));
+
+        const initialSelection = existing?.coverage?.map((profile) => profile.profile_id) || (primaryProfileId ? [primaryProfileId] : []);
+        
+        // Pre-filter disallowed profiles
+        const allowedSelection = initialSelection.filter(id => {
+            const profile = profilesById.get(id);
+            if (!profile) return false;
+
+            if (item.type === 'BASE' && item.ageGroupId) {
+                if (profile.date_of_birth) {
+                    const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups);
+                    const matchedGroup = ageGroups.find((group) => group.name === ageGroupName);
+                    return matchedGroup?.age_group_id === item.ageGroupId;
+                }
+                return false;
+            } else if (item.type === 'MEMBERSHIP' && item.membershipRange) {
+                if (profile.date_of_birth) {
+                    const bucket = classifyAgeFromDob(profile.date_of_birth);
+                    const range = item.membershipRange;
+                    const maxAllowed = bucket === 'child' ? range.children.max : bucket === 'adult' ? range.adults.max : range.seniors.max;
+                    return maxAllowed > 0;
+                }
+                return false;
+            }
+            return true;
+        });
+
+        setSelectedProfileIds(allowedSelection);
         setCoverageDialogOpen(true);
     };
 
@@ -674,8 +839,10 @@ export const Marketplace = () => {
             name: `${pendingBaseCard.name} - ${pendingBaseCard.ageGroupName} (${pendingBaseCard.role})`,
             price: selectedTerm.price,
             subscriptionTermId: selectedTerm.subscription_term_id,
+            ageGroupId: pendingBaseCard.ageGroupId,
             metadata: {
                 subscription_term_id: selectedTerm.subscription_term_id,
+                age_group_id: pendingBaseCard.ageGroupId,
             },
         };
 
@@ -713,6 +880,7 @@ export const Marketplace = () => {
             feeType: selectedFeeType,
             name: `${pendingMembershipCandidate.programName} - ${pendingMembershipCandidate.categoryName} (${selectedFeeType})`,
             price: selectedAmount,
+            membershipRange: pendingMembershipCandidate.range,
         };
 
         setFeeDialogOpen(false);
@@ -1409,11 +1577,17 @@ export const Marketplace = () => {
                                                 {/* Applied discount badge */}
                                                 {hasDiscount && (
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                                        <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                                                        {item.discountCode === 'MEMBERSHIP' ? (
+                                                            <StarIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                                                        ) : (
+                                                            <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                                                        )}
                                                         <Typography variant="caption" color="success.main" fontWeight={600}>
-                                                            {item.discountCode
-                                                                ? `Code "${item.discountCode}" applied — saved ${formatCurrency(item.discountAmount ?? 0)}`
-                                                                : `Manual discount applied — saved ${formatCurrency(item.discountAmount ?? 0)}`}
+                                                            {item.discountCode === 'MEMBERSHIP'
+                                                                ? `${discState.membershipDiscountExplanation || 'Membership discount applied'} — saved ${formatCurrency(item.discountAmount ?? 0)}`
+                                                                : item.discountCode
+                                                                  ? `Code "${item.discountCode}" applied — saved ${formatCurrency(item.discountAmount ?? 0)}`
+                                                                  : `Manual discount applied — saved ${formatCurrency(item.discountAmount ?? 0)}`}
                                                         </Typography>
                                                         <Button
                                                             size="small"
@@ -1659,35 +1833,89 @@ export const Marketplace = () => {
                         Select the family members for {pendingItem?.name}.
                     </Typography>
                     <FormGroup>
-                        {profiles.map((profile) => (
-                            <FormControlLabel
-                                key={profile.profile_id}
-                                control={
-                                    <Checkbox
-                                        checked={selectedProfileIds.includes(profile.profile_id)}
-                                        onChange={(event) => {
-                                            if (event.target.checked) {
-                                                setSelectedProfileIds((prev) => [...prev, profile.profile_id]);
-                                            } else {
-                                                setSelectedProfileIds((prev) => prev.filter((id) => id !== profile.profile_id));
+                        {profiles.map((profile) => {
+                            let isAllowed = true;
+                            let restrictionReason = '';
+
+                            if (pendingItem?.type === 'BASE' && pendingItem.ageGroupId) {
+                                if (profile.date_of_birth) {
+                                    const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups);
+                                    const matchedGroup = ageGroups.find((group) => group.name === ageGroupName);
+                                    if (matchedGroup?.age_group_id !== pendingItem.ageGroupId) {
+                                        isAllowed = false;
+                                        restrictionReason = `Requires ${ageGroups.find(g => g.age_group_id === pendingItem.ageGroupId)?.name || 'different age group'}`;
+                                    }
+                                } else {
+                                    isAllowed = false;
+                                    restrictionReason = 'Date of birth missing';
+                                }
+                            } else if (pendingItem?.type === 'MEMBERSHIP' && pendingItem.membershipRange) {
+                                if (profile.date_of_birth) {
+                                    const bucket = classifyAgeFromDob(profile.date_of_birth);
+                                    const range = pendingItem.membershipRange;
+                                    const maxAllowed = bucket === 'child' ? range.children.max : bucket === 'adult' ? range.adults.max : range.seniors.max;
+                                    
+                                    if (maxAllowed === 0) {
+                                        isAllowed = false;
+                                        restrictionReason = `${bucket.charAt(0).toUpperCase() + bucket.slice(1)}s not allowed in this plan`;
+                                    }
+                                } else {
+                                    isAllowed = false;
+                                    restrictionReason = 'Date of birth missing';
+                                }
+                            }
+
+                            const profileAge = profile.date_of_birth ? calculateAge(profile.date_of_birth) : null;
+
+                            return (
+                                <Tooltip key={profile.profile_id} title={restrictionReason} placement="right" disableHoverListener={isAllowed}>
+                                    <FormControlLabel
+                                        sx={{ 
+                                            mb: 1, 
+                                            opacity: isAllowed ? 1 : 0.5,
+                                            '& .MuiTypography-root': {
+                                                color: isAllowed ? 'text.primary' : 'text.disabled'
                                             }
                                         }}
+                                        control={
+                                            <Checkbox
+                                                checked={selectedProfileIds.includes(profile.profile_id)}
+                                                disabled={!isAllowed}
+                                                onChange={(event) => {
+                                                    if (event.target.checked) {
+                                                        setSelectedProfileIds((prev) => [...prev, profile.profile_id]);
+                                                    } else {
+                                                        setSelectedProfileIds((prev) => prev.filter((id) => id !== profile.profile_id));
+                                                    }
+                                                }}
+                                            />
+                                        }
+                                        label={
+                                            <Box display="flex" alignItems="center" gap={1}>
+                                                <Typography variant="body2">
+                                                    {getProfileDisplayName(profile)}
+                                                    {profileAge !== null && (
+                                                        <Typography component="span" variant="caption" sx={{ ml: 1, fontWeight: 700, color: isAllowed ? 'primary.main' : 'text.disabled' }}>
+                                                            ({profileAge} yrs)
+                                                        </Typography>
+                                                    )}
+                                                </Typography>
+                                                <Chip
+                                                    label={profile.date_of_birth ? getAgeGroupName(profile.date_of_birth, ageGroups) : 'Unknown'}
+                                                    size="small"
+                                                    sx={{ 
+                                                        height: 18, 
+                                                        fontSize: '0.6rem',
+                                                        opacity: isAllowed ? 1 : 0.6
+                                                    }}
+                                                />
+                                                {profile.is_primary && <StarIcon sx={{ fontSize: 14, color: isAllowed ? '#f59e0b' : 'text.disabled' }} />}
+                                            </Box>
+                                        }
                                     />
-                                }
-                                label={
-                                    <Box display="flex" alignItems="center" gap={1}>
-                                        <Typography variant="body2">{getProfileDisplayName(profile)}</Typography>
-                                        <Chip
-                                            label={profile.date_of_birth ? getAgeGroupName(profile.date_of_birth, ageGroups) : 'Unknown'}
-                                            size="small"
-                                            sx={{ height: 18, fontSize: '0.6rem' }}
-                                        />
-                                        {profile.is_primary && <StarIcon sx={{ fontSize: 14, color: '#f59e0b' }} />}
-                                    </Box>
-                                }
-                                sx={{ mb: 1 }}
-                            />
-                        ))}
+                                </Tooltip>
+                            );
+                        })}
                     </FormGroup>
                 </DialogContent>
                 <DialogActions sx={{ p: 3 }}>
