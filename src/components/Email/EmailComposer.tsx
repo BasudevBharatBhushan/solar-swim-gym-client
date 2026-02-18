@@ -21,7 +21,7 @@ import {
     Divider,
     Paper
 } from '@mui/material';
-import { Send, AttachFile, Delete, OpenInNew } from '@mui/icons-material';
+import { Send, AttachFile, Delete, OpenInNew, Visibility, VisibilityOff } from '@mui/icons-material';
 import { emailService, EmailTemplate } from '../../services/emailService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -74,6 +74,7 @@ export const EmailComposer = ({
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
 
     useEffect(() => {
         setTo(initialTo);
@@ -296,28 +297,93 @@ export const EmailComposer = ({
                 <Grid size={{ xs: 12 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                         <Typography variant="caption" color="text.secondary">Body</Typography>
-                         <FormControlLabel
-                            control={<Switch size="small" checked={isHtml} onChange={(e) => setIsHtml(e.target.checked)} />}
-                            label={<Typography variant="caption">HTML Mode</Typography>}
-                        />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {isHtml && (
+                                <Button
+                                    size="small"
+                                    variant={showPreview ? 'contained' : 'outlined'}
+                                    startIcon={showPreview ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                                    onClick={() => setShowPreview(p => !p)}
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontSize: '0.75rem',
+                                        py: 0.4,
+                                        px: 1.5,
+                                        borderRadius: 2,
+                                        ...(showPreview ? {
+                                            bgcolor: '#2563eb',
+                                            '&:hover': { bgcolor: '#1d4ed8' }
+                                        } : {})
+                                    }}
+                                >
+                                    {showPreview ? 'Edit' : 'Preview'}
+                                </Button>
+                            )}
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        size="small"
+                                        checked={isHtml}
+                                        onChange={(e) => {
+                                            setIsHtml(e.target.checked);
+                                            if (!e.target.checked) setShowPreview(false);
+                                        }}
+                                    />
+                                }
+                                label={<Typography variant="caption">HTML Mode</Typography>}
+                            />
+                        </Box>
                     </Box>
-                    <TextField
-                        fullWidth
-                        multiline
-                        minRows={8}
-                        maxRows={12}
-                        value={body}
-                        onChange={(e) => setBody(e.target.value)}
-                        disabled={sending}
-                        placeholder={isHtml ? "<html>...</html>" : "Plain text message..."}
-                        sx={{ 
-                            fontFamily: isHtml ? 'monospace' : 'inherit',
-                            '& .MuiInputBase-input': {
+
+                    {/* Preview pane */}
+                    {isHtml && showPreview ? (
+                        <Box
+                            sx={{
+                                border: '1px solid #e2e8f0',
+                                borderRadius: 1,
+                                overflow: 'hidden',
+                                bgcolor: '#fff',
+                                minHeight: 300
+                            }}
+                        >
+                            <Box sx={{ px: 1.5, py: 0.75, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#f87171' }} />
+                                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#fbbf24' }} />
+                                <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#34d399' }} />
+                                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>Email Preview</Typography>
+                            </Box>
+                            <Box
+                                component="iframe"
+                                srcDoc={body}
+                                title="Email HTML Preview"
+                                sandbox="allow-same-origin"
+                                sx={{
+                                    width: '100%',
+                                    minHeight: 380,
+                                    border: 'none',
+                                    display: 'block'
+                                }}
+                            />
+                        </Box>
+                    ) : (
+                        <TextField
+                            fullWidth
+                            multiline
+                            minRows={8}
+                            maxRows={12}
+                            value={body}
+                            onChange={(e) => setBody(e.target.value)}
+                            disabled={sending}
+                            placeholder={isHtml ? "<html>...</html>" : "Plain text message..."}
+                            sx={{ 
                                 fontFamily: isHtml ? 'monospace' : 'inherit',
-                                fontSize: isHtml ? '0.875rem' : '1rem'
-                            }
-                        }}
-                    />
+                                '& .MuiInputBase-input': {
+                                    fontFamily: isHtml ? 'monospace' : 'inherit',
+                                    fontSize: isHtml ? '0.875rem' : '1rem'
+                                }
+                            }}
+                        />
+                    )}
                 </Grid>
 
                 {/* Attachments Section */}

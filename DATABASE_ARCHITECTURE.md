@@ -386,7 +386,10 @@ Active recurring contract for a service/membership.
 | `reference_id` | `UUID` | Polymorphic FK to price table. | `NOT NULL` |
 | `subscription_term_id` | `UUID` | Billing term FK. | **FK** -> `subscription_term` |
 | `unit_price_snapshot` | `DECIMAL` | Price frozen at purchase time. | `NOT NULL` |
-| `total_amount` | `DECIMAL` | Total cost. | `NOT NULL` |
+| `total_amount` | `DECIMAL` | Final amount charged after any discount. | `NOT NULL` |
+| `actual_total_amount` | `DECIMAL` | Original list price before any discount. Equals `total_amount` when no discount applies. | Default: `0.00` |
+| `discount_amount` | `DECIMAL` | Flat monetary discount applied (e.g. `10.00` = $10 off). | Default: `0.00` |
+| `discount_percentage` | `DECIMAL` | Percentage discount applied (e.g. `15.00` = 15% off). Informational — actual deduction stored in `discount_amount`. | Default: `0.00` |
 | `billing_period_start` | `DATE` | Start of coverage. | |
 | `billing_period_end` | `DATE` | End of coverage. | |
 | `status` | `ENUM` | `ACTIVE`, `PAID`, `CANCELLED` | Default: `ACTIVE`, `NOT NULL` |

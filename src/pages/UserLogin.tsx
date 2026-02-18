@@ -18,7 +18,7 @@ import {
   VisibilityOff,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/authService';
 import logo from '../assets/logo.png';
 import { ClientOnboardingModal } from './Accounts/ClientOnboarding/ClientOnboardingModal';
@@ -30,6 +30,7 @@ export const UserLogin = () => {
   const [error, setError] = useState<string | null>(null);
   const { login, setCurrentLocationId } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -56,7 +57,13 @@ export const UserLogin = () => {
           setCurrentLocationId(userObj.account.location_id);
       }
 
-      navigate('/portal'); // Redirect to user portal
+      // Honour redirect param (e.g. from waiver signing flow)
+      const redirectPath = searchParams.get('redirect');
+      const tabParam = searchParams.get('tab');
+      const destination = redirectPath
+        ? `${redirectPath}${tabParam ? `?tab=${tabParam}` : ''}`
+        : '/portal';
+      navigate(destination);
     } catch (err: any) {
       console.error(err);
       setError('Invalid email or password. Please try again.');

@@ -281,7 +281,7 @@ export const StaffManagement = () => {
             variant="contained"
             startIcon={<Add />}
             onClick={() => handleOpenModal()}
-            sx={{ borderRadius: 2, textTransform: "none", px: 3 }}
+            sx={{ borderRadius: 1, textTransform: "none", px: 3 }}
           >
             Add Staff Member
           </Button>

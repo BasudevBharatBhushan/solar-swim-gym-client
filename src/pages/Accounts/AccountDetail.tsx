@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Grid, CircularProgress, Typography, Button, Paper, Tabs, Tab, Stack, Snackbar, Alert, Dialog, DialogContent } from '@mui/material';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Box, Grid, CircularProgress, Typography, Button, Paper, Tabs, Tab, Stack, Snackbar, Alert, Dialog, DialogContent, Tooltip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EmailIcon from '@mui/icons-material/Email';
 import LinkIcon from '@mui/icons-material/Link';
@@ -42,8 +42,16 @@ export const AccountDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   
-  // Right Panel Tabs
+  // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers
   const [tabValue, setTabValue] = useState(0);
+  const [searchParams] = useSearchParams();
+
+  // Auto-switch to Waivers tab if ?tab=waivers is in the URL
+  useEffect(() => {
+    if (searchParams.get('tab') === 'waivers') {
+      setTabValue(2);
+    }
+  }, [searchParams]);
 
   // Waiver status tracking
   const [hasUnsignedWaivers, setHasUnsignedWaivers] = useState(false);
@@ -198,7 +206,12 @@ export const AccountDetail = () => {
 
       try {
           const profiles = account.profiles || [];
-          const recipientEmail = account.email || profiles.find((p: any) => p.is_primary)?.email || profiles[0]?.email;
+          // Collect all profile emails as comma-separated
+          const allEmails = profiles
+              .map((p: any) => p.email)
+              .filter(Boolean)
+              .join(', ');
+          const recipientEmail = allEmails || account.email;
 
           if (!recipientEmail) {
               showToast("No recipient email found for this account.", "warning");
@@ -212,21 +225,42 @@ export const AccountDetail = () => {
               showToast("Activation link with waiver signing sent successfully!", "success");
           } else {
               // Account is active - send contract signing email using template
-              const templateName = 'Your Contract is Ready for Signing';
-              let subject = templateName;
+              const companyName = (account.location?.name || account.location_name || 'Solar Swim Gym');
+              // Default subject with company name already resolved
+              let subject = `Complete Your Registration – Waiver Signing for ${companyName}`;
               let body = `Your contract is ready for signing. Please click the link below to sign your waiver.`;
               let templateId: string | undefined = undefined;
 
               try {
                   const templates = await emailService.getTemplates(currentLocationId);
-                  const template = templates.find(t => t.subject === templateName || t.subject.includes('Contract'));
+                  const template = templates.find((t: any) =>
+                      t.subject?.includes('Complete Your Registration') ||
+                      t.subject?.includes('Waiver Signing') ||
+                      t.subject?.includes('Contract')
+                  );
                   if (template) {
-                      subject = template.subject;
+                      // Replace {{company}} or {{company} (handles missing closing brace in DB)
+                      subject = template.subject.replace(/\{\{company\}?\}?/g, companyName);
                       body = template.body_content;
                       templateId = template.email_template_id;
                   }
               } catch (e) {
                   console.warn("Could not fetch templates, using default");
+              }
+
+              // Build the contract signing link — points to the member portal waiver tab
+              const contractLink = `${window.location.origin}/portal?tab=waivers`;
+              const currentYear = new Date().getFullYear().toString();
+
+              // Replace all template variables
+              body = body
+                .replace(/\{\{contract_link\}\}/g, contractLink)
+                .replace(/\{\{company\}\}/g, companyName)
+                .replace(/\{\{year\}\}/g, currentYear);
+
+              // Fallback: if no {{contract_link}} placeholder was found, append the link
+              if (!body.includes(contractLink)) {
+                  body = `${body}\n\nSign your waiver here: ${contractLink}`;
               }
 
               setComposeDraft({
@@ -285,8 +319,9 @@ export const AccountDetail = () => {
         };
         
         setAccount(normalizedData);
-        // Default to 'All Members' (null)
-        setSelectedProfileId(null);
+        // Auto-select the primary member
+        const primaryProfile = normalizedData.profiles?.find((p: any) => p.is_primary);
+        setSelectedProfileId(primaryProfile?.profile_id || normalizedData.profiles?.[0]?.profile_id || null);
 
         // Check waiver status for all profiles
         try {
@@ -376,49 +411,129 @@ export const AccountDetail = () => {
             { label: 'Detail', active: true }
         ]}
         action={
-            <Stack direction="row" spacing={1}>
-                 <Button 
-                    startIcon={hasUnsignedWaivers ? <DrawIcon /> : <EmailIcon />} 
-                    endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                    onClick={handleWaiverButtonClick}
-                    disabled={actionLoading}
-                    variant="outlined"
-                    size="small"
-                    color={hasUnsignedWaivers ? 'warning' : 'primary'}
-                    sx={{ textTransform: 'none' }}
-                >
-                    {hasUnsignedWaivers ? 'Send Waiver for Signing' : 'Send Signed Waiver'}
-                </Button>
-                <Button 
-                    startIcon={<LinkIcon />} 
-                    endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                    onClick={handleSendActivationLink}
-                    disabled={actionLoading}
-                    variant="outlined"
-                    size="small"
-                    sx={{ textTransform: 'none' }}
-                >
-                    Send Activation
-                </Button>
-                <Button 
-                    startIcon={<PaymentsIcon />} 
-                    endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                    onClick={handleSendPaymentLink}
-                    disabled={actionLoading}
-                    variant="outlined"
-                    size="small"
-                    sx={{ textTransform: 'none' }}
-                >
-                    Send Payment Link
-                </Button>
-                <Button 
-                    startIcon={<ArrowBackIcon />} 
+            <Stack direction="row" spacing={1} alignItems="center">
+                <Tooltip title={hasUnsignedWaivers ? 'Send waiver link for signing to member email' : 'Email signed waiver PDF to member'} arrow>
+                    <span>
+                        <Button
+                            startIcon={hasUnsignedWaivers ? <DrawIcon sx={{ fontSize: '0.95rem !important' }} /> : <EmailIcon sx={{ fontSize: '0.95rem !important' }} />}
+                            endIcon={<LaunchIcon sx={{ fontSize: '0.75rem !important', opacity: 0.6 }} />}
+                            onClick={handleWaiverButtonClick}
+                            disabled={actionLoading}
+                            size="small"
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
+                                px: 1.75,
+                                py: 0.75,
+                                borderRadius: '6px',
+                                border: '1.5px solid',
+                                borderColor: hasUnsignedWaivers ? '#f59e0b' : '#334155',
+                                color: hasUnsignedWaivers ? '#b45309' : '#334155',
+                                bgcolor: hasUnsignedWaivers ? '#fffbeb' : '#f8fafc',
+                                '&:hover': {
+                                    bgcolor: hasUnsignedWaivers ? '#fef3c7' : '#f1f5f9',
+                                    borderColor: hasUnsignedWaivers ? '#d97706' : '#1e293b',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                                },
+                                transition: 'all 0.2s ease',
+                                '&.Mui-disabled': { opacity: 0.5 },
+                            }}
+                        >
+                            {hasUnsignedWaivers ? 'Send Waiver for Signing' : 'Email Signed Waiver'}
+                        </Button>
+                    </span>
+                </Tooltip>
+
+                <Tooltip title="Send account activation link via email" arrow>
+                    <span>
+                        <Button
+                            startIcon={<LinkIcon sx={{ fontSize: '0.95rem !important' }} />}
+                            endIcon={<LaunchIcon sx={{ fontSize: '0.75rem !important', opacity: 0.6 }} />}
+                            onClick={handleSendActivationLink}
+                            disabled={actionLoading}
+                            size="small"
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
+                                px: 1.75,
+                                py: 0.75,
+                                borderRadius: '6px',
+                                border: '1.5px solid #6366f1',
+                                color: '#4338ca',
+                                bgcolor: '#eef2ff',
+                                '&:hover': {
+                                    bgcolor: '#e0e7ff',
+                                    borderColor: '#4338ca',
+                                    boxShadow: '0 2px 8px rgba(99,102,241,0.15)',
+                                },
+                                transition: 'all 0.2s ease',
+                                '&.Mui-disabled': { opacity: 0.5 },
+                            }}
+                        >
+                            Send Activation Link
+                        </Button>
+                    </span>
+                </Tooltip>
+
+                <Tooltip title="Send payment link via email" arrow>
+                    <span>
+                        <Button
+                            startIcon={<PaymentsIcon sx={{ fontSize: '0.95rem !important' }} />}
+                            endIcon={<LaunchIcon sx={{ fontSize: '0.75rem !important', opacity: 0.6 }} />}
+                            onClick={handleSendPaymentLink}
+                            disabled={actionLoading}
+                            size="small"
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
+                                px: 1.75,
+                                py: 0.75,
+                                borderRadius: '6px',
+                                border: '1.5px solid #10b981',
+                                color: '#047857',
+                                bgcolor: '#ecfdf5',
+                                '&:hover': {
+                                    bgcolor: '#d1fae5',
+                                    borderColor: '#059669',
+                                    boxShadow: '0 2px 8px rgba(16,185,129,0.15)',
+                                },
+                                transition: 'all 0.2s ease',
+                                '&.Mui-disabled': { opacity: 0.5 },
+                            }}
+                        >
+                            Send Payment Link
+                        </Button>
+                    </span>
+                </Tooltip>
+
+                <Box sx={{ width: '1px', height: 24, bgcolor: '#e2e8f0', mx: 0.5 }} />
+
+                <Button
+                    startIcon={<ArrowBackIcon sx={{ fontSize: '0.95rem !important' }} />}
                     onClick={() => navigate('/admin/accounts')}
-                    variant="contained"
                     size="small"
-                    sx={{ textTransform: 'none', bgcolor: '#0f172a' }}
+                    sx={{
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        px: 1.75,
+                        py: 0.75,
+                        borderRadius: '6px',
+                        border: '1.5px solid #cbd5e1',
+                        color: '#475569',
+                        bgcolor: '#ffffff',
+                        '&:hover': {
+                            bgcolor: '#f1f5f9',
+                            borderColor: '#94a3b8',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                        },
+                        transition: 'all 0.2s ease',
+                    }}
                 >
-                    Back
+                    Back to Accounts
                 </Button>
             </Stack>
         }

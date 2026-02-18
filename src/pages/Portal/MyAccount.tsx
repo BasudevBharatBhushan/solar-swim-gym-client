@@ -1,21 +1,31 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Box, Grid, CircularProgress, Typography, Paper, Tabs, Tab } from '@mui/material';
 import { crmService } from '../../services/crmService';
 import { AccountSummary } from '../Accounts/components/AccountSummary';
 import { ProfileList } from '../Accounts/components/ProfileList';
 import { ProfileDetail } from '../Accounts/components/ProfileDetail';
 import { SubscriptionsTab } from '../Accounts/components/SubscriptionsTab';
+import { WaiversTab } from '../Accounts/components/WaiversTab';
 import { useAuth } from '../../context/AuthContext';
 
 export const MyAccount = () => {
     const { userParams, currentLocationId } = useAuth();
+    const [searchParams] = useSearchParams();
     const [account, setAccount] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
     
-    // Right Panel Tabs
+    // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers
     const [tabValue, setTabValue] = useState(0);
+
+    // Auto-switch to Waivers tab if redirected from waiver signing flow
+    useEffect(() => {
+        if (searchParams.get('tab') === 'waivers') {
+            setTabValue(2);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         const fetchAccount = async () => {
@@ -136,6 +146,7 @@ export const MyAccount = () => {
                             <Tabs value={tabValue} onChange={handleTabChange} aria-label="account detail tabs">
                                 <Tab label="Profile Details" />
                                 <Tab label="Subscriptions" />
+                                <Tab label="Waivers" />
                             </Tabs>
                         </Box>
                         <Box sx={{ p: 3 }}>
@@ -144,6 +155,13 @@ export const MyAccount = () => {
                             )}
                             {tabValue === 1 && (
                                 <SubscriptionsTab accountId={account.account_id} selectedProfileId={selectedProfileId} />
+                            )}
+                            {tabValue === 2 && (
+                                <WaiversTab
+                                    profiles={account.profiles || []}
+                                    selectedProfileId={selectedProfileId}
+                                    accountId={account.account_id}
+                                />
                             )}
                         </Box>
                     </Paper>
