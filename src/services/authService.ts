@@ -51,4 +51,9 @@ export const authService = {
     }
     return data;
   },
+
+  // Send Reset Password Link
+  sendResetPasswordLink: async (accountId: string) => {
+    return apiClient.post('/auth/user/reset-password', { account_id: accountId });
+  },
 };

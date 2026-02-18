@@ -33,9 +33,10 @@ import { Add, Edit, Save, Delete } from '@mui/icons-material';
 import { useConfig } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
 import { basePriceService, BasePrice } from '../../services/basePriceService';
-import { serviceCatalog, Service } from '../../services/serviceCatalog';
 import { membershipService, MembershipService } from '../../services/membershipService';
 import { PageHeader } from '../../components/Common/PageHeader';
+import { ServicePackSelector } from '../../components/Service/ServicePackSelector';
+import { serviceCatalog, Service, ServicePack } from '../../services/serviceCatalog';
 
 // --- Types ---
 interface ProfileKey {
@@ -46,7 +47,7 @@ interface ProfileKey {
 
 export const BasePlan = () => {
   const { currentLocationId } = useAuth();
-  const { ageGroups, subscriptionTerms, dropdownValues } = useConfig();
+  const { ageGroups, subscriptionTerms, dropdownValues, waiverPrograms } = useConfig();
   
   // -- Data State --
   const [basePrices, setBasePrices] = useState<BasePrice[]>([]);
@@ -66,7 +67,6 @@ export const BasePlan = () => {
 
   // -- Service Management State --
   const [isAddingService, setIsAddingService] = useState(false);
-  const [newServiceId, setNewServiceId] = useState('');
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [serviceEditState, setServiceEditState] = useState<Partial<MembershipService>>({});
 
@@ -81,6 +81,7 @@ export const BasePlan = () => {
     role: 'PRIMARY',
     is_active: true
   });
+  const [createTermPrices, setCreateTermPrices] = useState<Record<string, string>>({});
 
   // -- Delete Confirmation State --
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -212,6 +213,41 @@ export const BasePlan = () => {
       }
   };
 
+  // Fetch Packs for Bundled Services
+  useEffect(() => {
+    if (bundledServices.length === 0 || allServices.length === 0) return;
+
+    const servicesNeedingPacks = bundledServices
+        .map(s => s.service_id)
+        .filter((id): id is string => !!id)
+        .filter((id, idx, self) => self.indexOf(id) === idx)
+        .filter(id => {
+            const svc = allServices.find(as => as.service_id === id);
+            return svc && !svc.packs;
+        });
+    
+    if (servicesNeedingPacks.length === 0) return;
+
+    Promise.all(servicesNeedingPacks.map(async (id) => {
+        try {
+            const data = await serviceCatalog.getServicePacks(id, currentLocationId || undefined);
+            const packs = Array.isArray(data) ? data : (data.data || []);
+            return { id, packs };
+        } catch (e) {
+            console.error(`Failed to load packs for service ${id}`, e);
+            return { id, packs: [] };
+        }
+    })).then((results) => {
+        setAllServices(prev => prev.map(s => {
+            const res = results.find(r => r.id === s.service_id);
+            if (res) {
+                return { ...s, packs: res.packs };
+            }
+            return s;
+        }));
+    });
+  }, [bundledServices, allServices]);
+
   // --- 4. Helpers ---
   const getAgeGroupName = (id: string) => ageGroups.find(g => g.age_group_id === id)?.name || 'Unknown';
   
@@ -320,32 +356,44 @@ export const BasePlan = () => {
   };
 
   const handleCreateProfile = async () => {
-    if(!createForm.name || !createForm.age_group_id || !createForm.subscription_term_id || !currentLocationId) return;
+    const trimmedName = createForm.name?.trim();
+    if (!trimmedName || !createForm.age_group_id || !currentLocationId) return;
+    if (subscriptionTerms.length === 0) {
+        setError("No subscription terms configured.");
+        return;
+    }
     
     setIsSaving(true);
-    const priceValue = Number(createForm.price || 0);
-    
-    // Construct bulk payload for creation as well
+
+    const pricesPayload: BasePrice[] = subscriptionTerms.map((term) => {
+        const rawPrice = createTermPrices[term.subscription_term_id];
+        const parsedPrice = rawPrice === '' || rawPrice === undefined ? 0 : Number(rawPrice);
+        return {
+            location_id: currentLocationId,
+            name: trimmedName,
+            role: (createForm.role as 'PRIMARY' | 'ADD_ON') || 'PRIMARY',
+            age_group_id: createForm.age_group_id!,
+            subscription_term_id: term.subscription_term_id,
+            price: isNaN(parsedPrice) ? 0 : parsedPrice,
+            is_active: true
+        };
+    });
+
     const payload = {
         location_id: currentLocationId,
-        prices: [{
-            ...createForm,
-            location_id: currentLocationId, // Ensure location_id is in the object
-            price: priceValue,
-            name: createForm.name!,     // Assert non-null as per check above
-            role: createForm.role!      // Assert non-null as per check above
-        } as BasePrice]
+        prices: pricesPayload
     };
 
     try {
         await basePriceService.upsert(payload, currentLocationId || undefined);
         await fetchData();
-        setSuccess("Base Plan created.");
+        setSuccess("Membership created.");
         setOpenCreate(false);
         setCreateForm({ role: 'PRIMARY', is_active: true });
+        setCreateTermPrices({});
     } catch (e) {
         console.error("Create failed:", e);
-        setError("Failed to create Base Plan.");
+        setError("Failed to create Membership.");
     } finally {
         setIsSaving(false);
     }
@@ -355,8 +403,8 @@ export const BasePlan = () => {
       if (!selectedProfile) return;
       setDeleteConfirm({
           open: true,
-          title: 'Delete Base Plan?',
-          message: `Are you sure you want to delete the "${selectedProfile.planName}" (${selectedProfile.role}) plan? This will remove all pricing variations and bundled services. This action cannot be undone.`,
+          title: 'Delete Membership?',
+          message: `Are you sure you want to delete the "${selectedProfile.planName}" (${selectedProfile.role}) membership? This will remove all pricing variations and bundled services. This action cannot be undone.`,
           onConfirm: async () => {
               if (!selectedProfile) return;
               try {
@@ -369,14 +417,14 @@ export const BasePlan = () => {
                   
                   if (priceRecord?.base_price_id) {
                       await basePriceService.delete(priceRecord.base_price_id, currentLocationId || undefined);
-                      setSuccess("Base Plan deleted.");
+                      setSuccess("Membership deleted.");
                       setSelectedProfile(null);
                       await fetchData();
                   } else {
                       setError("Could not find plan ID to delete.");
                   }
               } catch (e: any) {
-                  setError(e.message || "Failed to delete plan.");
+                  setError(e.message || "Failed to delete membership.");
               } finally {
                   setDeleteConfirm(prev => ({ ...prev, open: false }));
               }
@@ -388,7 +436,7 @@ export const BasePlan = () => {
       setDeleteConfirm({
           open: true,
           title: 'Remove Service?',
-          message: `Are you sure you want to remove "${service.service_name || 'this service'}" from this plan?`,
+          message: `Are you sure you want to remove "${service.service_name || 'this service'}" from this membership?`,
           onConfirm: async () => {
               if (!service.membership_service_id) return;
               try {
@@ -404,8 +452,8 @@ export const BasePlan = () => {
       });
   };
 
-  const handleAddService = async () => {
-      if (!selectedProfile || !newServiceId || !currentLocationId) return;
+  const handleAddService = async (service: Service, pack: ServicePack) => {
+      if (!selectedProfile || !currentLocationId) return;
       
       // Find the ID to attach to
       const priceRecord = basePrices.find(p => 
@@ -423,7 +471,8 @@ export const BasePlan = () => {
       setBundledServicesLoading(true);
       try {
           const newService: MembershipService = {
-              service_id: newServiceId,
+              service_id: service.service_id, // enriched parent id
+              service_pack_id: pack.service_pack_id!, // Required now
               membership_program_id: priceRecord.base_price_id,
               is_included: true,
               usage_limit: 'Unlimited',
@@ -433,7 +482,6 @@ export const BasePlan = () => {
           await membershipService.upsertServices([newService], currentLocationId);
           setSuccess("Service added.");
           setIsAddingService(false);
-          setNewServiceId('');
           await loadBundledServices(selectedProfile);
       } catch (e: any) {
           setError(e.message || "Failed to add service.");
@@ -482,17 +530,21 @@ export const BasePlan = () => {
   return (
     <Box sx={{ p: 3 }}>
         <PageHeader 
-            title="Base Plans & Pricing" 
-            description="Manage base plans, pricing matrices, and bundled services."
+            title="Memberships" 
+            description="Manage memberships, pricing matrices, and bundled services."
             breadcrumbs={[
                 { label: 'Settings', href: '/admin/settings' },
-                { label: 'Base Plans & Pricing', active: true }
+                { label: 'Memberships', active: true }
             ]}
             action={
                 <Button 
                     variant="contained" 
                     startIcon={<Add />} 
-                    onClick={() => setOpenCreate(true)}
+                    onClick={() => {
+                        setCreateForm({ role: 'PRIMARY', is_active: true });
+                        setCreateTermPrices({});
+                        setOpenCreate(true);
+                    }}
                     sx={{ 
                         borderRadius: '8px', // Reduced from 2 (default 8px usually, but making sure it's explicit small) or just 1
                         textTransform: 'none', 
@@ -502,7 +554,7 @@ export const BasePlan = () => {
                         '&:hover': { bgcolor: '#3a75e0' }
                     }}
                 >
-                    New Base Plan
+                    New Membership
                 </Button>
             }
         />
@@ -513,7 +565,7 @@ export const BasePlan = () => {
                 <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', borderRadius: 2, overflow: 'hidden' }}>
                     <Box sx={{ p: 2, bgcolor: '#fff', borderBottom: '1px solid #f0f4f8' }}>
                         <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>
-                            BASE PLANS
+                            MEMBERSHIPS
                         </Typography>
                     </Box>
                     <List sx={{ flex: 1, overflowY: 'auto', p: 0 }}>
@@ -570,7 +622,7 @@ export const BasePlan = () => {
                         ))}
                         {ageGroupsWithProfiles.length === 0 && !loading && (
                              <Box sx={{ p: 3, textAlign: 'center' }}>
-                                 <Typography variant="caption" color="text.secondary">No plans found.</Typography>
+                                 <Typography variant="caption" color="text.secondary">No memberships found.</Typography>
                              </Box>
                         )}
                     </List>
@@ -596,7 +648,7 @@ export const BasePlan = () => {
                                      >
                                         {isEditing ? (
                                             <TextField
-                                                label="Plan Name"
+                                                label="Membership Name"
                                                 value={editedPlanName}
                                                 onChange={(e) => setEditedPlanName(e.target.value)}
                                                 size="medium"
@@ -640,7 +692,7 @@ export const BasePlan = () => {
                                                     '&:hover': { bgcolor: '#fef2f2', borderColor: '#fca5a5' }
                                                 }}
                                             >
-                                                Delete Plan
+                                                Delete Membership
                                             </Button>
                                             <Button 
                                                 variant="outlined" 
@@ -655,7 +707,7 @@ export const BasePlan = () => {
                                                     borderColor: '#e2e8f0'
                                                 }}
                                             >
-                                                Edit Plan
+                                                Edit Membership
                                             </Button>
                                         </Box>
                                     )}
@@ -750,59 +802,32 @@ export const BasePlan = () => {
 
                                       {bundledServicesLoading ? <CircularProgress size={24} /> : (
                                           <Box>
-                                              {/* Add Service Area (Inline or Dialog - doing inline expand for now) */}
-                                              {isAddingService && (
-                                                  <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: '#f8fafc', borderStyle: 'dashed' }}>
-                                                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Add New Service</Typography>
-                                                      <Box sx={{ display: 'flex', gap: 2 }}>
-                                                          <FormControl size="small" fullWidth>
-                                                              <InputLabel>Select Service</InputLabel>
-                                                              <Select
-                                                                  label="Select Service"
-                                                                  value={newServiceId}
-                                                                  onChange={(e) => setNewServiceId(e.target.value)}
-                                                              >
-                                                                  {allServices
-                                                                      .filter(s => !bundledServices.find(bs => bs.service_id === s.service_id && bs.is_active !== false))
-                                                                      .map(s => {
-                                                                          const typeLabel = dropdownValues?.find(v => 
-                                                                              v.module?.toLowerCase() === 'services' && 
-                                                                              v.label?.toUpperCase() === 'TYPE' && 
-                                                                              v.value?.toLowerCase() === s.type?.toLowerCase()
-                                                                          )?.value || s.type || 'Group';
-
-                                                                          const catLabel = dropdownValues?.find(v => 
-                                                                              v.module?.toLowerCase() === 'services' && 
-                                                                              v.label?.toUpperCase() === 'CATEGORY' && 
-                                                                              v.value?.toLowerCase() === s.service_type?.toLowerCase()
-                                                                          )?.value || s.service_type || 'Training';
-
-                                                                          return (
-                                                                              <MenuItem key={s.service_id} value={s.service_id}>
-                                                                                  {s.name} [{typeLabel}] ({catLabel})
-                                                                              </MenuItem>
-                                                                          );
-                                                                      })
-                                                                  }
-                                                              </Select>
-                                                          </FormControl>
-                                                          <Button variant="contained" onClick={handleAddService} disabled={!newServiceId}>Add</Button>
-                                                          <Button onClick={() => { setIsAddingService(false); setNewServiceId(''); }}>Cancel</Button>
-                                                      </Box>
-                                                  </Paper>
-                                              )}
+                                              <ServicePackSelector 
+                                                  open={isAddingService}
+                                                  onClose={() => setIsAddingService(false)}
+                                                  onSelect={handleAddService}
+                                                  locationId={currentLocationId}
+                                              />
 
                                               <Stack spacing={2}>
                                                   {bundledServices.filter(s => s.is_active !== false).map((svc, idx) => {
-                                                      // ... existing service rendering ...
-                                                      
                                                       const serviceRef = allServices.find(as => as.service_id === svc.service_id);
-                                                      const name = svc.service_name || serviceRef?.name || 'Unknown Service';
-                                                      const description = serviceRef?.description || '';
-                                                      const itemKey = svc.membership_service_id || (svc.service_id + idx);
+                                                      const packRef = serviceRef?.packs?.find(p => p.service_pack_id === svc.service_pack_id);
+
+                                                      // Enriched name priority: Pack Name -> Service Name -> Fallback
+                                                      const displayServiceName = svc.service_name || serviceRef?.name || 'Unknown Service';
+                                                      const displayPackName = svc.service_pack_name || packRef?.name || (svc.service_pack_id ? 'Unknown Pack' : null);
+                                                      const name = displayPackName ? `${displayServiceName} - ${displayPackName}` : displayServiceName;
+
+                                                       const description = serviceRef?.description || '';
+                                                      const itemKey = svc.membership_service_id || (svc.service_id! + idx);
                                                       
-                                                      const isFree = svc.is_included;
                                                       const isEditingThis = editingServiceId === svc.membership_service_id;
+                                                      
+                                                      const classes = svc.classes || packRef?.classes;
+                                                      const students = svc.students_allowed || packRef?.students_allowed;
+                                                      const waiverId = svc.waiver_program_id || packRef?.waiver_program_id;
+                                                      const wName = waiverId ? waiverPrograms.find(w => w.waiver_program_id === waiverId)?.name : null;
 
                                                       return (
                                                           <Paper key={itemKey} elevation={0} sx={{ 
@@ -845,12 +870,15 @@ export const BasePlan = () => {
                                                                                   sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#eff6ff', color: '#3b82f6', borderRadius: '4px' }} 
                                                                               />
                                                                           )}
+                                                                          {!!classes && <Chip label={`${classes} CLASSES`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
+                                                                          {!!students && <Chip label={`${students} STUDENTS`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
+                                                                          {wName && <Chip label={wName.toUpperCase()} size="small" sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 800, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
                                                                       </Stack>
                                                                   </Box>
                                                                   
                                                                   {/* View Mode Tags & Actions */}
                                                                   {!isEditingThis && (
-                                                                      <Stack direction="row" spacing={1} alignItems="center">
+                                                                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" rowGap={1}>
                                                                           {svc.is_included ? (
                                                                               <Chip label="INCLUDED" size="small" sx={{ bgcolor: '#10b981', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} />
                                                                           ) : (
@@ -918,6 +946,8 @@ export const BasePlan = () => {
                                                                          }
                                                                      />
  
+                                                                     <Divider orientation="vertical" flexItem variant="middle" />
+                                                                     
                                                                      <Divider orientation="vertical" flexItem variant="middle" />
  
                                                                      <Box>
@@ -1018,20 +1048,20 @@ export const BasePlan = () => {
                         </>
                     ) : (
                         <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Typography color="text.secondary">Select a Base Plan to details.</Typography>
+                            <Typography color="text.secondary">Select a Membership to view details.</Typography>
                         </Box>
                     )}
                 </Paper>
             </Grid>
         </Grid>
 
-        {/* Create Dialog (Preserved) */}
+        {/* Create Dialog */}
         <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth>
-            <DialogTitle>Create New Base Plan</DialogTitle>
+            <DialogTitle>Create New Membership</DialogTitle>
             <DialogContent>
                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                      <TextField 
-                        label="Plan Name"
+                        label="Membership Name"
                         placeholder="e.g. Gold"
                         fullWidth
                         value={createForm.name || ''}
@@ -1061,28 +1091,36 @@ export const BasePlan = () => {
                         </Select>
                     </FormControl>
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                        Create with an initial price point:
+                        Add prices for all subscription terms:
                     </Typography>
-                     <FormControl fullWidth>
-                        <InputLabel>Term</InputLabel>
-                        <Select
-                            value={createForm.subscription_term_id || ''}
-                            label="Term"
-                            onChange={e => setCreateForm({...createForm, subscription_term_id: e.target.value})}
-                        >
-                             {subscriptionTerms.map(t => (
-                                <MenuItem key={t.subscription_term_id} value={t.subscription_term_id}>{t.name}</MenuItem>
+                    {subscriptionTerms.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                            No subscription terms configured.
+                        </Typography>
+                    ) : (
+                        <Grid container spacing={2}>
+                            {subscriptionTerms.map((term) => (
+                                <Grid key={term.subscription_term_id} size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        label={term.name}
+                                        type="number"
+                                        fullWidth
+                                        value={createTermPrices[term.subscription_term_id] ?? ''}
+                                        onChange={(e) =>
+                                            setCreateTermPrices((prev) => ({
+                                                ...prev,
+                                                [term.subscription_term_id]: e.target.value
+                                            }))
+                                        }
+                                        InputProps={{
+                                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                            inputProps: { min: 0 }
+                                        }}
+                                    />
+                                </Grid>
                             ))}
-                        </Select>
-                    </FormControl>
-                     <TextField 
-                        label="Price"
-                        type="number"
-                        fullWidth
-                        value={createForm.price || ''}
-                        onChange={e => setCreateForm({...createForm, price: Number(e.target.value)})}
-                        InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment>, inputProps: { min: 0 } }}
-                    />
+                        </Grid>
+                    )}
                  </Box>
             </DialogContent>
             <DialogActions>
@@ -1090,7 +1128,7 @@ export const BasePlan = () => {
                 <Button 
                     variant="contained" 
                     onClick={handleCreateProfile}
-                    disabled={isSaving || !createForm.name || !createForm.age_group_id || !createForm.subscription_term_id}
+                    disabled={isSaving || !createForm.name?.trim() || !createForm.age_group_id || subscriptionTerms.length === 0}
                 >
                     {isSaving ? <CircularProgress size={24} /> : "Create"}
                 </Button>

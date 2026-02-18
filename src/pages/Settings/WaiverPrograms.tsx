@@ -93,7 +93,7 @@ export const WaiverPrograms = () => {
     return (
         <Box sx={{ width: '100%' }}>
             <PageHeader 
-                title="Regional Center Programs" 
+                title="Waiver Programs" 
                 description="Manage government or partner-funded waiver programs available at this location."
                 breadcrumbs={[
                     { label: 'Settings', href: '/admin/settings' },

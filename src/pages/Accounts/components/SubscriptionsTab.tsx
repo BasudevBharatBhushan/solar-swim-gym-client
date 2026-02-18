@@ -144,16 +144,24 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                             hover
                         >
                             <TableCell>
-                                <Chip 
-                                    label={sub.subscription_type.replace('_', ' ')} 
-                                    size="small" 
+                                    <Chip 
+                                        label={sub.subscription_type.replace('_', ' ')} 
+                                        size="small" 
                                     variant="outlined" 
                                     sx={{ fontWeight: 600, fontSize: '0.7rem' }}
                                 />
                             </TableCell>
                             <TableCell>
                                 <Typography variant="body2" fontWeight={600}>
-                                    {sub.plan_name || (sub.subscription_type === 'MEMBERSHIP_FEE' ? 'Membership Program' : (sub.subscription_type === 'ADDON_SERVICE' ? 'Service/Pack' : 'Base Subscription'))}
+                                    {sub.plan_name || (
+                                        sub.subscription_type === 'SERVICE'
+                                            ? 'Service/Pack'
+                                            : sub.subscription_type === 'MEMBERSHIP_JOINING'
+                                              ? 'Membership Joining'
+                                              : sub.subscription_type === 'MEMBERSHIP_RENEWAL'
+                                                ? 'Membership Renewal'
+                                                : 'Membership Fee'
+                                    )}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" display="block">
                                     Ref: {sub.reference_id.substring(0, 8)}...

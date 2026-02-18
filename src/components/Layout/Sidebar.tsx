@@ -71,7 +71,7 @@ const menuItems: MenuItem[] = [
           { text: 'Household Rules', icon: <Assignment />, path: '/admin/memberships' },
         ]
       },
-      { text: 'Regional Center Program', icon: <Description />, path: '/admin/settings/waiver-programs' },
+      { text: 'Waiver Programs', icon: <Description />, path: '/admin/settings/waiver-programs' },
       { text: 'Discount Codes', icon: <LocalOffer />, path: '/admin/discounts' },
       { text: 'Waiver Templates', icon: <Assignment />, path: '/admin/settings/waiver-templates' },
       { text: 'Email Settings', icon: <Email />, path: '/admin/email-settings' },

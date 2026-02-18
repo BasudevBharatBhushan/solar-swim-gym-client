@@ -53,7 +53,7 @@ import {
 
 export const Memberships = () => {
   const { currentLocationId } = useAuth();
-  const { waiverPrograms, dropdownValues } = useConfig();
+  const { waiverPrograms } = useConfig();
   
   // Data State
   const [programs, setPrograms] = useState<MembershipProgram[]>([]);
@@ -172,41 +172,6 @@ export const Memberships = () => {
         setCategoryServices([]);
     }
   }, [selectedCategoryId]);
-
-  // Fetch Packs for Reviewed Services (since getServices is metadata only)
-  useEffect(() => {
-    if (categoryServices.length === 0 || availableServices.length === 0) return;
-
-    const servicesNeedingPacks = categoryServices
-        .map(s => s.service_id)
-        .filter((id): id is string => !!id)
-        .filter((id, idx, self) => self.indexOf(id) === idx) // Unique
-        .filter(id => {
-            const svc = availableServices.find(as => as.service_id === id);
-            return svc && !svc.packs;
-        });
-    
-    if (servicesNeedingPacks.length === 0) return;
-
-    Promise.all(servicesNeedingPacks.map(async (id) => {
-        try {
-            const data = await serviceCatalog.getServicePacks(id, currentLocationId || undefined);
-            const packs = Array.isArray(data) ? data : (data.data || []);
-            return { id, packs };
-        } catch (e) {
-            console.error(`Failed to load packs for service ${id}`, e);
-            return { id, packs: [] };
-        }
-    })).then((results) => {
-        setAvailableServices(prev => prev.map(s => {
-            const res = results.find(r => r.id === s.service_id);
-            if (res) {
-                return { ...s, packs: res.packs };
-            }
-            return s;
-        }));
-    });
-  }, [categoryServices, availableServices]);
 
 
   // --- Actions ---
@@ -1042,21 +1007,13 @@ export const Memberships = () => {
                                                  .filter(s => s.is_active !== false)
                                                  .map((svc, idx) => {
                                                      const serviceRef = availableServices.find(as => as.service_id === svc.service_id);
-                                                     const packRef = serviceRef?.packs?.find(p => p.service_pack_id === svc.service_pack_id);
-                                                     const displayServiceName = svc.service_name || serviceRef?.name || 'Unknown Service';
-                                                     const displayPackName = svc.service_pack_name || packRef?.name || (svc.service_pack_id ? 'Unknown Pack' : null);
-                                                     const name = displayPackName ? `${displayServiceName} - ${displayPackName}` : displayServiceName;
-                                                     
+                                                     const name = svc.service_name || serviceRef?.name || 'Unknown Service';
                                                      const description = serviceRef?.description || '';
                                                      const itemKey = svc.membership_service_id || idx;
                                                      
                                                      const isEditingThis = editingServiceId === svc.membership_service_id;
                                                      const isDraft = selectedCategoryId === 'new';
-                                                     
-                                                     const classes = svc.classes || packRef?.classes;
-                                                     const students = svc.students_allowed || packRef?.students_allowed;
-                                                     const waiverId = svc.waiver_program_id || packRef?.waiver_program_id;
-                                                     const wName = waiverId ? waiverPrograms.find(w => w.waiver_program_id === waiverId)?.name : null;
+                                                     const waiverName = svc.waiver_program_id ? waiverPrograms.find(w => w.waiver_program_id === svc.waiver_program_id)?.name : null;
 
                                                      return (
                                                          <Paper key={itemKey} elevation={0} sx={{ 
@@ -1077,28 +1034,34 @@ export const Memberships = () => {
                                                                          </Typography>
                                                                       )}
                                                                       <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                                                          {(serviceRef?.type || "Group") && (
+                                                                          {serviceRef?.type && (
                                                                               <Chip 
-                                                                                  label={(dropdownValues?.find(v => v.module?.toLowerCase() === "services" && v.label?.toUpperCase() === "TYPE" && v.value?.toLowerCase() === serviceRef?.type?.toLowerCase())?.value || serviceRef?.type || "Group").toUpperCase()} 
+                                                                                  label={serviceRef.type} 
                                                                                   size="small" 
                                                                                   sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} 
                                                                               />
                                                                           )}
-                                                                          {(serviceRef?.service_type || "Training") && (
+                                                                          {serviceRef?.service_type && (
                                                                               <Chip 
-                                                                                  label={(dropdownValues?.find(v => v.module?.toLowerCase() === "services" && v.label?.toUpperCase() === "CATEGORY" && v.value?.toLowerCase() === serviceRef?.service_type?.toLowerCase())?.value || serviceRef?.service_type || "Training").toUpperCase()} 
+                                                                                  label={serviceRef.service_type} 
                                                                                   size="small" 
                                                                                   sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#eff6ff', color: '#3b82f6', borderRadius: '4px' }} 
                                                                               />
                                                                           )}
-                                                                          {!!classes && <Chip label={`${classes} CLASSES`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
-                                                                          {!!students && <Chip label={`${students} STUDENTS`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
-                                                                          {wName && <Chip label={wName.toUpperCase()} size="small" sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 800, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
                                                                       </Stack>
                                                                  </Box>
                                                                  
                                                                  {!isEditingThis && (
                                                                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" rowGap={1}>
+                                                                         {svc.classes && <Chip label={`${svc.classes} CLASSES`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} />}
+                                                                         {svc.students_allowed && <Chip label={`${svc.students_allowed} STUDENTS`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} />}
+                                                                         {waiverName && (
+                                                                             <Chip 
+                                                                                 label={waiverName.toUpperCase()} 
+                                                                                 size="small" 
+                                                                                 sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} 
+                                                                             />
+                                                                         )}
                                                                          {svc.is_included ? (
                                                                              <Chip label="INCLUDED" size="small" sx={{ bgcolor: '#10b981', color: 'white', fontWeight: 800, fontSize: '0.65rem', height: 24, borderRadius: '6px' }} />
                                                                          ) : (
@@ -1179,6 +1142,32 @@ export const Memberships = () => {
                                                                         label={<Box><Typography variant="body2" sx={{ fontWeight: 600, color: '#0f172a' }}>Included (Free)</Typography></Box>}
                                                                     />
                                                                     <Divider orientation="vertical" flexItem variant="middle" />
+                                                                     <TextField 
+                                                                         label="Classes" size="small" placeholder="Default" type="number"
+                                                                         value={serviceEditState.classes ?? svc.classes ?? ''}
+                                                                         onChange={(e) => setServiceEditState(prev => ({ ...prev, classes: parseInt(e.target.value) || undefined }))}
+                                                                         sx={{ width: 100, bgcolor: 'white' }}
+                                                                     />
+                                                                     <TextField 
+                                                                         label="Students" size="small" placeholder="Default" type="number"
+                                                                         value={serviceEditState.students_allowed ?? svc.students_allowed ?? ''}
+                                                                         onChange={(e) => setServiceEditState(prev => ({ ...prev, students_allowed: parseInt(e.target.value) || undefined }))}
+                                                                         sx={{ width: 100, bgcolor: 'white' }}
+                                                                     />
+                                                                     <FormControl size="small" sx={{ width: 160, bgcolor: 'white' }}>
+                                                                         <InputLabel>Waiver</InputLabel>
+                                                                         <Select
+                                                                             label="Waiver"
+                                                                             value={serviceEditState.waiver_program_id ?? svc.waiver_program_id ?? ''}
+                                                                             onChange={(e) => setServiceEditState(prev => ({ ...prev, waiver_program_id: e.target.value }))}
+                                                                         >
+                                                                             <MenuItem value=""><em>None</em></MenuItem>
+                                                                             {waiverPrograms.map(w => (
+                                                                                 <MenuItem key={w.waiver_program_id} value={w.waiver_program_id}>{w.name}</MenuItem>
+                                                                             ))}
+                                                                         </Select>
+                                                                     </FormControl>
+                                                                    <Divider orientation="vertical" flexItem variant="middle" />
                                                                     <TextField 
                                                                         label="Usage Limit" size="small" placeholder="Unlimited"
                                                                         value={serviceEditState.usage_limit ?? svc.usage_limit ?? ''}
@@ -1238,7 +1227,28 @@ export const Memberships = () => {
                                                                          }
                                                                          label={<Typography variant="body2">Included</Typography>}
                                                                      />
-                                                                      <Divider orientation="vertical" flexItem variant="middle" />
+                                                                      <TextField 
+                                                                         label="Classes" size="small" value={svc.classes || ''} type="number"
+                                                                         onChange={(e) => updateDraftService(idx, { classes: parseInt(e.target.value) || undefined })}
+                                                                         sx={{ width: 100, bgcolor: 'white' }}
+                                                                      />
+                                                                      <TextField 
+                                                                         label="Students" size="small" value={svc.students_allowed || ''} type="number"
+                                                                         onChange={(e) => updateDraftService(idx, { students_allowed: parseInt(e.target.value) || undefined })}
+                                                                         sx={{ width: 100, bgcolor: 'white' }}
+                                                                      />
+                                                                      <FormControl size="small" sx={{ width: 140, bgcolor: 'white' }}>
+                                                                          <Select
+                                                                              value={svc.waiver_program_id || ''}
+                                                                              onChange={(e) => updateDraftService(idx, { waiver_program_id: e.target.value })}
+                                                                              displayEmpty
+                                                                          >
+                                                                              <MenuItem value=""><em>No Waiver</em></MenuItem>
+                                                                              {waiverPrograms.map(w => (
+                                                                                  <MenuItem key={w.waiver_program_id} value={w.waiver_program_id}>{w.name}</MenuItem>
+                                                                              ))}
+                                                                          </Select>
+                                                                      </FormControl>
                                                                       <TextField 
                                                                          label="Limit" size="small" value={svc.usage_limit || ''}
                                                                          onChange={(e) => updateDraftService(idx, { usage_limit: e.target.value })}
@@ -1288,73 +1298,3 @@ export const Memberships = () => {
                                             sx={{ borderRadius: 2, fontWeight: 700, px: 4, bgcolor: '#4f46e5', '&:hover': { bgcolor: '#4338ca' } }}
                                         >
                                             Save Changes
-                                        </Button>
-                                    </Box>
-                                 )}
-                             </>
-                         ) : (
-                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 4 }}>
-                                 <Settings sx={{ fontSize: 60, color: '#eceff1', mb: 2 }} />
-                                 <Typography variant="h6" color="text.secondary">Select a Category</Typography>
-                                 <Typography variant="body2" color="text.disabled" align="center">
-                                     Select a membership category from the left panel to configure its fees, eligibility rules, and bundled services.
-                                 </Typography>
-                             </Box>
-                         )}
-                     </Paper>
-                 </Grid>
-             </Grid>
-        ) : (
-             <Paper sx={{ p: 4, textAlign: 'center' }}>
-                 <Typography color="text.secondary">Please select or create a Membership Program.</Typography>
-             </Paper>
-        )}
-
-        {/* Create Program Dialog */}
-        <Dialog open={openCreateProgram} onClose={() => setOpenCreateProgram(false)} maxWidth="sm" fullWidth>
-            <DialogTitle>Add Membership Program</DialogTitle>
-            <DialogContent>
-                <TextField 
-                    autoFocus margin="dense" label="Program Name" fullWidth
-                    value={createProgramName}
-                    onChange={(e) => setCreateProgramName(e.target.value)}
-                />
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={() => setOpenCreateProgram(false)}>Cancel</Button>
-                <Button onClick={handleCreateProgram} variant="contained" disabled={!createProgramName || saving}>Create</Button>
-            </DialogActions>
-        </Dialog>
-
-        {/* Add Service Dialog (replaced by Selector) */}
-        <ServicePackSelector 
-              open={openAddService}
-              onClose={() => setOpenAddService(false)}
-              onSelect={handleAddServiceSubmit}
-              locationId={currentLocationId || ''}
-        />
-
-        <Snackbar open={!!error} autoHideDuration={6000} onClose={() => setError(null)}>
-            <Alert severity="error">{error}</Alert>
-        </Snackbar>
-        <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
-            <Alert severity="success">{success}</Alert>
-        </Snackbar>
-
-
-        <Dialog
-            open={deleteConfirm.open}
-            onClose={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}
-        >
-            <DialogTitle>{deleteConfirm.title}</DialogTitle>
-            <DialogContent>
-                <Typography>{deleteConfirm.message}</Typography>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}>Cancel</Button>
-                <Button onClick={deleteConfirm.onConfirm} color="error" variant="contained">Delete</Button>
-            </DialogActions>
-        </Dialog>
-    </Box>
-  );
-};

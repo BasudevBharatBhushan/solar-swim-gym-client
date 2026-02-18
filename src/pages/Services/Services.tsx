@@ -458,7 +458,7 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
                             color: '#2563eb', 
                             fontSize: '0.65rem', 
                             fontWeight: 700, 
-                            borderRadius: '4px',
+                            borderRadius: '4px', 
                             height: 20
                         }} 
                     />
@@ -531,7 +531,7 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
 
 export const Services = () => {
     const { currentLocationId } = useAuth();
-    const { ageGroups, dropdownValues, refreshDropdownValues } = useConfig();
+    const { ageGroups, dropdownValues, refreshDropdownValues, waiverPrograms } = useConfig();
 
     const serviceCategories = useMemo(() => {
         return (dropdownValues || [])
@@ -576,10 +576,11 @@ export const Services = () => {
     const [packName, setPackName] = useState('');
     const [packDesc, setPackDesc] = useState('');
     const [packClasses, setPackClasses] = useState<number | ''>('');
+    const [packStudentsAllowed, setPackStudentsAllowed] = useState<number | ''>('');
     const [packDurationDays, setPackDurationDays] = useState<number | ''>('');
     const [packDurationMonths, setPackDurationMonths] = useState<number | ''>('');
     const [packDurationUnit, setPackDurationUnit] = useState<'days' | 'months'>('months');
-    const [packIsWaiverFreeAllowed, setPackIsWaiverFreeAllowed] = useState(false);
+    const [packWaiverProgramId, setPackWaiverProgramId] = useState<string>('');
     
     // Deletion State
     const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
@@ -676,8 +677,6 @@ export const Services = () => {
                 service_type: serviceCategory,
                 is_active: serviceActive,
                 LessonRegistrationFee: serviceLessonRegistrationFee,
-                // image_url is not part of upsert payload usually, managed via distinct endpoint, but if backend supports it...
-                // Assuming backend doesn't take image_url in upsert, or ignores it.
             };
             
             if (selectedService) {
@@ -703,7 +702,6 @@ export const Services = () => {
             if (res.image_url) {
                 setServiceImageUrl(res.image_url);
                 setSuccess('Image uploaded successfully');
-                // Optionally update the service list item image if it's displayed there
                 setServices(prev => prev.map(s => (s.service_id === serviceId || s.id === serviceId) ? { ...s, image_url: res.image_url } : s));
             }
         } catch (err: any) {
@@ -718,6 +716,7 @@ export const Services = () => {
         setPackName(pack?.name || '');
         setPackDesc(pack?.description || '');
         setPackClasses(pack?.classes || '');
+        setPackStudentsAllowed(pack?.students_allowed || '');
         
         if (pack?.duration_days) {
             setPackDurationDays(pack.duration_days);
@@ -729,7 +728,7 @@ export const Services = () => {
             setPackDurationUnit('months');
         }
         
-        setPackIsWaiverFreeAllowed(pack?.is_waiver_free_allowed || false);
+        setPackWaiverProgramId(pack?.waiver_program_id || '');
         setIsPackModalOpen(true);
     };
 
@@ -739,16 +738,16 @@ export const Services = () => {
         if (!packName.trim()) return setError('Pack Name required');
 
         try {
-            // Upsert Pack Metadata Only
             const packPayload = {
                 service_pack_id: currentPack?.service_pack_id,
                 service_id: svcId,
                 name: packName,
                 description: packDesc,
                 classes: packClasses || null,
+                students_allowed: packStudentsAllowed || null,
                 duration_days: packDurationUnit === 'days' ? (packDurationDays || null) : null,
                 duration_months: packDurationUnit === 'months' ? (packDurationMonths || null) : null,
-                is_waiver_free_allowed: packIsWaiverFreeAllowed
+                waiver_program_id: packWaiverProgramId || null
             };
             await serviceCatalog.upsertServicePack(packPayload);
             
@@ -786,14 +785,12 @@ export const Services = () => {
     const handleConfirmDeleteService = async () => {
         if (!deleteServiceId || !currentLocationId) return;
 
-        // Optimistic UI: Remove from list immediately
         const prevServices = [...services];
         const prevSelected = selectedService;
         
         setIsDeleteServiceModalOpen(false);
         setServices(prev => prev.filter(s => (s.service_id || s.id) !== deleteServiceId));
         
-        // If deleted service was selected, switch to create mode
         if (selectedService && (selectedService.service_id === deleteServiceId || selectedService.id === deleteServiceId)) {
              handleCreateService(); 
         }
@@ -802,9 +799,8 @@ export const Services = () => {
             await serviceCatalog.deleteService(deleteServiceId, currentLocationId);
             setSuccess('Service deleted successfully');
             setDeleteServiceId(null);
-            fetchServices(); // Refresh to ensure sync
+            fetchServices(); 
         } catch (err: any) {
-            // Revert on failure
             setServices(prevServices);
             if (prevSelected) handleSelectService(prevSelected);
             setError(err.message || 'Failed to delete service');
@@ -837,7 +833,6 @@ export const Services = () => {
                 fetchPacks(selectedService.service_id || selectedService.id || '');
             }
         } catch (err: any) {
-            // Revert
             setPacks(prevPacks);
             if (prevSelectedPack) setSelectedPack(prevSelectedPack);
             setError(err.message || 'Failed to delete pack');
@@ -867,7 +862,6 @@ export const Services = () => {
             setSuccess(`${newDropdownLabel} added successfully`);
             setIsDropdownDialogOpen(false);
             
-            // Auto-select the new value
             if (newDropdownLabel === 'Category') {
                 setServiceCategory(newDropdownValue);
             } else if (newDropdownLabel === 'Type') {
@@ -980,6 +974,8 @@ export const Services = () => {
                                             <List sx={{ p: 0 }}>
                                                 {packs.map(pack => {
                                                     const isSelected = !!selectedPack?.service_pack_id && selectedPack.service_pack_id === pack.service_pack_id;
+                                                    const waiverName = waiverPrograms?.find(w => w.waiver_program_id === pack.waiver_program_id)?.name;
+
                                                     return (
                                                         <ListItemButton 
                                                             key={pack.service_pack_id || Math.random()} 
@@ -1006,14 +1002,15 @@ export const Services = () => {
                                                                         </Typography>
                                                                     }
                                                                     secondary={
-                                                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                                                             {pack.classes && <Chip label={`${pack.classes} CLASSES`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
+                                                                            {pack.students_allowed && <Chip label={`${pack.students_allowed} STUDENTS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
                                                                             {pack.duration_months ? (
                                                                                 <Chip label={`${pack.duration_months} MONTHS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
                                                                             ) : pack.duration_days ? (
                                                                                 <Chip label={`${pack.duration_days} DAYS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
                                                                             ) : null}
-                                                                            {pack.is_waiver_free_allowed && <Chip label="WAIVER EXEMPT" size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fff7ed', color: '#c2410c', borderRadius: '4px' }} />}
+                                                                            {waiverName && <Chip label={waiverName} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fff7ed', color: '#c2410c', borderRadius: '4px' }} />}
                                                                         </Box>
                                                                     }
                                                                 />
@@ -1084,8 +1081,8 @@ export const Services = () => {
                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
                             />
                         </Grid>
-                        <Grid size={{ xs: 12 }}>
-                            <TextField 
+                         <Grid size={{ xs: 6 }}>
+                             <TextField 
                                 fullWidth 
                                 type="number" 
                                 label="Classes Included" 
@@ -1093,6 +1090,18 @@ export const Services = () => {
                                 onChange={(e) => setPackClasses(parseInt(e.target.value) || '')} 
                                 size="small" 
                                 helperText="Leave empty for unlimited" 
+                                sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 6 }}>
+                             <TextField 
+                                fullWidth 
+                                type="number" 
+                                label="Students Allowed" 
+                                value={packStudentsAllowed} 
+                                onChange={(e) => setPackStudentsAllowed(parseInt(e.target.value) || '')} 
+                                size="small" 
+                                helperText="Max students per pack" 
                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
                             />
                         </Grid>
@@ -1156,18 +1165,26 @@ export const Services = () => {
                         </Grid>
 
                         <Grid size={{ xs: 12 }} sx={{ mt: 2 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fff7ed', p: 2.5, px: 3, borderRadius: 2, border: '1px solid #ffedd5' }}>
-                                <Box>
-                                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#9a3412', fontSize: '0.875rem', mb: 0.5 }}>Waiver Exempt Allowed</Typography>
-                                    <Typography variant="caption" sx={{ color: '#c2410c', fontWeight: 500 }}>Allow this pack to be used with regional center programs</Typography>
-                                </Box>
-                                <Switch 
-                                    checked={packIsWaiverFreeAllowed} 
-                                    onChange={(e) => setPackIsWaiverFreeAllowed(e.target.checked)}
-                                    color="warning"
-                                />
-                            </Box>
+                            <TextField
+                                select
+                                fullWidth
+                                label="Waiver Program"
+                                value={packWaiverProgramId}
+                                onChange={(e) => setPackWaiverProgramId(e.target.value)}
+                                size="small"
+                                helperText="Select a waiver program (Regional Center) for this pack if applicable"
+                                sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                            >
+                                <MenuItem value=""><em>None</em></MenuItem>
+                                {waiverPrograms.map(w => (
+                                    <MenuItem key={w.waiver_program_id} value={w.waiver_program_id}>
+                                        {w.name} {w.code ? `(${w.code})` : ''}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
                         </Grid>
+                        
+                        {/* Remove Waiver Exempt Switch Block */}
                     </Grid>
                 </DialogContent>
                 <DialogActions>

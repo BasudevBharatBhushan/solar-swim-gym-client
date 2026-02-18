@@ -31,4 +31,10 @@ export const billingService = {
   upsertWaiver: async (waiverData: any) => {
     return apiClient.post('/waivers', waiverData);
   },
+
+  // Send Payment Link
+  sendPaymentLink: async (accountId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/billing/payment-link', { account_id: accountId }, options);
+  },
 };

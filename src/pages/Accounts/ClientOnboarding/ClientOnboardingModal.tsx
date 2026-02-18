@@ -318,6 +318,24 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       }
   };
 
+  const handleSendActivationLink = async () => {
+      if (!createdAccount?.account_id) {
+          showToast("Account details not found.", "error");
+          return;
+      }
+
+      setLoading(true);
+      try {
+          await authService.sendResetPasswordLink(createdAccount.account_id);
+          showToast("Activation link sent successfully!", "success");
+      } catch (error: any) {
+          console.error("Failed to send activation link", error);
+          showToast(error.message || "Failed to send activation link. Please try again.", "error");
+      } finally {
+          setLoading(false);
+      }
+  };
+
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -434,6 +452,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                         <Button 
                             variant="outlined" 
                             fullWidth 
+                            onClick={handleSendActivationLink}
+                            disabled={loading}
                             startIcon={<LinkIcon />}
                             endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
                             sx={{ 

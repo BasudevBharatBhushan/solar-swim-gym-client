@@ -78,7 +78,7 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                     promises.push(billingService.createSubscription({
                         account_id: accountId,
                         location_id: currentLocationId,
-                        subscription_type: 'BASE',
+                        subscription_type: 'MEMBERSHIP_FEE',
                         reference_id: bp.base_price_id,
                         subscription_term_id: bp.subscription_term_id,
                         unit_price_snapshot: bp.price,

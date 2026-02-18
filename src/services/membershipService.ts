@@ -36,16 +36,21 @@ export interface MembershipCategory {
 
 export interface MembershipService {
   membership_service_id?: string;
-  service_id: string;
-  membership_program_id?: string | null; // Used as the generic owner ID in payload
-  base_price_id?: string | null; // Returned from backend if attached to Base Price
+  service_id?: string; // Parent service ID (enriched)
+  service_pack_id: string; // The specific pack being linked
+  membership_program_id?: string | null; // Owner ID (Category or Base Price)
+  base_price_id?: string | null; 
   location_id?: string; 
   is_included: boolean;
-  usage_limit: string; // "Unlimited" or number/text
+  usage_limit: string;
   discount?: string;
-  is_part_of_base_plan?: boolean; // May be deprecated in favor of base_price_id check
+  is_part_of_base_plan?: boolean;
   is_active?: boolean;
-  service_name?: string; // From join
+  service_name?: string; // Enriched
+  service_pack_name?: string; // Enriched
+  students_allowed?: number;
+  classes?: number;
+  waiver_program_id?: string;
 }
 
 export interface MembershipProgram {
@@ -99,12 +104,11 @@ export const membershipService = {
   },
 
   // Upsert Services (Generic)
-  // Payload: { service_id, membership_program_id: ownerId, ... }
-  // The backend maps 'membership_program_id' to the correct column based on the ownerId type.
+  // Payload: { service_pack_id, membership_program_id: ownerId, ... }
   upsertServices: async (services: MembershipService[], locationId?: string): Promise<any> => {
     const payload = services.map(s => {
         // We clean up the object to match the expected payload
-        const { membership_service_id, service_name, ...rest } = s;
+        const { membership_service_id, service_name, service_pack_name, service_id, ...rest } = s;
         
         // Only include ID if it's truthy (update), else exclude key completely for insert
         const cleanObj: any = { ...rest };
@@ -112,6 +116,11 @@ export const membershipService = {
             cleanObj.membership_service_id = membership_service_id;
         }
         
+        // Ensure service_pack_id is present
+        if (s.service_pack_id) {
+            cleanObj.service_pack_id = s.service_pack_id;
+        }
+
         return cleanObj;
     });
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};

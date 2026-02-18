@@ -21,7 +21,7 @@ export interface Account {
 
 export interface Subscription {
   subscription_id: string;
-  subscription_type: 'BASE' | 'MEMBERSHIP_FEE' | 'ADDON_SERVICE';
+  subscription_type: 'MEMBERSHIP_FEE' | 'MEMBERSHIP_JOINING' | 'MEMBERSHIP_RENEWAL' | 'SERVICE';
   reference_id: string; // ID of the plan/service
   status: 'ACTIVE' | 'PAID' | 'CANCELLED';
   created_at: string;

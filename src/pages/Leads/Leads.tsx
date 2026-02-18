@@ -207,11 +207,11 @@ export const Leads = () => {
                     startIcon={<AddIcon />} 
                     onClick={() => openModal()} 
                     sx={{ 
-                      bgcolor: '#0f172a', 
+                      bgcolor: '#4182f9', 
                       borderRadius: '8px', 
                       textTransform: 'none',
                       px: 3,
-                      '&:hover': { bgcolor: '#1e293b' }
+                      '&:hover': { bgcolor: '#3a75e0' }
                     }}
                 >
                     Add Lead
@@ -222,11 +222,11 @@ export const Leads = () => {
                 startIcon={<AddIcon />} 
                 onClick={() => openModal()} 
                 sx={{ 
-                  bgcolor: '#0f172a', 
+                  bgcolor: '#4182f9', 
                   borderRadius: '8px', 
                   textTransform: 'none',
                   px: 3,
-                  '&:hover': { bgcolor: '#1e293b' }
+                  '&:hover': { bgcolor: '#3a75e0' }
                 }}
             >
                 Import Lead

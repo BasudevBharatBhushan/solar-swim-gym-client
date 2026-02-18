@@ -31,6 +31,13 @@ export const UserPortalLayout = () => {
                         <Typography variant="body2" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
                             Welcome, {userParams?.first_name || 'Member'}
                         </Typography>
+                        <Button
+                            color="inherit"
+                            onClick={() => navigate('/portal/marketplace')}
+                            sx={{ color: 'text.primary', textTransform: 'none', fontWeight: 600 }}
+                        >
+                            Shop
+                        </Button>
                         <Button 
                             color="inherit" 
                             onClick={handleLogout}

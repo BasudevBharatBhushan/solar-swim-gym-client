@@ -182,8 +182,8 @@ export const Accounts = () => {
                   startIcon={<PersonAddIcon />}
                   onClick={handleOpenModal}
                   sx={{
-                    bgcolor: '#0f172a',
-                    '&:hover': { bgcolor: '#334155' },
+                    bgcolor: '#4182f9',
+                    '&:hover': { bgcolor: '#3a75e0' },
                     textTransform: 'none',
                     borderRadius: '8px',
                     px: 3

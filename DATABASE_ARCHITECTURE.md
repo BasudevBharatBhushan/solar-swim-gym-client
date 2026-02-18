@@ -180,11 +180,13 @@ Bundles of classes or time-based access linked to a service.
 | `name` | `TEXT` | Pack name (e.g., "10 Class Pack"). | `NOT NULL` |
 | `description` | `TEXT` | Details. | |
 | `classes` | `INT` | Number of classes included. | |
+| `students_allowed` | `INT` | Number of students allowed for the pack. | |
 | `duration_days` | `INT` | Validity in days. | |
 | `duration_months` | `INT` | Validity in months. | |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 | `updated_at` | `TIMESTAMP` | Record update timestamp. | Default: `NOW()` |
 | `is_waiver_free_allowed` | `BOOLEAN` | If true, pack can be offered free under state waiver programs. | Default: `FALSE` |
+| `waiver_program_id` | `UUID` | Linked waiver/funding program for the pack. | **FK** -> `waiver_program` |
 
 
 ### **Table: `email_smtp_config`**
@@ -255,6 +257,8 @@ Promotional codes that can be applied to subscriptions or invoices.
 | `discount` | `TEXT` | The value (e.g., "6%" or "6"). | `NOT NULL` |
 | `staff_name` | `TEXT` | Denormalized snapshot of the creator's name. | |
 | `service_id` | `UUID` | Linked service (if restricted to one). | **FK** -> `service` |
+| `start_date` | `DATE` | The date from which the discount is valid. | |
+| `end_date` | `DATE` | The date after which the discount expires. | |
 | `is_active` | `BOOLEAN` | If false, the code cannot be used. | Default: `TRUE` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 | `updated_at` | `TIMESTAMP` | Last update timestamp. | Default: `NOW()` |
@@ -315,10 +319,9 @@ One-time or annual fees for a category.
 | `amount` | `DECIMAL` | Fee cost. | `NOT NULL`, Default: `0.00` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 
-**RLS Policy**: Filter by `location_id` (via Category -> Program).
 
 ### **Table: `membership_service`**
-Services bundled into a membership.
+Services bundled into a membership or base plan.
 
 | Field Name | Type | Description | Key / Constraint |
 | :--- | :--- | :--- | :--- |
@@ -327,7 +330,7 @@ Services bundled into a membership.
 | `location_id` | `UUID` | Location (for Base Plan). | **FK** -> `location` |
 | `baseprice_role`| `TEXT` | Role (for Base Plan: PRIMARY/ADD_ON). | |
 | `baseprice_age_group_id`| `UUID` | Age Group (for Base Plan). | **FK** -> `age_group` |
-| `service_id` | `UUID` | The included service. | **FK** -> `service`, `NOT NULL` |
+| `service_pack_id` | `UUID` | The included service pack. | **FK** -> `service_pack`, `NOT NULL` |
 | `is_included` | `BOOLEAN` | Whether it is free/included. | Default: `TRUE` |
 | `usage_limit` | `TEXT` | Cap on usage (e.g., "10 visits"). | |
 | `is_part_of_base_plan` | `BOOLEAN` | Core plan component? | Default: `FALSE` |
@@ -336,7 +339,6 @@ Services bundled into a membership.
 
 **RLS Policy**: Filter by `location_id` (via Program).
 
----
 
 ## **7. Billing & Subscriptions**
 
@@ -380,7 +382,7 @@ Active recurring contract for a service/membership.
 | `location_id` | `UUID` | Location context. | **FK** -> `location`, `NOT NULL` |
 | `invoice_id` | `UUID` | Related invoice. | **FK** -> `invoice` |
 | `session_id` | `UUID` | Linked session (Optional). | **FK** -> `session` |
-| `subscription_type` | `ENUM` | `BASE`, `MEMBERSHIP_FEE`, `ADDON_SERVICE` | `NOT NULL`, Default: `BASE` |
+| `subscription_type` | `ENUM` | `MEMBERSHIP_FEE`, `MEMBERSHIP_JOINING`, `MEMBERSHIP_RENEWAL`, `SERVICE` | `NOT NULL`, Default: `SERVICE` |
 | `reference_id` | `UUID` | Polymorphic FK to price table. | `NOT NULL` |
 | `subscription_term_id` | `UUID` | Billing term FK. | **FK** -> `subscription_term` |
 | `unit_price_snapshot` | `DECIMAL` | Price frozen at purchase time. | `NOT NULL` |
@@ -443,6 +445,7 @@ Billing duration definitions.
 | `duration_months` | `INT` | Length in months. | Default: `1`, `NOT NULL` |
 | `payment_mode` | `ENUM` | `PAY_IN_FULL`, `RECURRING` | Default: `RECURRING`, `NOT NULL` |
 | `recurrence_unit` | `TEXT` | Period unit (e.g., "MONTH", "YEAR"). | Default: `'MONTH'` |
+| `recurrence_unit_value`| `INT` | The value for the recurrence unit (e.g., 1, 3, 6). | Default: `1` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 
 **RLS Policy**: Filter by `location_id`.
@@ -501,6 +504,45 @@ Stores configurable dropdown values for various modules.
 | `value` | `TEXT` | The value (e.g., "Training"). | `NOT NULL` |
 | `created_at` | `TIMESTAMPTZ`| Record creation timestamp. | Default: `now()` |
 | `updated_at` | `TIMESTAMPTZ`| Record update timestamp. | Default: `now()` |
+
+**RLS Policy**: Filter by `location_id`.
+
+
+### **Table: `email_template`**
+Stores reusable email templates for various notifications.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `email_template_id` | `UUID` | Unique identifier. | **PK**, Default: `gen_random_uuid()` |
+| `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
+| `subject` | `TEXT` | Default subject of the email. | `NOT NULL` |
+| `body_content` | `TEXT` | HTML/Text content of the template. | `NOT NULL` |
+| `created_at` | `TIMESTAMPTZ`| Record creation timestamp. | Default: `now()` |
+| `updated_at` | `TIMESTAMPTZ`| Record update timestamp. | Default: `now()` |
+
+**RLS Policy**: Filter by `location_id`. Only accessible by SUPERADMIN, ADMIN, and STAFF.
+
+### **Table: `email_log`**
+Tracks all emails sent from the system.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `email_log_id` | `UUID` | Unique identifier. | **PK**, Default: `gen_random_uuid()` |
+| `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
+| `account_id` | `UUID` | Target account (if applicable). | **FK** -> `account` |
+| `staff_id` | `UUID` | Staff member who triggered the email. | **FK** -> `staff` |
+| `sender_email` | `TEXT` | From address used. | |
+| `sender_name` | `TEXT` | From name used. | |
+| `cc` | `TEXT` | CC recipients. | |
+| `bcc` | `TEXT` | BCC recipients. | |
+| `receiver_email` | `TEXT` | To address. | `NOT NULL` |
+| `receiver_name` | `TEXT` | To name. | |
+| `subject` | `TEXT` | Email subject at time of sending. | `NOT NULL` |
+| `content` | `TEXT` | Final rendered content. | `NOT NULL` |
+| `timestamp` | `TIMESTAMPTZ`| When the email was sent. | Default: `now()` |
+| `is_email_sent` | `BOOLEAN` | Whether the SMTP delivery succeeded. | Default: `FALSE` |
+| `email_template_id` | `UUID` | Template used for this email. | **FK** -> `email_template` |
+| `created_at` | `TIMESTAMPTZ`| Record creation timestamp. | Default: `now()` |
 
 **RLS Policy**: Filter by `location_id`.
 

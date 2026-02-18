@@ -20,9 +20,11 @@ export interface ServicePack {
   name: string;
   description?: string;
   classes?: number;
+  students_allowed?: number;
   duration_days?: number;
   duration_months?: number;
-  is_waiver_free_allowed?: boolean;
+  // is_waiver_free_allowed?: boolean; // Deprecated
+  waiver_program_id?: string;
 }
 
 export interface ServicePrice {
