@@ -47,10 +47,17 @@ export const discountService = {
     return response as Discount;
   },
 
-  validateDiscount: async (discountCode: string, locationId: string): Promise<any> => {
+  validateDiscount: async (discountCode: string, locationId: string): Promise<Discount | null> => {
     const options = { headers: { 'x-location-id': locationId } };
-    // As per Postman collection: GET /discounts/validate/:code
-    const response = await apiClient.get(`/discounts/validate/${discountCode}`, {}, options);
-    return response;
+    try {
+      // As per Postman collection: GET /discounts/validate/:code
+      const response = await apiClient.get(`/discounts/validate/${discountCode}`, {}, options);
+      if (!response) return null;
+      // Handle wrapped or direct response
+      const data: Discount = response.data ?? response;
+      return data;
+    } catch {
+      return null;
+    }
   }
 };

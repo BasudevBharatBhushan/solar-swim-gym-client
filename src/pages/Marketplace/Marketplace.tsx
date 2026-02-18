@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Alert,
@@ -33,12 +33,15 @@ import {
     TableRow,
     Tabs,
     Tooltip,
+    TextField,
     Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CardMembershipOutlinedIcon from '@mui/icons-material/CardMembershipOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import StarIcon from '@mui/icons-material/Star';
 
 import { PageHeader } from '../../components/Common/PageHeader';
@@ -51,6 +54,7 @@ import { crmService } from '../../services/crmService';
 import { MembershipProgram } from '../../services/membershipService';
 import { membershipService } from '../../services/membershipService';
 import { Service, serviceCatalog } from '../../services/serviceCatalog';
+import { discountService, Discount } from '../../services/discountService';
 import {
     buildHouseholdCountsFromBaseCart,
     CategoryCandidate,
@@ -72,7 +76,16 @@ interface CartItem {
     type: 'BASE' | 'MEMBERSHIP' | 'SERVICE';
     referenceId: string;
     name: string;
+    /** The final (possibly discounted) price used for checkout */
     price: number;
+    /** Original price before any discount */
+    actualPrice?: number;
+    /** Flat dollar amount discounted */
+    discountAmount?: number;
+    /** Percentage discounted (informational) */
+    discountPercentage?: number;
+    /** Discount code applied (if any) */
+    discountCode?: string;
     description?: string;
     metadata?: Record<string, unknown>;
     coverage?: CoverageProfile[];
@@ -80,6 +93,8 @@ interface CartItem {
     membershipCategoryId?: string;
     membershipProgramId?: string;
     subscriptionTermId?: string;
+    /** The service_id this item is linked to (for discount applicability check) */
+    serviceId?: string;
 }
 
 interface AccountProfile {
@@ -170,6 +185,20 @@ export const Marketplace = () => {
     const [feeDialogOpen, setFeeDialogOpen] = useState(false);
     const [pendingMembershipCandidate, setPendingMembershipCandidate] = useState<CategoryCandidate | null>(null);
     const [selectedFeeType, setSelectedFeeType] = useState<'JOINING' | 'ANNUAL' | ''>('');
+
+    // Per-item discount state: keyed by CartItem.id
+    interface ItemDiscountState {
+        code: string;
+        codeStatus: 'idle' | 'validating' | 'valid' | 'invalid';
+        codeError?: string;
+        appliedDiscount?: Discount;
+        manualAmount: string;
+        manualPercentage: string;
+    }
+    const [itemDiscounts, setItemDiscounts] = useState<Record<string, ItemDiscountState>>({});
+
+    // Only SUPERADMIN / ADMIN / STAFF may enter manual discounts
+    const canApplyManualDiscount = ['SUPERADMIN', 'ADMIN', 'STAFF'].includes(role ?? '');
 
     const subscriptionTermOrder = useMemo(() => {
         return new Map(subscriptionTerms.map((term, index) => [term.subscription_term_id, index]));
@@ -410,7 +439,172 @@ export const Marketplace = () => {
 
     const removeFromCart = (id: string) => {
         setCart((prev) => prev.filter((item) => item.id !== id));
+        setItemDiscounts((prev) => {
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
     };
+
+    /** Returns the discount state for an item, initialising if absent */
+    const getItemDiscount = useCallback((itemId: string): ItemDiscountState => {
+        return itemDiscounts[itemId] ?? { code: '', codeStatus: 'idle', manualAmount: '', manualPercentage: '' };
+    }, [itemDiscounts]);
+
+    /** Parse a discount value string like "10%" or "15.00" into { amount, percentage } */
+    const parseDiscountValue = (discountStr: string, originalPrice: number): { amount: number; percentage: number } => {
+        const trimmed = (discountStr ?? '').trim();
+        if (trimmed.endsWith('%')) {
+            const pct = parseFloat(trimmed);
+            if (!isFinite(pct) || pct <= 0) return { amount: 0, percentage: 0 };
+            const amount = originalPrice * (pct / 100);
+            return { amount: parseFloat(amount.toFixed(2)), percentage: pct };
+        }
+        const amount = parseFloat(trimmed);
+        if (!isFinite(amount) || amount <= 0) return { amount: 0, percentage: 0 };
+        const percentage = originalPrice > 0 ? parseFloat(((amount / originalPrice) * 100).toFixed(2)) : 0;
+        return { amount: parseFloat(amount.toFixed(2)), percentage };
+    };
+
+    /** Apply a validated Discount object to a cart item */
+    const applyDiscountToCartItem = useCallback((itemId: string, discount: Discount) => {
+        setCart((prev) => prev.map((item) => {
+            if (item.id !== itemId) return item;
+            const originalPrice = item.actualPrice ?? item.price;
+            const { amount, percentage } = parseDiscountValue(discount.discount ?? '', originalPrice);
+            const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
+            return {
+                ...item,
+                actualPrice: originalPrice,
+                price: discountedPrice,
+                discountAmount: amount,
+                discountPercentage: percentage,
+                discountCode: discount.discount_code,
+            };
+        }));
+    }, []);
+
+    /** Validate a discount code and apply it to the given cart item */
+    const handleApplyDiscountCode = useCallback(async (itemId: string, serviceId?: string) => {
+        if (!currentLocationId) return;
+        const discountState = getItemDiscount(itemId);
+        const code = discountState.code.trim();
+        if (!code) return;
+
+        setItemDiscounts((prev) => ({
+            ...prev,
+            [itemId]: { ...getItemDiscount(itemId), codeStatus: 'validating', codeError: undefined },
+        }));
+
+        const discount = await discountService.validateDiscount(code, currentLocationId);
+
+        if (!discount) {
+            setItemDiscounts((prev) => ({
+                ...prev,
+                [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'Discount code not found or invalid.' },
+            }));
+            return;
+        }
+
+        // Check active
+        if (!discount.is_active) {
+            setItemDiscounts((prev) => ({
+                ...prev,
+                [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is inactive.' },
+            }));
+            return;
+        }
+
+        // Check date range
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (discount.start_date) {
+            const start = new Date(discount.start_date);
+            start.setHours(0, 0, 0, 0);
+            if (today < start) {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not yet active.' },
+                }));
+                return;
+            }
+        }
+        if (discount.end_date) {
+            const end = new Date(discount.end_date);
+            end.setHours(23, 59, 59, 999);
+            if (today > end) {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code has expired.' },
+                }));
+                return;
+            }
+        }
+
+        // Check service applicability (null service_id = applies to all)
+        // If discount is for a specific service, the item MUST match that service.
+        if (discount.service_id && discount.service_id !== serviceId) {
+            setItemDiscounts((prev) => ({
+                ...prev,
+                [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this item.' },
+            }));
+            return;
+        }
+
+        // Valid — apply
+        setItemDiscounts((prev) => ({
+            ...prev,
+            [itemId]: { ...getItemDiscount(itemId), codeStatus: 'valid', codeError: undefined, appliedDiscount: discount, manualAmount: '', manualPercentage: '' },
+        }));
+        applyDiscountToCartItem(itemId, discount);
+    }, [currentLocationId, getItemDiscount, applyDiscountToCartItem]);
+
+    /** Apply a manual discount (amount or percentage) to a cart item */
+    const handleManualDiscountApply = useCallback((itemId: string, type: 'amount' | 'percentage', value: string) => {
+        setCart((prev) => prev.map((item) => {
+            if (item.id !== itemId) return item;
+            const originalPrice = item.actualPrice ?? item.price;
+            let amount = 0;
+            let percentage = 0;
+            if (type === 'amount') {
+                amount = parseFloat(value);
+                if (!isFinite(amount) || amount < 0) amount = 0;
+                percentage = originalPrice > 0 ? parseFloat(((amount / originalPrice) * 100).toFixed(2)) : 0;
+            } else {
+                percentage = parseFloat(value);
+                if (!isFinite(percentage) || percentage < 0) percentage = 0;
+                amount = parseFloat((originalPrice * (percentage / 100)).toFixed(2));
+            }
+            const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
+            return {
+                ...item,
+                actualPrice: originalPrice,
+                price: discountedPrice,
+                discountAmount: amount,
+                discountPercentage: percentage,
+                discountCode: undefined,
+            };
+        }));
+    }, []);
+
+    /** Remove any applied discount from a cart item, restoring original price */
+    const removeDiscount = useCallback((itemId: string) => {
+        setCart((prev) => prev.map((item) => {
+            if (item.id !== itemId) return item;
+            return {
+                ...item,
+                price: item.actualPrice ?? item.price,
+                actualPrice: undefined,
+                discountAmount: undefined,
+                discountPercentage: undefined,
+                discountCode: undefined,
+            };
+        }));
+        setItemDiscounts((prev) => ({
+            ...prev,
+            [itemId]: { code: '', codeStatus: 'idle', codeError: undefined, appliedDiscount: undefined, manualAmount: '', manualPercentage: '' },
+        }));
+    }, []);
 
     const openCoverageDialogForItem = (item: CartItem) => {
         const existing = cart.find((cartItem) => cartItem.id === item.id);
@@ -549,6 +743,7 @@ export const Marketplace = () => {
             referenceId: pack.service_pack_id,
             name: `${service.name} - ${pack.name}`,
             price: minPrice,
+            serviceId: service.service_id,
             metadata: {
                 subscription_term_id: prices[0]?.subscription_term_id,
             },
@@ -597,10 +792,20 @@ export const Marketplace = () => {
                                   ? 'SERVICE'
                                   : 'MEMBERSHIP_FEE',
                         reference_id: item.referenceId,
-                        unit_price_snapshot: item.price,
+                        unit_price_snapshot: item.actualPrice ?? item.price,
                         total_amount: item.price,
                         coverage: getCoveragePayload(item),
                     };
+
+                    // Include discount tracking fields if a discount was applied
+                    if (item.actualPrice !== undefined && item.actualPrice !== item.price) {
+                        payload.actual_total_amount = item.actualPrice;
+                        payload.discount_amount = item.discountAmount ?? 0;
+                        payload.discount_percentage = item.discountPercentage ?? 0;
+                        if (item.discountCode) {
+                            payload.discount_code = item.discountCode;
+                        }
+                    }
 
                     if (item.type === 'BASE' && item.subscriptionTermId) {
                         payload.subscription_term_id = item.subscriptionTermId;
@@ -1129,7 +1334,10 @@ export const Marketplace = () => {
                         ) : (
                             <Box>
                                 <Stack spacing={2} sx={{ mb: 3 }}>
-                                    {cart.map((item) => (
+                                    {cart.map((item) => {
+                                        const discState = getItemDiscount(item.id);
+                                        const hasDiscount = item.actualPrice !== undefined && item.actualPrice !== item.price;
+                                        return (
                                         <Box
                                             key={item.id}
                                             sx={{
@@ -1137,7 +1345,7 @@ export const Marketplace = () => {
                                                 bgcolor: 'white',
                                                 borderRadius: 2,
                                                 border: '1px solid',
-                                                borderColor: 'divider',
+                                                borderColor: hasDiscount ? 'success.light' : 'divider',
                                                 position: 'relative',
                                             }}
                                         >
@@ -1153,10 +1361,31 @@ export const Marketplace = () => {
                                             <Typography variant="subtitle2" sx={{ fontWeight: 700, pr: 3 }}>
                                                 {item.name}
                                             </Typography>
-                                            <Typography variant="body2" color="primary.main" fontWeight={700} sx={{ mt: 0.5 }}>
-                                                {formatCurrency(item.price)}
-                                            </Typography>
 
+                                            {/* Price display */}
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                                {hasDiscount && (
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{ textDecoration: 'line-through', color: 'text.disabled' }}
+                                                    >
+                                                        {formatCurrency(item.actualPrice!)}
+                                                    </Typography>
+                                                )}
+                                                <Typography variant="body2" color={hasDiscount ? 'success.main' : 'primary.main'} fontWeight={700}>
+                                                    {formatCurrency(item.price)}
+                                                </Typography>
+                                                {hasDiscount && item.discountPercentage !== undefined && (
+                                                    <Chip
+                                                        label={`-${item.discountPercentage.toFixed(1)}%`}
+                                                        size="small"
+                                                        color="success"
+                                                        sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }}
+                                                    />
+                                                )}
+                                            </Box>
+
+                                            {/* Coverage chips */}
                                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1.5 }}>
                                                 {item.coverage?.map((covered) => (
                                                     <Chip
@@ -1174,8 +1403,107 @@ export const Marketplace = () => {
                                                     />
                                                 ))}
                                             </Box>
+
+                                            {/* Discount section */}
+                                            <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
+                                                {/* Applied discount badge */}
+                                                {hasDiscount && (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                        <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                                                        <Typography variant="caption" color="success.main" fontWeight={600}>
+                                                            {item.discountCode
+                                                                ? `Code "${item.discountCode}" applied — saved ${formatCurrency(item.discountAmount ?? 0)}`
+                                                                : `Manual discount applied — saved ${formatCurrency(item.discountAmount ?? 0)}`}
+                                                        </Typography>
+                                                        <Button
+                                                            size="small"
+                                                            color="inherit"
+                                                            sx={{ ml: 'auto', fontSize: '0.65rem', minWidth: 0, p: '2px 6px', color: 'text.disabled' }}
+                                                            onClick={() => removeDiscount(item.id)}
+                                                        >
+                                                            Remove
+                                                        </Button>
+                                                    </Box>
+                                                )}
+
+                                                {/* Discount code input */}
+                                                {!hasDiscount && (
+                                                    <Box>
+                                                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                                                            <LocalOfferIcon sx={{ fontSize: 16, color: 'text.secondary', mt: 1 }} />
+                                                            <TextField
+                                                                size="small"
+                                                                placeholder="Discount code"
+                                                                value={discState.code}
+                                                                onChange={(e) => setItemDiscounts((prev) => ({
+                                                                    ...prev,
+                                                                    [item.id]: { ...getItemDiscount(item.id), code: e.target.value, codeStatus: 'idle', codeError: undefined },
+                                                                }))}
+                                                                onKeyDown={(e) => {
+                                                                    if (e.key === 'Enter') handleApplyDiscountCode(item.id, item.serviceId);
+                                                                }}
+                                                                sx={{ flex: 1 }}
+                                                                inputProps={{ style: { fontSize: '0.8rem', padding: '6px 10px' } }}
+                                                                error={discState.codeStatus === 'invalid'}
+                                                                helperText={discState.codeStatus === 'invalid' ? discState.codeError : undefined}
+                                                                FormHelperTextProps={{ sx: { fontSize: '0.7rem', mx: 0 } }}
+                                                            />
+                                                            <Button
+                                                                size="small"
+                                                                variant="outlined"
+                                                                onClick={() => handleApplyDiscountCode(item.id, item.serviceId)}
+                                                                disabled={!discState.code.trim() || discState.codeStatus === 'validating'}
+                                                                sx={{ whiteSpace: 'nowrap', fontSize: '0.75rem', py: '5px' }}
+                                                            >
+                                                                {discState.codeStatus === 'validating' ? 'Checking…' : 'Apply'}
+                                                            </Button>
+                                                        </Box>
+
+                                                        {/* Manual discount fields — staff only */}
+                                                        {canApplyManualDiscount && (
+                                                            <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+                                                                <TextField
+                                                                    size="small"
+                                                                    label="Discount $"
+                                                                    type="number"
+                                                                    value={discState.manualAmount}
+                                                                    onChange={(e) => setItemDiscounts((prev) => ({
+                                                                        ...prev,
+                                                                        [item.id]: { ...getItemDiscount(item.id), manualAmount: e.target.value, manualPercentage: '' },
+                                                                    }))}
+                                                                    onBlur={(e) => {
+                                                                        if (e.target.value) handleManualDiscountApply(item.id, 'amount', e.target.value);
+                                                                    }}
+                                                                    inputProps={{ min: 0, style: { fontSize: '0.8rem', padding: '6px 10px' } }}
+                                                                    InputLabelProps={{ sx: { fontSize: '0.8rem' } }}
+                                                                    sx={{ flex: 1 }}
+                                                                />
+                                                                <Typography variant="caption" color="text.secondary">or</Typography>
+                                                                <TextField
+                                                                    size="small"
+                                                                    label="Discount %"
+                                                                    type="number"
+                                                                    value={discState.manualPercentage}
+                                                                    onChange={(e) => setItemDiscounts((prev) => ({
+                                                                        ...prev,
+                                                                        [item.id]: { ...getItemDiscount(item.id), manualPercentage: e.target.value, manualAmount: '' },
+                                                                    }))}
+                                                                    onBlur={(e) => {
+                                                                        if (e.target.value) handleManualDiscountApply(item.id, 'percentage', e.target.value);
+                                                                    }}
+                                                                    inputProps={{ min: 0, max: 100, style: { fontSize: '0.8rem', padding: '6px 10px' } }}
+                                                                    InputLabelProps={{ sx: { fontSize: '0.8rem' } }}
+                                                                    sx={{ flex: 1 }}
+                                                                />
+                                                            </Box>
+                                                        )}
+                                                    </Box>
+                                                )}
+                                            </Box>
                                         </Box>
-                                    ))}
+                                        );
+                                    })}
+
                                 </Stack>
 
                                 <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
