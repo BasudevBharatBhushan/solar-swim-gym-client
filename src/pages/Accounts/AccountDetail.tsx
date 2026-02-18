@@ -557,7 +557,7 @@ export const AccountDetail = () => {
                 <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
                     <Tabs value={tabValue} onChange={handleTabChange} aria-label="account detail tabs">
                         <Tab label="Profile Details" />
-                        <Tab label="Subscriptions" />
+                        <Tab label="Purchases" />
                         <Tab label="Waivers" />
                     </Tabs>
                 </Box>

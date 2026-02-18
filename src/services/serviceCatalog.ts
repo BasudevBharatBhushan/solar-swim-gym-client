@@ -105,5 +105,16 @@ export const serviceCatalog = {
   upsertSession: async (sessionData: any, locationId?: string) => {
       const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
       return apiClient.post('/sessions/upsert', sessionData, options);
+  },
+
+  // --- Helper Getters ---
+  getServicePack: async (servicePackId: string, locationId?: string) => {
+      const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+      return apiClient.get(`/service-packs/${servicePackId}`, {}, options);
+  },
+
+  getServiceDetail: async (serviceId: string, locationId?: string) => {
+      const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+      return apiClient.get(`/services/${serviceId}`, {}, options);
   }
 };
