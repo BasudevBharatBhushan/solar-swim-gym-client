@@ -259,6 +259,19 @@ export const ServicePackSelector = ({ open, onClose, onSelect, locationId }: Ser
                                                 sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }}
                                             />
                                         )}
+                                        {pack.is_shrabable && (
+                                            <Chip label="SHARABLE" size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, bgcolor: '#f0fdf4', color: '#16a34a', borderRadius: '4px' }} />
+                                        )}
+                                        {pack.max_uses_per_period && (
+                                            <Chip 
+                                                label={`${pack.max_uses_per_period} USES / ${pack.usage_period_length || 1} ${pack.usage_period_unit}`} 
+                                                size="small" 
+                                                sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, bgcolor: '#f0f9ff', color: '#0284c7', borderRadius: '4px' }} 
+                                            />
+                                        )}
+                                        {pack.enforce_usage_limit && (
+                                            <Chip label="STRICT" size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, bgcolor: '#fef2f2', color: '#ef4444', borderRadius: '4px' }} />
+                                        )}
                                     </Box>
                                 </ListItemButton>
                             ))

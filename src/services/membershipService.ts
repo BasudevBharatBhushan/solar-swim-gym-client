@@ -51,6 +51,11 @@ export interface MembershipService {
   students_allowed?: number;
   classes?: number;
   waiver_program_id?: string;
+  is_shrabable?: boolean;
+  max_uses_per_period?: number;
+  usage_period_unit?: string;
+  usage_period_length?: number;
+  enforce_usage_limit?: boolean;
 }
 
 export interface MembershipProgram {

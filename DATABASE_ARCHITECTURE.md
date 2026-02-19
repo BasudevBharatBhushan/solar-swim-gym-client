@@ -183,10 +183,15 @@ Bundles of classes or time-based access linked to a service.
 | `students_allowed` | `INT` | Number of students allowed for the pack. | |
 | `duration_days` | `INT` | Validity in days. | |
 | `duration_months` | `INT` | Validity in months. | |
-| `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
-| `updated_at` | `TIMESTAMP` | Record update timestamp. | Default: `NOW()` |
+| `is_shrabable` | `BOOLEAN` | Whether the pack is sharable. | Default: `FALSE` |
+| `max_uses_per_period` | `INT` | Max uses allowed per period. | |
+| `usage_period_unit` | `ENUM` | `DAY`, `WEEK`, `MONTH`, `YEAR` | |
+| `usage_period_length` | `INT` | Length of the usage period. | |
+| `enforce_usage_limit` | `BOOLEAN` | Whether to enforce the usage limit. | Default: `FALSE` |
 | `is_waiver_free_allowed` | `BOOLEAN` | If true, pack can be offered free under state waiver programs. | Default: `FALSE` |
 | `waiver_program_id` | `UUID` | Linked waiver/funding program for the pack. | **FK** -> `waiver_program` |
+| `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
+| `updated_at` | `TIMESTAMP` | Record update timestamp. | Default: `NOW()` |
 
 
 ### **Table: `email_smtp_config`**
@@ -390,6 +395,7 @@ Active recurring contract for a service/membership.
 | `actual_total_amount` | `DECIMAL` | Original list price before any discount. Equals `total_amount` when no discount applies. | Default: `0.00` |
 | `discount_amount` | `DECIMAL` | Flat monetary discount applied (e.g. `10.00` = $10 off). | Default: `0.00` |
 | `discount_percentage` | `DECIMAL` | Percentage discount applied (e.g. `15.00` = 15% off). Informational — actual deduction stored in `discount_amount`. | Default: `0.00` |
+| `discount_code` | `TEXT` | The discount code string used (e.g. "SUMMER10"). | |
 | `billing_period_start` | `DATE` | Start of coverage. | |
 | `billing_period_end` | `DATE` | End of coverage. | |
 | `status` | `ENUM` | `ACTIVE`, `PAID`, `CANCELLED` | Default: `ACTIVE`, `NOT NULL` |
@@ -405,11 +411,41 @@ Time-bound sessions for class scheduling or terms.
 | `session_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
 | `name` | `TEXT` | Session Name (e.g., "Summer 2026"). | `NOT NULL` |
 | `start_date` | `DATE` | Start date. | `NOT NULL`|
-| `expiry_date` | `DATE` | End date. | `NOT NULL`|
+| `end_date` | `DATE` | End date. | `NOT NULL`|
+| `duration_unit`| `TEXT` | `MONTH`, `DAY`, `WEEK`. | |
+| `duration` | `INT` | Duration value. | |
+| `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 | `updated_at` | `TIMESTAMP` | Record update timestamp. | Default: `NOW()` |
 
 **RLS Policy**: Public read or implementation specific.
+
+### **Table: `cart`**
+Temporary storage for subscriptions before finalizing. Copy of `subscription` table structure.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `cart_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
+| `account_id` | `UUID` | Owner account. | **FK** -> `account`, `NOT NULL` |
+| `location_id` | `UUID` | Location context. | **FK** -> `location`, `NOT NULL` |
+| `invoice_id` | `UUID` | Related invoice (if any). | **FK** -> `invoice` |
+| `session_id` | `UUID` | Linked session (Optional). | **FK** -> `session` |
+| `subscription_type`| `TEXT` | `MEMBERSHIP_FEE`, `SERVICE`, etc. | `NOT NULL` |
+| `reference_id` | `UUID` | Polymorphic FK to price table. | `NOT NULL` |
+| `subscription_term_id` | `UUID` | Billing term FK. | **FK** -> `subscription_term` |
+| `unit_price_snapshot` | `DECIMAL` | Price snapshot. | `NOT NULL` |
+| `total_amount` | `DECIMAL` | Final amount. | `NOT NULL` |
+| `actual_total_amount`| `DECIMAL` | Original list price. | |
+| `discount_amount`| `DECIMAL` | Applied discount. | |
+| `discount_percentage`| `DECIMAL` | Applied percentage. | |
+| `discount_code` | `TEXT` | Applied code. | |
+| `billing_period_start`| `DATE` | Start of coverage. | |
+| `billing_period_end` | `DATE` | End of coverage. | |
+| `status` | `TEXT` | `ACTIVE`, etc. | |
+| `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
+| `updated_at` | `TIMESTAMP` | Record update. | Default: `NOW()` |
+
+**RLS Policy**: Filter by `location_id`.
 
 ### **Table: `subscription_coverage`**
 Links specific profiles to a subscription.

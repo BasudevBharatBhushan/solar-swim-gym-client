@@ -62,6 +62,7 @@ const menuItems: MenuItem[] = [
     children: [
       { text: 'Age Profile', icon: <DateRange />, path: '/admin/settings/age-profiles' },
       { text: 'Subscription Term', icon: <CardMembership />, path: '/admin/settings/subscription-terms' },
+      { text: 'Sessions', icon: <DateRange />, path: '/admin/settings/sessions' },
       { text: 'Services', icon: <Pool />, path: '/admin/services' },
       {
         text: 'Membership',

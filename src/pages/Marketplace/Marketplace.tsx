@@ -65,6 +65,7 @@ import {
     RuleRange,
     classifyAgeFromDob,
 } from './membershipSuggestion';
+import { cartService } from '../../services/cartService';
 import { PaymentDialog } from './PaymentDialog';
 
 interface CoverageProfile {
@@ -76,6 +77,7 @@ interface CoverageProfile {
 
 interface CartItem {
     id: string;
+    cart_id?: string;
     type: 'BASE' | 'MEMBERSHIP' | 'SERVICE';
     referenceId: string;
     name: string;
@@ -277,6 +279,59 @@ export const Marketplace = () => {
             setMarketplaceError(null);
             setLoading(true);
             try {
+                // Fetch cart items first
+                if (currentLocationId && accountId) {
+                    try {
+                        const items = await cartService.getItems(currentLocationId);
+                        // Map backend CartItemData back to frontend CartItem
+                        const mappedCart: CartItem[] = items.filter(i => i.account_id === accountId).map(i => {
+                            const metadata = i.metadata || {};
+                            return {
+                                id: metadata.id || `CART-${i.cart_id}`,
+                                cart_id: i.cart_id,
+                                type: metadata.type || (i.subscription_type === 'SERVICE' ? 'SERVICE' : 'MEMBERSHIP'),
+                                referenceId: i.reference_id,
+                                name: metadata.name || 'Unknown Item',
+                                price: i.total_amount,
+                                actualPrice: i.actual_total_amount,
+                                discountAmount: i.discount_amount,
+                                discountPercentage: i.discount_percentage,
+                                discountCode: i.discount_code,
+                                metadata: metadata,
+                                coverage: metadata.coverage || [],
+                                feeType: metadata.feeType,
+                                membershipCategoryId: metadata.membershipCategoryId,
+                                membershipProgramId: metadata.membershipProgramId,
+                                subscriptionTermId: i.subscription_term_id,
+                                serviceId: metadata.serviceId,
+                                ageGroupId: metadata.ageGroupId,
+                                membershipRange: metadata.membershipRange
+                            };
+                        });
+                        setCart(mappedCart);
+
+                        // Populate itemDiscounts state from fetched items
+                        const initialDiscounts: Record<string, ItemDiscountState> = {};
+                        mappedCart.forEach(item => {
+                            if (item.discountCode || item.actualPrice !== undefined) {
+                                initialDiscounts[item.id] = {
+                                    code: item.discountCode || '',
+                                    codeStatus: item.discountCode ? 'valid' : 'idle',
+                                    manualAmount: item.discountCode ? '' : (item.discountAmount?.toString() || ''),
+                                    manualPercentage: item.discountCode ? '' : (item.discountPercentage?.toString() || ''),
+                                    membershipDiscountExplanation: (item.metadata as any)?.membershipExplanation,
+                                    autoDiscountDisabled: (item.metadata as any)?.autoDiscountDisabled
+                                };
+                            }
+                        });
+                        if (Object.keys(initialDiscounts).length > 0) {
+                            setItemDiscounts(prev => ({ ...prev, ...initialDiscounts }));
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch cart:', err);
+                    }
+                }
+
                 try {
                     const accountResponse = await crmService.getAccountDetails(accountId, currentLocationId || undefined);
                     const accountData = (accountResponse as { data?: { profiles?: AccountProfile[]; profile?: AccountProfile[] } }).data || (accountResponse as { profiles?: AccountProfile[]; profile?: AccountProfile[] });
@@ -566,7 +621,15 @@ export const Marketplace = () => {
 
     const isInCart = (id: string) => cart.some((item) => item.id === id);
 
-    const removeFromCart = (id: string) => {
+    const removeFromCart = async (id: string) => {
+        const item = cart.find(i => i.id === id);
+        if (item?.cart_id) {
+            try {
+                await cartService.removeItem(item.cart_id);
+            } catch (err) {
+                console.error('Failed to remove item from server cart:', err);
+            }
+        }
         setCart((prev) => prev.filter((item) => item.id !== id));
         setItemDiscounts((prev) => {
             const next = { ...prev };
@@ -602,7 +665,7 @@ export const Marketplace = () => {
             const originalPrice = item.actualPrice ?? item.price;
             const { amount, percentage } = parseDiscountValue(discount.discount ?? '', originalPrice);
             const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
-            return {
+            const updatedItem = {
                 ...item,
                 actualPrice: originalPrice,
                 price: discountedPrice,
@@ -610,8 +673,15 @@ export const Marketplace = () => {
                 discountPercentage: percentage,
                 discountCode: discount.discount_code,
             };
+
+            // Persist to server if it has a cart_id
+            if (updatedItem.cart_id && accountId && currentLocationId) {
+                cartService.upsertItem(cartService.transformToCartData(updatedItem, accountId, currentLocationId), currentLocationId).catch(console.error);
+            }
+
+            return updatedItem;
         }));
-    }, []);
+    }, [accountId, currentLocationId]);
 
     /** Validate a discount code and apply it to the given cart item */
     const handleApplyDiscountCode = useCallback(async (itemId: string, serviceId?: string) => {
@@ -705,7 +775,7 @@ export const Marketplace = () => {
                 amount = parseFloat((originalPrice * (percentage / 100)).toFixed(2));
             }
             const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
-            return {
+            const updatedItem = {
                 ...item,
                 actualPrice: originalPrice,
                 price: discountedPrice,
@@ -713,8 +783,15 @@ export const Marketplace = () => {
                 discountPercentage: percentage,
                 discountCode: undefined,
             };
+
+            // Persist to server if it has a cart_id
+            if (updatedItem.cart_id && accountId && currentLocationId) {
+                cartService.upsertItem(cartService.transformToCartData(updatedItem, accountId, currentLocationId), currentLocationId).catch(console.error);
+            }
+
+            return updatedItem;
         }));
-    }, []);
+    }, [accountId, currentLocationId]);
 
     /** Remove any applied discount from a cart item, restoring original price */
     const removeDiscount = useCallback((itemId: string) => {
@@ -723,7 +800,7 @@ export const Marketplace = () => {
 
         setCart((prev) => prev.map((item) => {
             if (item.id !== itemId) return item;
-            return {
+            const updatedItem = {
                 ...item,
                 price: item.actualPrice ?? item.price,
                 actualPrice: undefined,
@@ -731,6 +808,13 @@ export const Marketplace = () => {
                 discountPercentage: undefined,
                 discountCode: undefined,
             };
+
+            // Persist to server if it has a cart_id
+            if (updatedItem.cart_id && accountId && currentLocationId) {
+                cartService.upsertItem(cartService.transformToCartData(updatedItem, accountId, currentLocationId), currentLocationId).catch(console.error);
+            }
+
+            return updatedItem;
         }));
         setItemDiscounts((prev) => ({
             ...prev,
@@ -804,15 +888,43 @@ export const Marketplace = () => {
             coverage,
         };
 
-        setCart((prev) => {
-            const existingIndex = prev.findIndex((cartItem) => cartItem.id === nextItem.id);
-            if (existingIndex >= 0) {
-                const updated = [...prev];
-                updated[existingIndex] = nextItem;
-                return updated;
+        if (accountId && currentLocationId) {
+            const frontendId = nextItem.id;
+            const existingItem = cart.find(i => i.id === frontendId);
+            
+            const dbPayload = cartService.transformToCartData(nextItem, accountId, currentLocationId);
+            if (existingItem?.cart_id) {
+                dbPayload.cart_id = existingItem.cart_id;
             }
-            return [...prev, nextItem];
-        });
+
+            cartService.upsertItem(dbPayload, currentLocationId)
+                .then((savedItem) => {
+                    setCart((prev) => {
+                        const nextWithId = { ...nextItem, cart_id: savedItem.cart_id };
+                        const existingIndex = prev.findIndex((cartItem) => cartItem.id === frontendId);
+                        if (existingIndex >= 0) {
+                            const updated = [...prev];
+                            updated[existingIndex] = nextWithId;
+                            return updated;
+                        }
+                        return [...prev, nextWithId];
+                    });
+                })
+                .catch((err) => {
+                    console.error('Failed to save cart item:', err);
+                    setMarketplaceError('Failed to save cart item to server.');
+                });
+        } else {
+            setCart((prev) => {
+                const existingIndex = prev.findIndex((cartItem) => cartItem.id === nextItem.id);
+                if (existingIndex >= 0) {
+                    const updated = [...prev];
+                    updated[existingIndex] = nextItem;
+                    return updated;
+                }
+                return [...prev, nextItem];
+            });
+        }
 
         setCoverageDialogOpen(false);
         setPendingItem(null);
@@ -938,63 +1050,53 @@ export const Marketplace = () => {
         });
     };
 
+    const constructSubscriptionPayload = (item: CartItem) => {
+        const payload: Record<string, unknown> = {
+            account_id: accountId,
+            location_id: currentLocationId,
+            subscription_type:
+                item.type === 'MEMBERSHIP'
+                    ? item.feeType === 'JOINING'
+                        ? 'MEMBERSHIP_JOINING'
+                        : item.feeType === 'ANNUAL'
+                          ? 'MEMBERSHIP_RENEWAL'
+                          : 'MEMBERSHIP_FEE'
+                    : item.type === 'SERVICE'
+                      ? 'SERVICE'
+                      : 'MEMBERSHIP_FEE',
+            reference_id: item.referenceId,
+            unit_price_snapshot: item.actualPrice ?? item.price,
+            total_amount: item.price,
+            coverage: getCoveragePayload(item),
+        };
+
+        // Include discount tracking fields if a discount was applied
+        if (item.actualPrice !== undefined && item.actualPrice !== item.price) {
+            payload.actual_total_amount = item.actualPrice;
+            payload.discount_amount = item.discountAmount ?? 0;
+            payload.discount_percentage = item.discountPercentage ?? 0;
+            if (item.discountCode) {
+                payload.discount_code = item.discountCode;
+            }
+        }
+
+        if (item.type === 'BASE' && item.subscriptionTermId) {
+            payload.subscription_term_id = item.subscriptionTermId;
+        }
+
+        if (item.metadata) {
+            const { age_group_id, id, cart_id, name, type, feeType, membershipCategoryId, membershipProgramId, ageGroupId, membershipRange, serviceId, ...otherMetadata } = item.metadata as any;
+            Object.assign(payload, otherMetadata);
+        }
+
+        return payload;
+    };
+
     const handleCheckout = async () => {
-        if (!accountId || !currentLocationId || marketplaceError) {
+        if (!accountId || !currentLocationId || marketplaceError || cart.length === 0) {
             return;
         }
-
-        setSubmitting(true);
-        try {
-            await Promise.all(
-                cart.map((item) => {
-                    const payload: Record<string, unknown> = {
-                        account_id: accountId,
-                        location_id: currentLocationId,
-                        subscription_type:
-                            item.type === 'MEMBERSHIP'
-                                ? item.feeType === 'JOINING'
-                                    ? 'MEMBERSHIP_JOINING'
-                                    : item.feeType === 'ANNUAL'
-                                      ? 'MEMBERSHIP_RENEWAL'
-                                      : 'MEMBERSHIP_FEE'
-                                : item.type === 'SERVICE'
-                                  ? 'SERVICE'
-                                  : 'MEMBERSHIP_FEE',
-                        reference_id: item.referenceId,
-                        unit_price_snapshot: item.actualPrice ?? item.price,
-                        total_amount: item.price,
-                        coverage: getCoveragePayload(item),
-                    };
-
-                    // Include discount tracking fields if a discount was applied
-                    if (item.actualPrice !== undefined && item.actualPrice !== item.price) {
-                        payload.actual_total_amount = item.actualPrice;
-                        payload.discount_amount = item.discountAmount ?? 0;
-                        payload.discount_percentage = item.discountPercentage ?? 0;
-                        if (item.discountCode) {
-                            payload.discount_code = item.discountCode;
-                        }
-                    }
-
-                    if (item.type === 'BASE' && item.subscriptionTermId) {
-                        payload.subscription_term_id = item.subscriptionTermId;
-                    }
-
-                    if (item.metadata) {
-                        const { age_group_id, ...otherMetadata } = item.metadata as any;
-                        Object.assign(payload, otherMetadata);
-                    }
-
-                    return billingService.createSubscription(payload, currentLocationId || undefined);
-                })
-            );
-
-            setPaymentOpen(true);
-        } catch (error) {
-            console.error('Failed to create subscriptions', error);
-        } finally {
-            setSubmitting(false);
-        }
+        setPaymentOpen(true);
     };
 
     if (loading) {
@@ -2050,9 +2152,35 @@ export const Marketplace = () => {
                 total={cart.reduce((sum, item) => sum + item.price, 0)}
                 itemCount={cart.length}
                 items={cart.map(i => ({ name: i.name, price: i.price }))}
-                onSuccess={() => {
-                    setPaymentOpen(false);
-                    navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`);
+                onSuccess={async () => {
+                    setSubmitting(true);
+                    try {
+                        // 1. Copy cart items to subscriptions
+                        await Promise.all(
+                            cart.map((item) => {
+                                const payload = constructSubscriptionPayload(item);
+                                return billingService.createSubscription(payload, currentLocationId || undefined);
+                            })
+                        );
+
+                        // 2. Clear server-side cart
+                        if (accountId && currentLocationId) {
+                            await cartService.clearCart(accountId, currentLocationId);
+                        }
+
+                        // 3. Clear local state
+                        setCart([]);
+                        setItemDiscounts({});
+
+                        setPaymentOpen(false);
+                        navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`);
+                    } catch (err) {
+                        console.error('Checkout conversion failed:', err);
+                        setMarketplaceError('Payment successful, but failed to create subscriptions. Please contact staff.');
+                        setPaymentOpen(false);
+                    } finally {
+                        setSubmitting(false);
+                    }
                 }}
             />
         </Box>

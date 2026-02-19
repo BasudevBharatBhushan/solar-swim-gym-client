@@ -829,6 +829,12 @@ export const BasePlan = () => {
                                                       const waiverId = svc.waiver_program_id || packRef?.waiver_program_id;
                                                       const wName = waiverId ? waiverPrograms.find(w => w.waiver_program_id === waiverId)?.name : null;
 
+                                                      const isShrabable = svc.is_shrabable ?? packRef?.is_shrabable;
+                                                      const maxUses = svc.max_uses_per_period ?? packRef?.max_uses_per_period;
+                                                      const unit = svc.usage_period_unit ?? packRef?.usage_period_unit;
+                                                      const length = svc.usage_period_length ?? packRef?.usage_period_length;
+                                                      const enforceLimit = svc.enforce_usage_limit ?? packRef?.enforce_usage_limit;
+
                                                       return (
                                                           <Paper key={itemKey} elevation={0} sx={{ 
                                                               p: 3, 
@@ -847,7 +853,7 @@ export const BasePlan = () => {
                                                                               {description}
                                                                           </Typography>
                                                                       )}
-                                                                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                                                      <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', rowGap: 1 }}>
                                                                           {(serviceRef?.type || 'Group') && (
                                                                               <Chip 
                                                                                   label={(dropdownValues?.find(v => 
@@ -873,6 +879,17 @@ export const BasePlan = () => {
                                                                           {!!classes && <Chip label={`${classes} CLASSES`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
                                                                           {!!students && <Chip label={`${students} STUDENTS`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
                                                                           {wName && <Chip label={wName.toUpperCase()} size="small" sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 800, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
+                                                                          {isShrabable && <Chip label="SHARABLE" size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, bgcolor: '#f0fdf4', color: '#16a34a', borderRadius: '4px' }} />}
+                                                                          {!!maxUses && (
+                                                                               <Chip 
+                                                                                   label={`${maxUses} USES / ${length || 1} ${unit}`} 
+                                                                                   size="small" 
+                                                                                   sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, bgcolor: '#f0f9ff', color: '#0284c7', borderRadius: '4px' }} 
+                                                                               />
+                                                                           )}
+                                                                          {enforceLimit && (
+                                                                              <Chip label="STRICT" size="small" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, bgcolor: '#fef2f2', color: '#ef4444', borderRadius: '4px' }} />
+                                                                          )}
                                                                       </Stack>
                                                                   </Box>
                                                                   

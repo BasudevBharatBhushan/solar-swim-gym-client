@@ -7,6 +7,7 @@ import { Login } from './pages/Login';
 
 import { AgeProfiles } from './pages/Settings/AgeProfiles';
 import { SubscriptionTerms } from './pages/Settings/SubscriptionTerms';
+import { Sessions } from './pages/Settings/Sessions';
 import { Services } from './pages/Services/Services';
 import { BasePlan } from './pages/Settings/BasePlan';
 import { Memberships } from './pages/Settings/Memberships';
@@ -62,6 +63,7 @@ const AppRoutes = () => {
       <Route path="/admin/settings" element={<Navigate to="/admin/leads" replace />} />
       <Route path="/admin/settings/age-profiles" element={<MainLayout><AgeProfiles /></MainLayout>} />
       <Route path="/admin/settings/subscription-terms" element={<MainLayout><SubscriptionTerms /></MainLayout>} />
+      <Route path="/admin/settings/sessions" element={<MainLayout><Sessions /></MainLayout>} />
       <Route path="/admin/settings/base-plan" element={<MainLayout><BasePlan /></MainLayout>} />
 
       <Route path="/admin/leads" element={<MainLayout><Leads /></MainLayout>} />

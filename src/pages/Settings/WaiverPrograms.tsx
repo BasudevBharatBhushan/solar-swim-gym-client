@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import { EditOutlined, Add, InfoOutlined } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
+import { useConfig } from '../../context/ConfigContext';
 import { configService } from '../../services/configService';
 import { PageHeader } from '../../components/Common/PageHeader';
 
@@ -37,6 +38,7 @@ export const WaiverPrograms = () => {
     const [currentProgram, setCurrentProgram] = useState<any>({});
     
     const { token, currentLocationId } = useAuth();
+    const { refreshWaiverPrograms } = useConfig();
     // Assuming location_id comes from userDetails or context for the header
     const locationId = currentLocationId;
 
@@ -84,6 +86,7 @@ export const WaiverPrograms = () => {
             setSuccess(currentProgram.waiver_program_id ? 'Program updated successfully' : 'Program created successfully');
             handleCloseDialog();
             fetchData();
+            refreshWaiverPrograms(); // Update global config context
         } catch (err) {
             console.error(err);
             setError('Failed to save waiver program');

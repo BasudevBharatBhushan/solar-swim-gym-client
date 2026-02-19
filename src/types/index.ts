@@ -40,6 +40,18 @@ export interface Subscription {
   plan_name?: string; 
 }
 
+export interface Session {
+  session_id?: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  duration_unit?: 'MONTH' | 'DAY' | 'WEEK';
+  duration?: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AccountSearchResponse {
   total: number;
   results: Account[];

@@ -13,7 +13,7 @@ import { serviceCatalog, ServicePack, ServicePrice } from '../../services/servic
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { PageHeader } from '../../components/Common/PageHeader';
-import { dropdownService, DropdownValue } from '../../services/dropdownService';
+import { dropdownService } from '../../services/dropdownService';
 
 
 // Types
@@ -531,7 +531,7 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
 
 export const Services = () => {
     const { currentLocationId } = useAuth();
-    const { ageGroups, dropdownValues, refreshDropdownValues, waiverPrograms } = useConfig();
+    const { ageGroups, dropdownValues, refreshDropdownValues, waiverPrograms, refreshWaiverPrograms } = useConfig();
 
     const serviceCategories = useMemo(() => {
         return (dropdownValues || [])
@@ -550,6 +550,10 @@ export const Services = () => {
             )
             .map(v => ({ value: v.value, label: v.value }));
     }, [dropdownValues]);
+
+    const activeWaiverPrograms = useMemo(() => {
+        return (waiverPrograms || []).filter(w => w.is_active !== false);
+    }, [waiverPrograms]);
     
     // Services State
     const [services, setServices] = useState<LocalService[]>([]);
@@ -581,6 +585,11 @@ export const Services = () => {
     const [packDurationMonths, setPackDurationMonths] = useState<number | ''>('');
     const [packDurationUnit, setPackDurationUnit] = useState<'days' | 'months'>('months');
     const [packWaiverProgramId, setPackWaiverProgramId] = useState<string>('');
+    const [packIsShrabable, setPackIsShrabable] = useState(false);
+    const [packMaxUsesPerPeriod, setPackMaxUsesPerPeriod] = useState<number | ''>('');
+    const [packUsagePeriodUnit, setPackUsagePeriodUnit] = useState<string>('MONTH');
+    const [packUsagePeriodLength, setPackUsagePeriodLength] = useState<number | ''>('');
+    const [packEnforceUsageLimit, setPackEnforceUsageLimit] = useState(false);
     
     // Deletion State
     const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
@@ -625,8 +634,9 @@ export const Services = () => {
         if (currentLocationId) {
             handleCreateService(); // Reset selection
             fetchServices();
+            refreshWaiverPrograms();
         }
-    }, [currentLocationId]);
+    }, [currentLocationId, refreshWaiverPrograms]);
 
     // --- Handlers: Service ---
 
@@ -729,6 +739,12 @@ export const Services = () => {
         }
         
         setPackWaiverProgramId(pack?.waiver_program_id || '');
+        setPackIsShrabable(pack?.is_shrabable || false);
+        setPackMaxUsesPerPeriod(pack?.max_uses_per_period || '');
+        setPackUsagePeriodUnit(pack?.usage_period_unit || 'MONTH');
+        setPackUsagePeriodLength(pack?.usage_period_length || '');
+        setPackEnforceUsageLimit(pack?.enforce_usage_limit || false);
+        refreshWaiverPrograms(); // Force refresh waiver programs whenever modal opens
         setIsPackModalOpen(true);
     };
 
@@ -747,7 +763,12 @@ export const Services = () => {
                 students_allowed: packStudentsAllowed || null,
                 duration_days: packDurationUnit === 'days' ? (packDurationDays || null) : null,
                 duration_months: packDurationUnit === 'months' ? (packDurationMonths || null) : null,
-                waiver_program_id: packWaiverProgramId || null
+                waiver_program_id: packWaiverProgramId || null,
+                is_shrabable: packIsShrabable,
+                max_uses_per_period: packMaxUsesPerPeriod || null,
+                usage_period_unit: packUsagePeriodUnit || null,
+                usage_period_length: packUsagePeriodLength || null,
+                enforce_usage_limit: packEnforceUsageLimit
             };
             await serviceCatalog.upsertServicePack(packPayload);
             
@@ -974,7 +995,7 @@ export const Services = () => {
                                             <List sx={{ p: 0 }}>
                                                 {packs.map(pack => {
                                                     const isSelected = !!selectedPack?.service_pack_id && selectedPack.service_pack_id === pack.service_pack_id;
-                                                    const waiverName = waiverPrograms?.find(w => w.waiver_program_id === pack.waiver_program_id)?.name;
+                                                    const waiverName = activeWaiverPrograms?.find(w => w.waiver_program_id === pack.waiver_program_id)?.name;
 
                                                     return (
                                                         <ListItemButton 
@@ -1011,6 +1032,17 @@ export const Services = () => {
                                                                                 <Chip label={`${pack.duration_days} DAYS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
                                                                             ) : null}
                                                                             {waiverName && <Chip label={waiverName} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fff7ed', color: '#c2410c', borderRadius: '4px' }} />}
+                                                                            {pack.is_shrabable && <Chip label="SHARABLE" size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#f0fdf4', color: '#16a34a', borderRadius: '4px' }} />}
+                                                                            {pack.max_uses_per_period && (
+                                                                                <Chip 
+                                                                                    label={`${pack.max_uses_per_period} USES / ${pack.usage_period_length || 1} ${pack.usage_period_unit}`} 
+                                                                                    size="small" 
+                                                                                    sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#f0f9ff', color: '#0284c7', borderRadius: '4px' }} 
+                                                                                />
+                                                                            )}
+                                                                            {pack.enforce_usage_limit && (
+                                                                                <Chip label="STRICT" size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fef2f2', color: '#ef4444', borderRadius: '4px' }} />
+                                                                            )}
                                                                         </Box>
                                                                     }
                                                                 />
@@ -1176,7 +1208,7 @@ export const Services = () => {
                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
                             >
                                 <MenuItem value=""><em>None</em></MenuItem>
-                                {waiverPrograms.map(w => (
+                                {activeWaiverPrograms.map(w => (
                                     <MenuItem key={w.waiver_program_id} value={w.waiver_program_id}>
                                         {w.name} {w.code ? `(${w.code})` : ''}
                                     </MenuItem>
@@ -1185,6 +1217,86 @@ export const Services = () => {
                         </Grid>
                         
                         {/* Remove Waiver Exempt Switch Block */}
+                        <Grid size={{ xs: 12 }} sx={{ mt: 3 }}>
+                            <Paper variant="outlined" sx={{ p: 3, bgcolor: '#fdfcfe', borderRadius: 2, border: '1px solid #e9d5ff' }}>
+                                <Typography variant="caption" sx={{ display: 'block', mb: 2, fontWeight: 800, color: '#9333ea', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Sharing & Frequency Configuration</Typography>
+                                <Grid container spacing={3}>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#ffffff', p: 1.5, px: 2, borderRadius: '8px', border: '1px solid #e2e8f0', height: '40px', boxSizing: 'border-box' }}>
+                                            <Typography variant="body2" sx={{ fontWeight: 600, color: packIsShrabable ? '#9333ea' : '#64748b' }}>
+                                                Sharable (Family)
+                                            </Typography>
+                                            <Switch 
+                                                checked={packIsShrabable} 
+                                                onChange={(e) => setPackIsShrabable(e.target.checked)} 
+                                                size="small"
+                                                sx={{
+                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#9333ea' },
+                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#9333ea' }
+                                                }}
+                                            />
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 6 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#ffffff', p: 1.5, px: 2, borderRadius: '8px', border: '1px solid #e2e8f0', height: '40px', boxSizing: 'border-box' }}>
+                                            <Typography variant="body2" sx={{ fontWeight: 600, color: packEnforceUsageLimit ? '#ef4444' : '#64748b' }}>
+                                                Enforce Usage Limit
+                                            </Typography>
+                                            <Switch 
+                                                checked={packEnforceUsageLimit} 
+                                                onChange={(e) => setPackEnforceUsageLimit(e.target.checked)} 
+                                                size="small"
+                                                sx={{
+                                                    '& .MuiSwitch-switchBase.Mui-checked': { color: '#ef4444' },
+                                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#ef4444' }
+                                                }}
+                                            />
+                                        </Box>
+                                    </Grid>
+                                    <Grid size={{ xs: 4 }}>
+                                        <TextField 
+                                            fullWidth 
+                                            type="number" 
+                                            label="Max Uses" 
+                                            value={packMaxUsesPerPeriod} 
+                                            onChange={(e) => setPackMaxUsesPerPeriod(parseInt(e.target.value) || '')} 
+                                            size="small"
+                                            disabled={!packEnforceUsageLimit}
+                                            sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 4 }}>
+                                        <TextField 
+                                            fullWidth 
+                                            type="number" 
+                                            label="Per Every (Length)" 
+                                            value={packUsagePeriodLength} 
+                                            onChange={(e) => setPackUsagePeriodLength(parseInt(e.target.value) || '')} 
+                                            size="small"
+                                            disabled={!packEnforceUsageLimit}
+                                            sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 4 }}>
+                                        <TextField 
+                                            fullWidth 
+                                            select 
+                                            label="Unit" 
+                                            value={packUsagePeriodUnit} 
+                                            onChange={(e) => setPackUsagePeriodUnit(e.target.value)} 
+                                            size="small"
+                                            disabled={!packEnforceUsageLimit}
+                                            sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
+                                        >
+                                            <MenuItem value="DAY">Day(s)</MenuItem>
+                                            <MenuItem value="WEEK">Week(s)</MenuItem>
+                                            <MenuItem value="MONTH">Month(s)</MenuItem>
+                                            <MenuItem value="YEAR">Year(s)</MenuItem>
+                                        </TextField>
+                                    </Grid>
+                                </Grid>
+                            </Paper>
+                        </Grid>
                     </Grid>
                 </DialogContent>
                 <DialogActions>
