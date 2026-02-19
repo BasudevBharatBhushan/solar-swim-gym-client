@@ -39,6 +39,8 @@ interface ServicePackSelectionDialogProps {
     pack: ServicePack & { prices?: ServicePrice[] };
     profiles: AccountProfile[];
     onConfirm: (items: CartItem[]) => void;
+    activeSubscriptions: any[];
+    currentCart: CartItem[];
 }
 
 export const ServicePackSelectionDialog = ({
@@ -47,7 +49,9 @@ export const ServicePackSelectionDialog = ({
     service,
     pack,
     profiles,
-    onConfirm
+    onConfirm,
+    activeSubscriptions,
+    currentCart
 }: ServicePackSelectionDialogProps) => {
     const { ageGroups, waiverPrograms } = useConfig();
     const [sessions, setSessions] = useState<Session[]>([]);
@@ -143,39 +147,10 @@ export const ServicePackSelectionDialog = ({
             return;
         }
 
-        // if (!selectedSessionId) {
-        //     setError('Please select a session.');
-        //     return;
-        // }
-        // Is session mandatory? "Provide a dropdown... The Session selection step should appear after profile selection"
-        // Let's assume mandatory for "Session & Billing Period Selection" requirement?
-        // "On session selection, auto-prefill billing_period_start" -> Implies selection triggers dates.
-        // If dates are manual, maybe session is optional?
-        // Let's enforce session for now if available, otherwise dates.
-
         const newItems: CartItem[] = [];
 
         if (pack.is_shrabable) {
             // Single line item with multiple coverage
-            // Which price to use? 
-            // "Only allow selecting member profiles whose Age Profile has pricing defined"
-            // If sharable, usually it's a fixed price or "per head" logic?
-            // "Sharable Service Packs... Show an option/checkbox indicating the service is sharable."
-            // "Show pricing matrix".
-            // If it's a sharable pack (e.g. "Family Pack"), is it one price for the pack? 
-            // Or does it assume all profiles fall into a specific price category?
-            // Usually sharable packs (like "10 Class Pass Shareable") have a single price regardless of who uses it, OR it has base price.
-            // But here we have "Display pricing for all Age Profiles". 
-            // If it's sharable, does the price depend on the *primary* user or is it a flat fee?
-            // Let's assume for SHARABLE packs, the user picks a "Primary" for the pricing context if age-dependent?
-            // OR checks if all selected fit into a compatible price?
-            // Requirement: "Only allow selecting member profiles whose Age Profile has pricing defined for this service pack."
-            // This suggests validation.
-            // If I buy a "10 Pack", and it costs $100 for Adults and $80 for Kids.
-            // If I share it between an Adult and a Kid, what is the price?
-            // Likely "Sharable" packs shouldn't have age-varient pricing, OR they pick the price of the 'purchaser'.
-            // Let's use the price of the FIRST selected profile as the 'Purchaser'/Line Item Owner.
-            
             const primaryId = selectedProfileIds[0];
             const primaryEligible = eligibleProfiles.find(p => p.profile.profile_id === primaryId);
             
@@ -207,7 +182,7 @@ export const ServicePackSelectionDialog = ({
 
         } else {
             // Non-sharable: Separate line items
-            selectedProfileIds.forEach(id => {
+             selectedProfileIds.forEach(id => {
                 const eligible = eligibleProfiles.find(p => p.profile.profile_id === id);
                 if (eligible?.price) {
                      const item: CartItem = {
@@ -229,6 +204,29 @@ export const ServicePackSelectionDialog = ({
                     newItems.push(item);
                 }
             });
+        }
+
+        // --- LIMIT VALIDATION ---
+        if ((pack.max_uses_per_period || 0) > 0 && pack.classes) {
+            // 1. From Active Subscriptions matching this pack
+            const activeRedemptions = activeSubscriptions
+                .filter(sub => sub.reference_id === pack.service_pack_id && sub.status === 'ACTIVE')
+                .reduce((total, sub) => total + (pack.classes || 0), 0);
+
+            // 2. From Current Cart
+            const cartRedemptions = currentCart
+                .filter(item => item.type === 'SERVICE' && item.referenceId === pack.service_pack_id)
+                .reduce((total, item) => total + (pack.classes || 0), 0);
+            
+            // 3. New Items
+            const newRedemptions = newItems.length * (pack.classes || 0);
+
+            const totalProjected = activeRedemptions + cartRedemptions + newRedemptions;
+            
+            if (totalProjected > (pack.max_uses_per_period || 0)) {
+                setError(`Purchase limit exceeded. You can have a maximum of ${pack.max_uses_per_period} classes per period. You currently have ${activeRedemptions} active and ${cartRedemptions} in cart. Adding this would total ${totalProjected}.`);
+                return;
+            }
         }
 
         onConfirm(newItems);

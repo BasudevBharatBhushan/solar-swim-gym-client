@@ -151,6 +151,7 @@ export const Marketplace = () => {
     const [basePrices, setBasePrices] = useState<BasePrice[]>([]);
     const [membershipPrograms, setMembershipPrograms] = useState<MembershipProgram[]>([]);
     const [services, setServices] = useState<ServiceWithPacks[]>([]);
+    const [subscriptions, setSubscriptions] = useState<any[]>([]); // active subscriptions
 
     const [tabValue, setTabValue] = useState(0);
     const [cart, setCart] = useState<CartItem[]>([]);
@@ -339,14 +340,20 @@ export const Marketplace = () => {
                     }
                 }
 
-                const [basePriceResponse, membershipResponse, serviceResponse] = await Promise.all([
+                const [basePriceResponse, membershipResponse, serviceResponse, subscriptionResponse] = await Promise.all([
                     basePriceService.getAll(currentLocationId),
                     membershipService.getMemberships(currentLocationId),
                     serviceCatalog.getServices(currentLocationId),
+                    billingService.getAccountSubscriptions(accountId, currentLocationId),
                 ]);
 
                 setBasePrices(basePriceResponse.prices || []);
                 setMembershipPrograms(membershipResponse || []);
+                
+                const activeSubs = (subscriptionResponse.data || subscriptionResponse || []).filter((s: any) => 
+                    s.status === 'ACTIVE' || s.status === 'PAID'
+                );
+                setSubscriptions(activeSubs);
 
                 const rawServices = Array.isArray(serviceResponse)
                     ? (serviceResponse as Service[])
@@ -619,6 +626,45 @@ export const Marketplace = () => {
             return next;
         });
     };
+
+    /**
+     * Check if the account has a PRIMARY membership, either in the cart or already active.
+     */
+    const hasActivePrimary = useMemo(() => {
+        // 1. Check Cart for 'BASE' item with 'PRIMARY' role
+        const cartPrimary = cart.some(item => item.type === 'BASE' && item.name.includes('(PRIMARY)')); 
+        // Note: checking name is brittle, better to check metadata or assume BASE usually implies a plan?
+        // Actually, our BasePlanCard logic sets name = `... (PRIMARY)`. 
+        // Better: check if we have any BASE item that maps to a primary base price? 
+        // Let's check `item.metadata?.role === 'PRIMARY'` if we added it?
+        // In handleConfirmBaseTermSelection we set name. Let's look at coverage?
+        // Coverage roles aren't set until coverage dialog. 
+        // But `pendingBaseCard.role` was used to create the item.
+        // Let's rely on the conventions we set: Base items don't explicitly store 'role' in top-level,
+        // but coverage does. However, for a solitary check before coverage is set (if any?),
+        // `basePlanCards` logic separates them.
+        
+        // Let's try to match cart items to base prices and check role from there?
+        // Or check `item.coverage` for PRIMARY role?
+        const cartHasPrimary = cart.some(item => {
+             if (item.type !== 'BASE') return false;
+             // Coverage might be empty if just added? No, we add coverage immediately after.
+             return item.coverage?.some(c => c.role === 'PRIMARY');
+        });
+
+        if (cartHasPrimary) return true;
+
+        // 2. Check Active Subscriptions
+        // Look for subscription_type = 'MEMBERSHIP_FEE' | 'MEMBERSHIP_RENEWAL' ... 
+        // And check if it's a PRIMARY plan.
+        // The `Subscription` object has `coverage`.
+        const subHasPrimary = subscriptions.some(sub => 
+            (sub.subscription_type.startsWith('MEMBERSHIP')) &&
+            (sub.coverage?.some((c: any) => c.role === 'PRIMARY') || sub.subscription_coverage?.some((c: any) => c.role === 'PRIMARY'))
+        );
+
+        return subHasPrimary;
+    }, [cart, subscriptions]);
 
     /** Returns the discount state for an item, initialising if absent */
     const getItemDiscount = useCallback((itemId: string): ItemDiscountState => {
@@ -913,6 +959,13 @@ export const Marketplace = () => {
     };
 
     const handleStartAddBaseCard = (card: BasePlanCard) => {
+        if (card.role === 'ADD_ON' && !hasActivePrimary) {
+            setMarketplaceError('You cannot add an Add-on membership without a Primary membership. Please add a Primary plan to your cart first, or ensure you have an active Primary subscription.');
+            // Auto-dismiss after 5s?
+            setTimeout(() => setMarketplaceError(null), 5000);
+            return;
+        }
+
         setPendingBaseCard(card);
         setSelectedTermId(card.terms[0]?.subscription_term_id || '');
         setTermDialogOpen(true);
@@ -1227,6 +1280,7 @@ export const Marketplace = () => {
                                                                     height: '100%',
                                                                     borderColor: '#dbeafe',
                                                                     bgcolor: '#f8fbff',
+                                                                    opacity: card.role === 'ADD_ON' && !hasActivePrimary ? 0.7 : 1
                                                                 }}
                                                             >
                                                                 <CardContent>
@@ -1255,6 +1309,12 @@ export const Marketplace = () => {
                                                                             }}
                                                                         />
                                                                     </Box>
+
+                                                                    {card.role === 'ADD_ON' && !hasActivePrimary && (
+                                                                        <Alert severity="warning" sx={{ mb: 1, py: 0, px: 1, fontSize: '0.75rem', '& .MuiAlert-icon': { fontSize: '1rem' } }}>
+                                                                            Requires Primary Plan
+                                                                        </Alert>
+                                                                    )}
 
                                                                     <Stack spacing={1} sx={{ mb: 2 }}>
                                                                         {card.terms.map((term) => {
@@ -1945,11 +2005,17 @@ export const Marketplace = () => {
             {pendingServiceSelection && (
                 <ServicePackSelectionDialog
                     open={serviceSelectionOpen}
-                    onClose={() => setServiceSelectionOpen(false)}
+                    onClose={() => {
+                        setServiceSelectionOpen(false);
+                        setPendingServiceSelection(null);
+                    }}
                     service={pendingServiceSelection.service}
                     pack={pendingServiceSelection.pack}
                     profiles={profiles}
                     onConfirm={handleConfirmServiceSelection}
+                    // Passing context for limit validation
+                    activeSubscriptions={subscriptions}
+                    currentCart={cart}
                 />
             )}
 

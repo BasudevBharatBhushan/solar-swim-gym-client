@@ -86,4 +86,12 @@ export const crmService = {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/accounts/reindex', {}, options);
   },
+
+  importBulkLeads: async (formData: FormData, locationId: string) => {
+    return apiClient.upload('/leads/bulk/csv', formData, {
+      headers: {
+        'x-location-id': locationId
+      }
+    });
+  },
 };
