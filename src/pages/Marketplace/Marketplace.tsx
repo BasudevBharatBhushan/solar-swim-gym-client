@@ -56,67 +56,34 @@ import { membershipService } from '../../services/membershipService';
 import { Service, serviceCatalog } from '../../services/serviceCatalog';
 import { discountService, Discount } from '../../services/discountService';
 import {
-    buildHouseholdCountsFromBaseCart,
+    AgeBucket,
     CategoryCandidate,
+    EligibilityResult,
+    HouseholdCounts,
+    buildHouseholdCountsFromBaseCart,
+    classifyAgeFromDob,
     getAllCategoriesWithEligibility,
     getBaseCartMissingDobProfileIds,
     getSpecificityScore,
     getSuggestedCategory,
-    RuleRange,
-    classifyAgeFromDob,
 } from './membershipSuggestion';
 import { cartService } from '../../services/cartService';
 import { PaymentDialog } from './PaymentDialog';
+import { ServicePackSelectionDialog } from './ServicePackSelectionDialog';
+import { ServicePackSelection, CartItem, CoverageProfile, AccountProfile } from '../../types/marketplace';
 
-interface CoverageProfile {
-    profile_id: string;
-    name: string;
-    age_group?: string;
-    date_of_birth?: string | null;
-}
+// Removed local CoverageProfile interface - using CartItem's structure or just relying on inference
+// Removed local AccountProfile interface - using shared types
+// Removed local CartItem interface - using shared types
 
-interface CartItem {
-    id: string;
-    cart_id?: string;
-    type: 'BASE' | 'MEMBERSHIP' | 'SERVICE';
-    referenceId: string;
-    name: string;
-    /** The final (possibly discounted) price used for checkout */
-    price: number;
-    /** Original price before any discount */
-    actualPrice?: number;
-    /** Flat dollar amount discounted */
-    discountAmount?: number;
-    /** Percentage discounted (informational) */
-    discountPercentage?: number;
-    /** Discount code applied (if any) */
-    discountCode?: string;
-    description?: string;
-    metadata?: Record<string, unknown>;
-    coverage?: CoverageProfile[];
-    feeType?: 'JOINING' | 'ANNUAL';
-    membershipCategoryId?: string;
-    membershipProgramId?: string;
-    subscriptionTermId?: string;
-    /** The service_id this item is linked to (for discount applicability check) */
-    serviceId?: string;
-    /** Age group validation for BASE plans */
-    ageGroupId?: string;
-    /** Household rule validation for MEMBERSHIP plans */
-    membershipRange?: RuleRange;
-}
-
-interface AccountProfile {
-    profile_id: string;
-    first_name?: string;
-    last_name?: string;
-    date_of_birth?: string | null;
-    is_primary?: boolean;
-}
-
+// Local interfaces if not exported elsewhere
 interface ServicePriceLike {
-    subscription_term_id?: string;
     price: number | string;
+    subscription_term_id?: string;
+    // adding missing fields to satisfy typescript if we cast it later, 
+    // or we should update ServicePackWithPrices logic
+    service_pack_id?: string;
+    age_group_id?: string; 
 }
 
 interface ServicePackWithPrices {
@@ -124,14 +91,26 @@ interface ServicePackWithPrices {
     service_id: string;
     name: string;
     classes?: number;
+    students_allowed?: number;
     duration_days?: number;
     duration_months?: number;
     waiver_program_id?: string;
-    prices?: ServicePriceLike[];
+    is_shrabable?: boolean;
+    max_uses_per_period?: number;
+    usage_period_unit?: string;
+    usage_period_length?: number;
+    enforce_usage_limit?: boolean;
+    prices?: any[];
 }
 
-interface ServiceWithPacks extends Service {
-    packs: ServicePackWithPrices[];
+interface ServiceWithPacks {
+    service_id: string;
+    location_id?: string;
+    name: string;
+    description?: string;
+    service_type?: string;
+    image_url?: string;
+    packs?: ServicePackWithPrices[];
 }
 
 interface BasePlanCard {
@@ -195,6 +174,9 @@ export const Marketplace = () => {
     const [pendingMembershipCandidate, setPendingMembershipCandidate] = useState<CategoryCandidate | null>(null);
     const [selectedFeeType, setSelectedFeeType] = useState<'JOINING' | 'ANNUAL' | ''>('');
     const [paymentOpen, setPaymentOpen] = useState(false);
+
+    const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
+    const [pendingServiceSelection, setPendingServiceSelection] = useState<ServicePackSelection | null>(null);
 
     // Per-item discount state: keyed by CartItem.id
     interface ItemDiscountState {
@@ -1002,36 +984,43 @@ export const Marketplace = () => {
         openCoverageDialogForItem(membershipItem);
     };
 
-    const handleToggleServicePack = (service: ServiceWithPacks, pack: ServicePackWithPrices) => {
-        if (!pack.service_pack_id) {
-            return;
-        }
+    // === Service Pack Selection Handlers ===
 
-        const itemId = `SERVICE-${pack.service_pack_id}`;
-        if (isInCart(itemId)) {
-            removeFromCart(itemId);
-            return;
-        }
-
-        const prices = pack.prices || [];
-        const minPrice = prices.length > 0
-            ? Math.min(...prices.map((entry) => parseNumericPrice(entry.price)))
-            : 0;
-
-        const item: CartItem = {
-            id: itemId,
-            type: 'SERVICE',
-            referenceId: pack.service_pack_id,
-            name: `${service.name} - ${pack.name}`,
-            price: minPrice,
-            serviceId: service.service_id,
-            metadata: {
-                subscription_term_id: prices[0]?.subscription_term_id,
-            },
-        };
-
-        openCoverageDialogForItem(item);
+    const handleOpenServiceSelection = (service: ServiceWithPacks, pack: ServicePackWithPrices) => {
+        // We need to cast pack to match what ServicePackSelectionDialog expects (ServicePack & { prices: ServicePrice[] })
+        // Since ServicePackWithPrices here has 'prices' as any[], and existing code uses loose types, 
+        // we'll cast it. The Dialog logic handles mapping carefully.
+        setPendingServiceSelection({ 
+            service, 
+            pack: pack as any 
+        });
+        setServiceSelectionOpen(true);
     };
+
+    const handleConfirmServiceSelection = (newItems: CartItem[]) => {
+        if (!accountId || !currentLocationId) return;
+
+        // Add all items to cart
+        setCart((prev) => {
+            // Remove duplicates? Or allow multiple? "Allow the same Service Pack to be added multiple times... even if the Service Pack is identical"
+            // We'll append. But checking if ID exists to avoid key conflicts if we used deterministic IDs.
+            // Our ID generation in Dialog uses Date.now(), so collisions are unlikely in same session.
+            return [...prev, ...newItems];
+        });
+
+        // Persist each item
+        newItems.forEach(item => {
+             const dbPayload = cartService.transformToCartData(item, accountId!, currentLocationId!);
+             cartService.upsertItem(dbPayload, currentLocationId!).then(saved => {
+                 // Update the item in local cart with the real cart_id?
+                 setCart(prev => prev.map(p => p.id === item.id ? { ...p, cart_id: saved.cart_id } : p));
+             }).catch(console.error);
+        });
+
+        setServiceSelectionOpen(false);
+        setPendingServiceSelection(null);
+    };
+
 
     const getCoveragePayload = (item: CartItem) => {
         const coverage = item.coverage || [];
@@ -1434,7 +1423,7 @@ export const Marketplace = () => {
                                     {services
                                         .filter((service) => service.packs && service.packs.length > 0)
                                         .flatMap((service) =>
-                                            service.packs.map((pack) => ({ service, pack }))
+                                            (service.packs || []).map((pack) => ({ service, pack }))
                                         )
                                         .map(({ service, pack }) => {
                                             const minPrice = (pack.prices || []).length > 0
@@ -1494,46 +1483,74 @@ export const Marketplace = () => {
                                                                 />
                                                             </Box>
 
-                                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                                                                {pack.classes ? `${pack.classes} Classes` : ''}
-                                                                {pack.classes && (pack.duration_days || pack.duration_months) ? ' | ' : ''}
-                                                                {pack.duration_months
-                                                                    ? `${pack.duration_months} Month(s)`
-                                                                    : pack.duration_days
-                                                                      ? `${pack.duration_days} Day(s)`
-                                                                      : ''}
-                                                            </Typography>
+                                                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+                                                                {pack.classes && <Chip label={`${pack.classes} CLASSES`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
+                                                                {pack.students_allowed && <Chip label={`${pack.students_allowed} STUDENTS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
+                                                                {pack.duration_months ? (
+                                                                    <Chip label={`${pack.duration_months} MONTHS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
+                                                                ) : pack.duration_days ? (
+                                                                    <Chip label={`${pack.duration_days} DAYS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
+                                                                ) : null}
+                                                                {pack.waiver_program_id && (
+                                                                    <Chip
+                                                                        label={waiverPrograms.find(w => w.waiver_program_id === pack.waiver_program_id)?.name?.toUpperCase() || 'WAIVER ELIGIBLE'}
+                                                                        size="small"
+                                                                        sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fff7ed', color: '#c2410c', borderRadius: '4px' }}
+                                                                    />
+                                                                )}
+                                                            </Box>
+
+                                                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 2 }}>
+                                                                {pack.is_shrabable && <Chip label="SHARABLE" size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#f0fdf4', color: '#16a34a', borderRadius: '4px' }} />}
+                                                                {pack.max_uses_per_period && (
+                                                                    <Chip 
+                                                                        label={`${pack.max_uses_per_period} USES / ${pack.usage_period_length || 1} ${pack.usage_period_unit}`} 
+                                                                        size="small" 
+                                                                        sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#f0f9ff', color: '#0284c7', borderRadius: '4px' }} 
+                                                                    />
+                                                                )}
+                                                                {pack.enforce_usage_limit && (
+                                                                    <Chip label="STRICT" size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 800, bgcolor: '#fef2f2', color: '#ef4444', borderRadius: '4px' }} />
+                                                                )}
+                                                            </Box>
+
+                                                            {/* Price Breakdown by Age Group */}
+                                                            {(pack.prices || []).length > 0 && (
+                                                                <Box sx={{ mb: 2, bgcolor: '#f1f5f9', p: 1, borderRadius: 1 }}>
+                                                                     {(pack.prices || []).map((priceItem, idx) => {
+                                                                         const priceAgeGroupId = (priceItem as any).age_group_id;
+                                                                         const ageGroupName = ageGroups.find(ag => ag.age_group_id === priceAgeGroupId)?.name || 'Standard';
+                                                                         return (
+                                                                             <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5, '&:last-child': { mb: 0 } }}>
+                                                                                 <Typography variant="caption" color="text.secondary" fontWeight="500">
+                                                                                     {ageGroupName}
+                                                                                 </Typography>
+                                                                                 <Typography variant="caption" fontWeight="700" color="text.primary">
+                                                                                     {formatCurrency(parseNumericPrice(priceItem.price))}
+                                                                                 </Typography>
+                                                                             </Box>
+                                                                         );
+                                                                     })}
+                                                                </Box>
+                                                            )}
 
                                                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                                     <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
-                                                                        {formatCurrency(minPrice)}
+                                                                        {minPrice > 0 ? (
+                                                                            <>
+                                                                                <Typography component="span" variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>from</Typography>
+                                                                                {formatCurrency(minPrice)}
+                                                                            </>
+                                                                        ) : 'See Pricing'}
                                                                     </Typography>
-                                                                    {pack.waiver_program_id && (
-                                                                        <Chip
-                                                                            label={waiverPrograms.find(w => w.waiver_program_id === pack.waiver_program_id)?.name?.toUpperCase() || 'WAIVER ELIGIBLE'}
-                                                                            size="small"
-                                                                            sx={{
-                                                                                height: 18,
-                                                                                fontSize: '0.55rem',
-                                                                                fontWeight: 800,
-                                                                                bgcolor: '#fff7ed',
-                                                                                color: '#c2410c',
-                                                                                borderRadius: '4px',
-                                                                            }}
-                                                                        />
-                                                                    )}
                                                                 </Box>
                                                                 <Button
                                                                     size="small"
-                                                                    variant={selected ? 'outlined' : 'contained'}
-                                                                    onClick={() => {
-                                                                        if (!selected) {
-                                                                            handleToggleServicePack(service, pack);
-                                                                        }
-                                                                    }}
+                                                                    variant="contained"
+                                                                    onClick={() => handleOpenServiceSelection(service, pack)}
                                                                 >
-                                                                    {selected ? 'Added' : 'Add'}
+                                                                    Select
                                                                 </Button>
                                                             </Box>
                                                         </CardContent>
@@ -1924,10 +1941,22 @@ export const Marketplace = () => {
                 </DialogActions>
             </Dialog>
 
+            {/* Service Pack Selection Dialog */}
+            {pendingServiceSelection && (
+                <ServicePackSelectionDialog
+                    open={serviceSelectionOpen}
+                    onClose={() => setServiceSelectionOpen(false)}
+                    service={pendingServiceSelection.service}
+                    pack={pendingServiceSelection.pack}
+                    profiles={profiles}
+                    onConfirm={handleConfirmServiceSelection}
+                />
+            )}
+
             <Dialog
                 open={coverageDialogOpen}
                 onClose={() => setCoverageDialogOpen(false)}
-                maxWidth="xs"
+                maxWidth="sm"
                 fullWidth
                 PaperProps={{ sx: { borderRadius: 2, p: 1 } }}
             >

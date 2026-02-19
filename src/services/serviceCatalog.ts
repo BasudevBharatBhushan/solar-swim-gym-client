@@ -23,9 +23,8 @@ export interface ServicePack {
   students_allowed?: number;
   duration_days?: number;
   duration_months?: number;
-  // is_waiver_free_allowed?: boolean; // Deprecated
   waiver_program_id?: string;
-  is_shrabable?: boolean;
+  is_shrabable?: boolean; // Ensure is_shrabable is present (typo in DB: shrabable not shareable)
   max_uses_per_period?: number;
   usage_period_unit?: string;
   usage_period_length?: number;

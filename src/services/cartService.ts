@@ -78,7 +78,8 @@ export const cartService = {
       account_id: accountId,
       location_id: locationId,
       reference_id: item.referenceId,
-      subscription_term_id: item.subscriptionTermId,
+      session_id: item.session_id,
+      subscription_term_id: item.subscriptionTermId || item.metadata?.subscription_term_id,
       unit_price_snapshot: item.actualPrice || item.price,
       total_amount: item.price,
       actual_total_amount: item.actualPrice || item.price,
@@ -95,6 +96,8 @@ export const cartService = {
       discount_amount: item.discountAmount,
       discount_percentage: item.discountPercentage,
       discount_code: item.discountCode,
+      billing_period_start: item.billing_period_start,
+      billing_period_end: item.billing_period_end,
       // Metadata can store extra info like coverage/profiles if the backend supports it
       metadata: {
         id: item.id,
