@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Button, Alert, Grid, List, ListItem, ListItemButton, Checkbox, FormControlLabel } from '@mui/material';
+import { Box, Typography, Button, Alert, Grid, List, ListItem, ListItemButton, Checkbox, FormControlLabel, useTheme, useMediaQuery, Stack, Chip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // For signed status
 import { useAuth } from '../../../../context/AuthContext';
 import { useConfig } from '../../../../context/ConfigContext';
@@ -35,6 +35,9 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
     const [activeTab, setActiveTab] = useState(0);
     const [memberStates, setMemberStates] = useState<MemberState[]>([]);
     const signaturePadRef = useRef<SignaturePadRef>(null);
+
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
     // Helper to calculate age
     const calculateAge = (dob: string | null) => {
@@ -220,89 +223,138 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
     if (!currentMember) return null;
 
     return (
-        <Grid container sx={{ height: '600px', border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', bgcolor: '#fff' }}>
-            {/* Left Sidebar: List - Profiles */}
-            <Grid size={{ xs: 4, md: 3 }} sx={{ borderRight: '1px solid #e2e8f0', overflowY: 'auto', maxHeight: '100%', bgcolor: '#f8fafc' }}>
-                <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
-                    <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.05em' }}>
-                        Family Members
-                    </Typography>
-                </Box>
-                <List disablePadding>
-                    {memberStates.map((m, idx) => (
-                        <ListItem key={idx} disablePadding>
-                            <ListItemButton 
-                                selected={activeTab === idx} 
+        <Grid container sx={{ 
+            height: isMobile ? 'auto' : '600px', 
+            minHeight: isMobile ? 'calc(100vh - 200px)' : '600px',
+            border: '1px solid #e2e8f0', 
+            borderRadius: 2, 
+            overflow: 'hidden', 
+            bgcolor: '#fff',
+            flexDirection: isMobile ? 'column' : 'row'
+        }}>
+            {/* Left Sidebar / Top Tab Bar */}
+            <Grid size={{ xs: 12, md: 3 }} sx={{ 
+                borderRight: isMobile ? 'none' : '1px solid #e2e8f0', 
+                borderBottom: isMobile ? '1px solid #e2e8f0' : 'none',
+                overflowY: isMobile ? 'hidden' : 'auto', 
+                overflowX: isMobile ? 'auto' : 'hidden',
+                maxHeight: isMobile ? 'none' : '100%', 
+                bgcolor: '#f8fafc',
+                display: 'flex',
+                flexDirection: isMobile ? 'row' : 'column'
+            }}>
+                {!isMobile && (
+                    <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+                        <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.7rem', letterSpacing: '0.05em' }}>
+                            Family Members
+                        </Typography>
+                    </Box>
+                )}
+                
+                {/* Mobile Horizontal List */}
+                {isMobile ? (
+                   <Stack direction="row" spacing={1} sx={{ p: 1.5, width: '100%' }}>
+                       {memberStates.map((m, idx) => (
+                           <Chip 
+                                key={idx}
+                                label={m.name.split(' ')[0]} // First name only for compactness
                                 onClick={() => setActiveTab(idx)}
+                                color={activeTab === idx ? "primary" : "default"}
+                                variant={activeTab === idx ? "filled" : "outlined"}
+                                icon={m.isSigned ? <CheckCircleIcon sx={{ fontSize: '14px !important' }} /> : undefined}
                                 sx={{ 
-                                    flexDirection: 'column', 
-                                    alignItems: 'flex-start',
-                                    borderLeft: activeTab === idx ? '4px solid' : '4px solid transparent',
-                                    borderColor: 'primary.main',
-                                    py: 2,
-                                    px: 2,
-                                    transition: 'all 0.2s',
-                                    '&.Mui-selected': {
-                                        bgcolor: 'primary.50',
-                                        '&:hover': {
-                                            bgcolor: 'primary.100',
-                                        }
-                                    },
-                                    '&:hover': {
-                                        bgcolor: 'rgba(0,0,0,0.02)'
-                                    }
+                                    fontWeight: 700,
+                                    bgcolor: activeTab === idx ? 'primary.main' : '#fff',
+                                    color: activeTab === idx ? '#fff' : 'text.primary',
+                                    borderColor: '#e2e8f0'
                                 }}
-                            >
-                                <Box sx={{ width: '100%' }}>
-                                    <Typography variant="body2" fontWeight={activeTab === idx ? 700 : 600} color={activeTab === idx ? 'primary.main' : 'text.primary'}>
-                                        {m.name}
-                                    </Typography>
-                                    <Typography 
-                                        variant="caption" 
-                                        sx={{ 
-                                            display: 'inline-block',
-                                            mt: 0.5,
-                                            px: 1,
-                                            py: 0.25,
-                                            borderRadius: 1,
-                                            bgcolor: activeTab === idx ? 'primary.100' : '#e2e8f0',
-                                            color: activeTab === idx ? 'primary.700' : 'text.secondary',
-                                            fontWeight: 700,
-                                            fontSize: '0.65rem'
-                                        }}
-                                    >
-                                        {m.ageGroupName || 'Unknown'}
-                                    </Typography>
-                                </Box>
-                                {m.isSigned && (
-                                    <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                        <CheckCircleIcon color="success" sx={{ fontSize: 14 }} />
-                                        <Typography variant="caption" color="success.main" fontWeight={700}>Signed</Typography>
+                           />
+                       ))}
+                   </Stack>
+                ) : (
+                    <List disablePadding>
+                        {memberStates.map((m, idx) => (
+                            <ListItem key={idx} disablePadding>
+                                <ListItemButton 
+                                    selected={activeTab === idx} 
+                                    onClick={() => setActiveTab(idx)}
+                                    sx={{ 
+                                        flexDirection: 'column', 
+                                        alignItems: 'flex-start',
+                                        borderLeft: activeTab === idx ? '4px solid' : '4px solid transparent',
+                                        borderColor: 'primary.main',
+                                        py: 2,
+                                        px: 2,
+                                        transition: 'all 0.2s',
+                                        '&.Mui-selected': {
+                                            bgcolor: 'primary.50',
+                                            '&:hover': {
+                                                bgcolor: 'primary.100',
+                                            }
+                                        },
+                                        '&:hover': {
+                                            bgcolor: 'rgba(0,0,0,0.02)'
+                                        }
+                                    }}
+                                >
+                                    <Box sx={{ width: '100%' }}>
+                                        <Typography variant="body2" fontWeight={activeTab === idx ? 700 : 600} color={activeTab === idx ? 'primary.main' : 'text.primary'}>
+                                            {m.name}
+                                        </Typography>
+                                        <Typography 
+                                            variant="caption" 
+                                            sx={{ 
+                                                display: 'inline-block',
+                                                mt: 0.5,
+                                                px: 1,
+                                                py: 0.25,
+                                                borderRadius: 1,
+                                                bgcolor: activeTab === idx ? 'primary.100' : '#e2e8f0',
+                                                color: activeTab === idx ? 'primary.700' : 'text.secondary',
+                                                fontWeight: 700,
+                                                fontSize: '0.65rem'
+                                            }}
+                                        >
+                                            {m.ageGroupName || 'Unknown'}
+                                        </Typography>
                                     </Box>
-                                )}
-                            </ListItemButton>
-                        </ListItem>
-                    ))}
-                </List>
+                                    {m.isSigned && (
+                                        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                            <CheckCircleIcon color="success" sx={{ fontSize: 14 }} />
+                                            <Typography variant="caption" color="success.main" fontWeight={700}>Signed</Typography>
+                                        </Box>
+                                    )}
+                                </ListItemButton>
+                            </ListItem>
+                        ))}
+                    </List>
+                )}
             </Grid>
 
             {/* Right Content: Waiver - Contracts */}
-            <Grid size={{ xs: 8, md: 9 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#fff', overflow: 'hidden' }}>
-                <Box sx={{ p: 3, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
+            <Grid size={{ xs: 12, md: 9 }} sx={{ 
+                height: isMobile ? 'auto' : '100%', 
+                flex: isMobile ? 1 : 'none',
+                display: 'flex', 
+                flexDirection: 'column', 
+                bgcolor: '#fff', 
+                overflow: 'hidden' 
+            }}>
+                <Box sx={{ p: isMobile ? 2 : 3, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                            {currentMember.isSigned ? "Waiver Signed" : "Review & Sign Waiver"}
+                        <Typography variant={isMobile ? "subtitle1" : "h6"} sx={{ fontWeight: 700, color: 'text.primary' }}>
+                            {currentMember.isSigned ? "Waiver Signed" : (isMobile ? `Review: ${currentMember.name}` : "Review & Sign Waiver")}
                         </Typography>
                         {currentMember.isSigned && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'success.main', bgcolor: 'success.50', px: 1.5, py: 0.5, borderRadius: 1 }}>
                                 <CheckCircleIcon sx={{ fontSize: 18 }} />
-                                <Typography variant="caption" fontWeight={700}>COMPLETED</Typography>
+                                <Typography variant="caption" fontWeight={700}>{isMobile ? 'DONE' : 'COMPLETED'}</Typography>
                             </Box>
                         )}
                     </Box>
                 </Box>
 
-                <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
+                <Box sx={{ flex: 1, overflowY: 'auto', p: isMobile ? 2 : 3 }}>
                     {currentMember.error && (
                         <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{currentMember.error}</Alert>
                     )}
@@ -334,7 +386,7 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                                             key={activeTab} 
                                             ref={signaturePadRef}
                                             onEnd={() => updateMemberState(activeTab, { error: null })} 
-                                            width={500}
+                                            width={isMobile ? (Math.min(window.innerWidth - 64, 500)) : 500}
                                             height={150}
                                         />
                                     ) : currentMember.signatureUrl ? (
@@ -383,12 +435,13 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
 
                 {!currentMember.isSigned && currentMember.waiverTemplate && (
                     <Box sx={{ 
-                        p: 3, 
+                        p: isMobile ? 2 : 3, 
                         borderTop: '1px solid #e2e8f0', 
                         bgcolor: '#f8fafc',
                         display: 'flex',
+                        flexDirection: isMobile ? 'column' : 'row',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
+                        alignItems: isMobile ? 'stretch' : 'center',
                         gap: 2,
                         zIndex: 10
                     }}>
@@ -404,9 +457,9 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                             label={
                                 <Typography 
                                     variant="body1" 
-                                    sx={{ fontWeight: 700, color: currentMember.agreed ? 'primary.main' : 'text.primary' }}
+                                    sx={{ fontWeight: 700, color: currentMember.agreed ? 'primary.main' : 'text.primary', fontSize: isMobile ? '0.9rem' : '1rem' }}
                                 >
-                                    I have read and agree to all terms above
+                                    I have read and agree to all terms
                                 </Typography>
                             }
                         />
@@ -433,7 +486,7 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            {currentMember.loading ? 'Signing...' : 'Complete & Sign Waiver'}
+                            {currentMember.loading ? 'Signing...' : 'Sign Waiver'}
                         </Button>
                     </Box>
                 )}

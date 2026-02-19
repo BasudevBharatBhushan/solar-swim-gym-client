@@ -13,7 +13,9 @@ import {
   Snackbar,
   Alert,
   Stack,
-  Divider
+  Divider,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import EmailIcon from '@mui/icons-material/Email';
@@ -53,6 +55,10 @@ interface WaiverComposeDraft {
 }
 
 export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, mode = 'staff' }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
+
   const [activeStep, setActiveStep] = useState(0);
   const { currentLocationId, locations } = useAuth();
   const { refreshWaiverPrograms, refreshAgeGroups, refreshWaiverTemplates } = useConfig();
@@ -407,26 +413,27 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       onClose={isSuccess ? undefined : onClose} 
       maxWidth={isSuccess ? "sm" : "lg"} 
       fullWidth
+      fullScreen={fullScreen}
     >
-      <DialogTitle sx={{ textAlign: 'center', pt: 3, pb: 0 }}>
+      <DialogTitle sx={{ textAlign: 'center', pt: isMobile ? 2 : 3, pb: 0 }}>
         {!isSuccess ? (
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Join {locationName}</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700, fontSize: isMobile ? '1.25rem' : '1.5rem' }}>Join {locationName}</Typography>
         ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
             <Box sx={{ 
                 bgcolor: '#f0fdf4', 
                 color: '#16a34a', 
-                width: 60, 
-                height: 60, 
+                width: isMobile ? 50 : 60, 
+                height: isMobile ? 50 : 60, 
                 borderRadius: '50%', 
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'center',
                 mb: 1
             }}>
-                <CheckCircleOutlineIcon sx={{ fontSize: 40 }} />
+                <CheckCircleOutlineIcon sx={{ fontSize: isMobile ? 32 : 40 }} />
             </Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a' }}>Account Created Successfully!</Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', fontSize: isMobile ? '1.25rem' : '1.5rem' }}>Account Created Successfully!</Typography>
             <Typography variant="body2" color="text.secondary">
                 {mode === 'staff' 
                     ? "Client details have been saved and the account is now active."
@@ -437,18 +444,38 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
         )}
       </DialogTitle>
       
-      <DialogContent sx={{ mt: 2, px: 4 }}>
+      <DialogContent sx={{ mt: 2, px: isMobile ? 2 : 4 }}>
         {!isSuccess ? (
           <>
-            <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 4 }}>
+            <Stepper activeStep={activeStep} alternativeLabel={!isMobile} orientation={isMobile ? 'vertical' : 'horizontal'} sx={{ mb: 4, display: isMobile ? 'none' : 'flex' }}>
               {steps.map((label) => (
                 <Step key={label}>
                   <StepLabel>{label}</StepLabel>
                 </Step>
               ))}
             </Stepper>
+            {/* Mobile Stepper Indicator */}
+            {isMobile && (
+                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                    {steps.map((label, idx) => (
+                         <Box 
+                            key={label}
+                            sx={{ 
+                                width: activeStep === idx ? 24 : 8, 
+                                height: 8, 
+                                borderRadius: 4, 
+                                bgcolor: activeStep === idx ? 'primary.main' : 'grey.300',
+                                transition: 'all 0.3s ease'
+                            }} 
+                         />
+                    ))}
+                    <Typography variant="caption" sx={{ ml: 1, fontWeight: 600, color: 'text.secondary' }}>
+                        Step {activeStep + 1}/{steps.length}: {steps[activeStep]}
+                    </Typography>
+                </Box>
+            )}
             
-            <Box sx={{ minHeight: '300px', p: 1 }}>
+            <Box sx={{ minHeight: '300px', p: isMobile ? 0 : 1 }}>
                 {renderStepContent(activeStep)}
             </Box>
           </>
@@ -555,7 +582,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                                     py: 1.5,
                                     borderRadius: 2,
                                     textTransform: 'none',
-                                    fontWeight: 700
+                                    fontWeight: 700,
+                                    width: isMobile ? '100%' : 'auto'
                                 }}
                             >
                                 Return to Accounts
@@ -596,7 +624,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                             py: 1.5,
                             borderRadius: 2,
                             textTransform: 'none',
-                            fontWeight: 700
+                            fontWeight: 700,
+                            width: isMobile ? '100%' : 'auto'
                         }}
                     >
                         Back to Login
@@ -611,13 +640,14 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
             autoHideDuration={6000} 
             onClose={handleCloseToast}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            sx={{ bottom: { xs: 90, sm: 24 } }}
         >
             <Alert onClose={handleCloseToast} severity={toast.severity} variant="filled" sx={{ width: '100%' }}>
                 {toast.message}
             </Alert>
         </Snackbar>
 
-        <Dialog open={openCompose} onClose={handleCloseCompose} maxWidth="md" fullWidth>
+        <Dialog open={openCompose} onClose={handleCloseCompose} maxWidth="md" fullWidth fullScreen={isMobile}>
             <DialogContent>
                 {composeDraft && (
                     <EmailComposer
@@ -636,19 +666,21 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       </DialogContent>
 
       {!isSuccess && (
-        <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
+        <DialogActions sx={{ p: isMobile ? 2 : 3, justifyContent: 'space-between', flexDirection: isMobile ? 'column-reverse' : 'row', gap: isMobile ? 2 : 0 }}>
           <Button
             disabled={activeStep === 0 || loading}
             onClick={handleBack}
-            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 600 }}
+            fullWidth={isMobile}
+            sx={{ color: 'text.secondary', textTransform: 'none', fontWeight: 600, mt: isMobile ? 1 : 0 }}
           >
             Back
           </Button>
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', gap: 1.5, width: isMobile ? '100%' : 'auto', flexDirection: isMobile ? 'column' : 'row' }}>
               {activeStep === 2 && mode === 'staff' && (
                   <Button 
                       variant="outlined" 
                       onClick={() => setActiveStep(3)}
+                      fullWidth={isMobile}
                       sx={{ 
                           borderRadius: '8px', 
                           textTransform: 'none', 
@@ -665,12 +697,14 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                     variant="contained" 
                     onClick={handleFinish} 
                     disabled={loading}
+                    fullWidth={isMobile}
                     sx={{ 
                         borderRadius: '8px', 
                         textTransform: 'none', 
                         fontWeight: 700,
                         bgcolor: '#0f172a',
                         px: 4,
+                        py: isMobile ? 1.5 : 0.75,
                         '&:hover': { bgcolor: '#334155' }
                     }}
                   >
@@ -680,12 +714,14 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                   <Button 
                     variant="contained" 
                     onClick={handleNext}
+                    fullWidth={isMobile}
                     sx={{ 
                         borderRadius: '8px', 
                         textTransform: 'none', 
                         fontWeight: 700,
                         bgcolor: '#0f172a',
                         px: 4,
+                        py: isMobile ? 1.5 : 0.75,
                         '&:hover': { bgcolor: '#334155' }
                     }}
                   >
@@ -698,3 +734,4 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     </Dialog>
   );
 };
+

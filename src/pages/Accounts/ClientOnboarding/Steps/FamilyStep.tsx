@@ -15,6 +15,8 @@ import {
   Tooltip,
   Chip,
   Avatar,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { Person, ChildCare, ContentCopy, Star, ContactEmergency } from '@mui/icons-material';
 import { useConfig } from '../../../../context/ConfigContext';
@@ -44,6 +46,8 @@ interface FamilyStepProps {
 
 export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primaryData, updatePrimaryData, expectedCount }) => {
     const { ageGroups, waiverPrograms } = useConfig();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Strict Family Count Synchronization
   useEffect(() => {
@@ -151,7 +155,7 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                         </Typography>
                     </Box>
 
-                    <CardContent sx={{ p: 4, pt: 4 }}>
+                    <CardContent sx={{ p: isMobile ? 2 : 4, pt: isMobile ? 3 : 4 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 <Avatar sx={{ bgcolor: '#bae6fd', color: '#0284c7', width: 48, height: 48 }}>
@@ -314,7 +318,7 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                 borderColor: '#e2e8f0',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
             }}>
-                <CardContent sx={{ p: 4 }}>
+                <CardContent sx={{ p: isMobile ? 2 : 4 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                             <Avatar sx={{ 

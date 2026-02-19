@@ -7,7 +7,9 @@ import {
   Divider,
   Chip,
   Avatar,
-  Stack
+  Stack,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import { Person, ChildCare, Star, ContactEmergency } from '@mui/icons-material';
 import { useConfig } from '../../../../context/ConfigContext';
@@ -19,6 +21,8 @@ interface ReviewStepProps {
 
 export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMembers }) => {
   const { ageGroups, waiverPrograms } = useConfig();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
 
   const calculateAge = (dob: string | null) => {
@@ -62,7 +66,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMe
 
       <Stack spacing={3}>
         {/* Primary Member Section */}
-        <Paper variant="outlined" sx={{ p: 4, borderRadius: 3, border: '1px solid #cbd5e1', bgcolor: '#f8fafc' }}>
+        <Paper variant="outlined" sx={{ p: isMobile ? 2 : 4, borderRadius: 3, border: '1px solid #cbd5e1', bgcolor: '#f8fafc' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Avatar sx={{ bgcolor: '#0ea5e9', color: 'white', width: 40, height: 40 }}>
@@ -127,7 +131,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMe
         </Paper>
 
         {/* Family Members Section */}
-        <Paper variant="outlined" sx={{ p: 4, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+        <Paper variant="outlined" sx={{ p: isMobile ? 2 : 4, borderRadius: 3, border: '1px solid #e2e8f0' }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#334155', mb: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Additional Family Members ({familyMembers.length})
             </Typography>

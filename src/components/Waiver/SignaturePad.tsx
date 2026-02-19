@@ -41,7 +41,7 @@ export const SignaturePad = forwardRef<SignaturePadRef, SignaturePadProps>(({
         setCtx(context);
       }
     }
-  }, []);
+  }, [width, height]);
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDrawing(true);
