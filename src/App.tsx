@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from './theme';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -34,6 +34,17 @@ import { Profiles } from './pages/Profiles/Profiles';
 
 import { ComingSoon } from './components/Common/ComingSoon';
 import { CreditCard, Subscriptions } from '@mui/icons-material';
+import { getLocationConfig } from './utils/locationConfig';
+
+const LoginRedirect = () => {
+  const locations = getLocationConfig();
+  const location = useLocation();
+
+  if (locations.length > 0) {
+    return <Navigate to={`/${locations[0].slug}/login${location.search}`} replace />;
+  }
+  return <UserLogin />;
+};
 
 const AppRoutes = () => {
   const { isAuthenticated, role } = useAuth();
@@ -41,11 +52,24 @@ const AppRoutes = () => {
     ? (role === 'MEMBER' ? '/portal' : '/admin/leads')
     : '/login';
   const adminRedirect = isAuthenticated ? '/admin/leads' : '/admin/login';
+  const locations = getLocationConfig();
 
   return (
     <Routes>
       <Route path="/admin/login" element={<Login />} />
-      <Route path="/login" element={<UserLogin />} />
+      
+      {/* Dynamic Location Login Routes */}
+      {locations.map((loc) => (
+        <Route 
+          key={loc.slug} 
+          path={`/${loc.slug}/login`} 
+          element={<UserLogin companyName={loc.name} locationId={loc.id} />} 
+        />
+      ))}
+
+      {/* Redirect generic login to first location if configured, otherwise fallback */}
+      <Route path="/login" element={<LoginRedirect />} />
+
       <Route path="/activate" element={<ActivateAccount />} />
       <Route path="/admin/activate" element={<AdminActivation />} />
 

@@ -23,7 +23,12 @@ import { authService } from '../services/authService';
 import logo from '../assets/logo.png';
 import { ClientOnboardingModal } from './Accounts/ClientOnboarding/ClientOnboardingModal';
 
-export const UserLogin = () => {
+interface UserLoginProps {
+  companyName?: string;
+  locationId?: string;
+}
+
+export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', locationId }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -32,6 +37,13 @@ export const UserLogin = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+
+  // Set location context on mount if provided
+  React.useEffect(() => {
+    if (locationId) {
+      setCurrentLocationId(locationId);
+    }
+  }, [locationId, setCurrentLocationId]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +130,7 @@ export const UserLogin = () => {
                 fontSize: '1.25rem',
               }}
             >
-              Zalexy
+              {companyName}
             </Typography>
             <Typography
               variant="body2"

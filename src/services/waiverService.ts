@@ -45,13 +45,9 @@ export interface GetSignedWaiversResponse {
 }
 
 export const waiverService = {
-  // Fetch all waiver templates for the current location
-  getWaiverTemplates: async (locationId: string) => {
-    return apiClient.get('/waiver-templates', {}, {
-        headers: {
-            'x-location-id': locationId
-        }
-    });
+  // Fetch all waiver templates (Globally accessible, no location filter)
+  getWaiverTemplates: async () => {
+    return apiClient.get('/waiver-templates');
   },
 
   // Upload signature image

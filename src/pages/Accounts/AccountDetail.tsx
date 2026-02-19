@@ -328,8 +328,8 @@ export const AccountDetail = () => {
           const profiles = normalizedData.profiles || [];
           if (profiles.length > 0) {
             const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
-              waiverService.getWaiverTemplates(currentLocationId),
-              configService.getAgeGroups(currentLocationId)
+              waiverService.getWaiverTemplates(),
+              configService.getAgeGroups()
             ]);
             const templates = (waiverTemplatesRes as any).data || [];
             const ageGroups = (ageGroupsRes as any) || [];

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode, useCa
 import { configService } from '../services/configService';
 import { dropdownService, DropdownValue } from '../services/dropdownService';
 import { useAuth } from './AuthContext';
+import { waiverService, WaiverTemplate } from '../services/waiverService';
 
 // Types
 export interface AgeGroup {
@@ -35,12 +36,14 @@ interface ConfigContextType {
   ageGroups: AgeGroup[];
   subscriptionTerms: SubscriptionTerm[];
   waiverPrograms: WaiverProgram[];
+  waiverTemplates: WaiverTemplate[];
   dropdownValues: DropdownValue[];
   loading: boolean;
   error: string | null;
   refreshAgeGroups: () => Promise<void>;
   refreshSubscriptionTerms: () => Promise<void>;
   refreshWaiverPrograms: () => Promise<void>;
+  refreshWaiverTemplates: () => Promise<void>;
   refreshDropdownValues: () => Promise<void>;
   refreshAll: () => Promise<void>;
 }
@@ -52,6 +55,7 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [ageGroups, setAgeGroups] = useState<AgeGroup[]>([]);
   const [subscriptionTerms, setSubscriptionTerms] = useState<SubscriptionTerm[]>([]);
   const [waiverPrograms, setWaiverPrograms] = useState<WaiverProgram[]>([]);
+  const [waiverTemplates, setWaiverTemplates] = useState<WaiverTemplate[]>([]);
   const [dropdownValues, setDropdownValues] = useState<DropdownValue[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +66,8 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       setLoading(true);
       setError(null);
-      const data = await configService.getAgeGroups();
+      const res = await configService.getAgeGroups();
+      const data = res?.data || (Array.isArray(res) ? res : []);
       setAgeGroups(data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch age groups');
@@ -82,7 +87,8 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     try {
       setLoading(true);
       setError(null);
-      const data = await configService.getSubscriptionTerms(currentLocationId);
+      const res = await configService.getSubscriptionTerms(currentLocationId);
+      const data = res?.data || (Array.isArray(res) ? res : []);
       setSubscriptionTerms(data);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch subscription terms');
@@ -92,15 +98,27 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   }, [currentLocationId]);
 
-  // Fetch Waiver Programs
+  // Fetch Waiver Programs (Global)
   const refreshWaiverPrograms = useCallback(async () => {
     try {
-      const data = await configService.getWaiverPrograms(currentLocationId || undefined);
-      setWaiverPrograms(data || []);
+      const res = await configService.getWaiverPrograms();
+      const data = res?.data || (Array.isArray(res) ? res : []);
+      setWaiverPrograms(data);
     } catch (err: any) {
       console.error('Error fetching waiver programs:', err);
     }
-  }, [currentLocationId]);
+  }, []);
+
+  // Fetch Waiver Templates (Global)
+  const refreshWaiverTemplates = useCallback(async () => {
+    try {
+      const res = await waiverService.getWaiverTemplates();
+      const data = res?.data || (Array.isArray(res) ? res : []);
+      setWaiverTemplates(data);
+    } catch (err: any) {
+      console.error('Error fetching waiver templates:', err);
+    }
+  }, []);
 
   // Fetch Dropdown Values
   const refreshDropdownValues = useCallback(async () => {
@@ -126,6 +144,7 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         refreshAgeGroups(),
         refreshSubscriptionTerms(),
         refreshWaiverPrograms(),
+        refreshWaiverTemplates(),
         refreshDropdownValues()
       ]);
     } catch (err: any) {
@@ -133,7 +152,7 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setLoading(false);
     }
-  }, [refreshAgeGroups, refreshSubscriptionTerms, refreshWaiverPrograms, refreshDropdownValues]);
+  }, [refreshAgeGroups, refreshSubscriptionTerms, refreshWaiverPrograms, refreshWaiverTemplates, refreshDropdownValues]);
 
   // Initial load when location changes
   useEffect(() => {
@@ -144,12 +163,14 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     ageGroups,
     subscriptionTerms,
     waiverPrograms,
+    waiverTemplates,
     dropdownValues,
     loading,
     error,
     refreshAgeGroups,
     refreshSubscriptionTerms,
     refreshWaiverPrograms,
+    refreshWaiverTemplates,
     refreshDropdownValues,
     refreshAll
   };

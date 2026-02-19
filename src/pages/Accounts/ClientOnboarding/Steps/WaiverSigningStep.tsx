@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Box, Typography, Button, CircularProgress, Alert, Grid, List, ListItem, ListItemButton, Checkbox, FormControlLabel } from '@mui/material';
+import { Box, Typography, Button, Alert, Grid, List, ListItem, ListItemButton, Checkbox, FormControlLabel } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // For signed status
-import { configService } from '../../../../services/configService';
 import { useAuth } from '../../../../context/AuthContext';
+import { useConfig } from '../../../../context/ConfigContext';
 import { WaiverPreview } from '../../../../components/Waiver/WaiverPreview';
 import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../../../../components/Waiver/SignaturePad';
 import { waiverService, WaiverTemplate } from '../../../../services/waiverService';
@@ -31,9 +31,9 @@ interface MemberState {
 
 export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryProfile, familyMembers, onWaiversSigned, onAllSigned }) => {
     const { currentLocationId } = useAuth();
+    const { waiverTemplates, ageGroups } = useConfig();
     const [activeTab, setActiveTab] = useState(0);
     const [memberStates, setMemberStates] = useState<MemberState[]>([]);
-    const [loadingTemplates, setLoadingTemplates] = useState(true);
     const signaturePadRef = useRef<SignaturePadRef>(null);
 
     // Helper to calculate age
@@ -51,96 +51,72 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
 
     // Initial Setup
     useEffect(() => {
-        const init = async () => {
-             if (!currentLocationId) {
-                console.error("No location ID found");
-                setLoadingTemplates(false);
-                return;
-            }
-            setLoadingTemplates(true);
-            try {
-                // Fetch templates and age groups
-                const [waiverRes, ageGroupRes] = await Promise.all([
-                    waiverService.getWaiverTemplates(currentLocationId),
-                    configService.getAgeGroups(currentLocationId)
-                ]);
+        const init = () => {
+             const templates = waiverTemplates || [];
+            
+            const findGroup = (age: number) => {
+                return ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+            };
 
-                const templates = (waiverRes as any).data || [];
-                const ageGroups = (ageGroupRes as any) || [];
-                
-                const findGroup = (age: number) => {
-                    return ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
-                };
+            const membersData = [
+                { 
+                    id: 'primary', 
+                    name: `${primaryProfile.first_name} ${primaryProfile.last_name}`, 
+                    age: calculateAge(primaryProfile.date_of_birth),
+                    guardianName: primaryProfile.guardian_name || ''
+                },
+                ...familyMembers.map((m, idx) => ({ 
+                    id: `family_${idx}`, 
+                    name: `${m.first_name} ${m.last_name}`, 
+                    age: calculateAge(m.date_of_birth),
+                    guardianName: m.guardian_name || ''
+                }))
+            ];
 
-                const membersData = [
-                    { 
-                        id: 'primary', 
-                        name: `${primaryProfile.first_name} ${primaryProfile.last_name}`, 
-                        age: calculateAge(primaryProfile.date_of_birth),
-                        guardianName: primaryProfile.guardian_name || ''
-                    },
-                    ...familyMembers.map((m, idx) => ({ 
-                        id: `family_${idx}`, 
-                        name: `${m.first_name} ${m.last_name}`, 
-                        age: calculateAge(m.date_of_birth),
-                        guardianName: m.guardian_name || ''
-                    }))
-                ];
+            setMemberStates(prev => {
+                // Preserve signed status for existing members if their data hasn't changed meaningfully
+                return membersData.map((m) => {
+                    const group = findGroup(m.age);
+                    const existing = prev.find(p => p.id === m.id);
+                    
+                    // Determine template
+                    let matchedTemplate = templates.find((t: any) => 
+                        t.is_active && t.ageprofile_id === group?.age_group_id
+                    );
 
-                setMemberStates(prev => {
-                    // Preserve signed status for existing members if their data hasn't changed meaningfully
-                    // This prevents re-signing if user just navigates back and forth
-                    return membersData.map((m) => {
-                        const group = findGroup(m.age);
-                        const existing = prev.find(p => p.id === m.id);
-                        
-                        // Determine template
-                        let matchedTemplate = templates.find((t: any) => 
-                            t.is_active && t.ageprofile_id === group?.age_group_id
-                        );
+                    if (!matchedTemplate) {
+                        matchedTemplate = templates.find((t: any) => t.is_active && !t.ageprofile_id);
+                    }
 
-                        if (!matchedTemplate) {
-                            matchedTemplate = templates.find((t: any) => t.is_active && !t.ageprofile_id);
-                        }
-
-                        // If member already exists and has the same name/age, preserve their signed status
-                        if (existing && existing.name === m.name && existing.ageProfileId === (group?.age_group_id || '')) {
-                            return {
-                                ...existing,
-                                waiverTemplate: matchedTemplate || null,
-                                error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`
-                            };
-                        }
-
+                    // If member already exists and has the same name/age, preserve their signed status
+                    if (existing && existing.name === m.name && existing.ageProfileId === (group?.age_group_id || '')) {
                         return {
-                            id: m.id,
-                            name: m.name,
-                            ageProfileId: group?.age_group_id || '',
-                            ageGroupName: group?.name || 'Unknown',
+                            ...existing,
                             waiverTemplate: matchedTemplate || null,
-                            isSigned: false,
-                            signedWaiverId: null,
-                            signatureUrl: null,
-                            agreed: false,
-                            loading: false,
-                            error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`,
-                            guardianName: m.guardianName
+                            error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`
                         };
-                    });
-                });
+                    }
 
-            } catch (err) {
-                console.error("Failed to fetch data", err);
-            } finally {
-                setLoadingTemplates(false);
-            }
+                    return {
+                        id: m.id,
+                        name: m.name,
+                        ageProfileId: group?.age_group_id || '',
+                        ageGroupName: group?.name || 'Unknown',
+                        waiverTemplate: matchedTemplate || null,
+                        isSigned: false,
+                        signedWaiverId: null,
+                        signatureUrl: null,
+                        agreed: false,
+                        loading: false,
+                        error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`,
+                        guardianName: m.guardianName
+                    };
+                });
+            });
         };
 
-        // Only re-init if location changes or we have no members yet
-        // For profile/family changes, we want to be careful not to wipe signatures unnecessarily
-        // But for now, let's ensure it runs when those props change.
         init();
-    }, [currentLocationId, primaryProfile.first_name, primaryProfile.last_name, primaryProfile.date_of_birth, familyMembers.length]);
+    }, [currentLocationId, waiverTemplates, ageGroups, primaryProfile.first_name, primaryProfile.last_name, primaryProfile.date_of_birth, familyMembers.length]);
 
     const handleAgreeChange = (checked: boolean) => {
         updateMemberState(activeTab, { agreed: checked });
@@ -240,10 +216,6 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
     if (memberStates.length === 0) return null;
     
     const currentMember = memberStates[activeTab];
-
-    if (loadingTemplates) {
-        return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
-    }
 
     if (!currentMember) return null;
 

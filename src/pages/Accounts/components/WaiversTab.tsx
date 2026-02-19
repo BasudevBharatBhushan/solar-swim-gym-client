@@ -134,7 +134,7 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
 
         // Fetch waiver templates, age groups, and signed waivers in parallel
         const [waiverTemplatesRes, ageGroupsRes, ...signedResults] = await Promise.all([
-          waiverService.getWaiverTemplates(currentLocationId),
+          waiverService.getWaiverTemplates(),
           configService.getAgeGroups(currentLocationId),
           ...profilesToFetch.map(p => 
             waiverService.getSignedWaivers(p.profile_id, currentLocationId)

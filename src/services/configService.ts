@@ -49,9 +49,8 @@ export const configService = {
   },
 
   // Waiver Programs
-  getWaiverPrograms: async (locationId?: string) => {
-    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get('/config/waiver-programs', {}, options);
+  getWaiverPrograms: async () => {
+    return apiClient.get('/config/waiver-programs');
   },
 
   upsertWaiverProgram: async (programData: any, locationId?: string) => {

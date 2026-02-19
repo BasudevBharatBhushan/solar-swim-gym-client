@@ -106,7 +106,7 @@ Government or third-party funding programs (e.g., RCBE).
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
-**RLS Policy**: Filter by `location_id`.
+**RLS Policy**: Disabled (Globally Accessible).
 
 ### **Table: `account_activation_tokens`**
 Temporary tokens for email verification and password setup.
@@ -142,8 +142,13 @@ Potential customers tracked before converting to Accounts.
 | `status` | `ENUM` | `NEW`, `CONTACTED`, `CONVERTED`, `ARCHIVED` | Default: `NEW`, `NOT NULL` |
 | `added_by_staff_id` | `UUID` | Staff member who created the lead. | **FK** -> `staff` |
 | `added_by_staff_name` | `TEXT` | Snapshot of staff name at creation. | |
+| `lead_source` | `TEXT` | Source of the lead (e.g., CSV, Web). | |
 | `notes` | `TEXT` | Internal notes. | |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
+| `updated_at` | `TIMESTAMP` | Last modification timestamp. | Default: `NOW()` |
+
+**Constraints**:
+*   `unique_lead_email_per_location`: Unique constraint on `(email, location_id)`.
 
 **RLS Policy**: Filter by `location_id`.
 
@@ -442,6 +447,7 @@ Temporary storage for subscriptions before finalizing. Copy of `subscription` ta
 | `billing_period_start`| `DATE` | Start of coverage. | |
 | `billing_period_end` | `DATE` | End of coverage. | |
 | `status` | `TEXT` | `ACTIVE`, etc. | |
+| `metadata` | `JSONB` | Arbitrary JSON data. | Default: `{}` |
 | `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
 | `updated_at` | `TIMESTAMP` | Record update. | Default: `NOW()` |
 
@@ -507,8 +513,7 @@ Stores waiver document templates which can be mapped to various configurations.
 | `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
 | `updated_at` | `TIMESTAMP` | Record update. | Default: `NOW()` |
 
-
-**RLS Policy**: Filter by `location_id`.
+**RLS Policy**: Disabled (Globally Accessible).
 
 ### **Table: `signed_waiver`**
 Stored signed waivers linked to profiles.

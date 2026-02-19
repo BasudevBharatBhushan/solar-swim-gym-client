@@ -193,7 +193,7 @@ export const WaiverTemplates = () => {
     const fetchTemplate = async () => {
       setLoadingTemplate(true);
       try {
-        const res = await apiClient.get('/waiver-templates', {}, { headers: { 'x-location-id': currentLocationId } });
+        const res = await apiClient.get('/waiver-templates');
         const AllTemplates = res.data || res;
         
         const targetField = `${selectedCategoryKey}_id`;

@@ -31,6 +31,7 @@ import { emailService } from '../../../services/emailService';
 import { crmService } from '../../../services/crmService';
 import { createWaiverPdfAttachment } from '../../../utils/waiverPdf';
 import { EmailComposer } from '../../../components/Email/EmailComposer';
+import { useConfig } from '../../../context/ConfigContext';
 
 
 interface ClientOnboardingModalProps {
@@ -54,9 +55,19 @@ interface WaiverComposeDraft {
 export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, mode = 'staff' }) => {
   const [activeStep, setActiveStep] = useState(0);
   const { currentLocationId, locations } = useAuth();
+  const { refreshWaiverPrograms, refreshAgeGroups, refreshWaiverTemplates } = useConfig();
   
   const currentLocation = locations.find(loc => loc.location_id === currentLocationId);
   const locationName = currentLocation ? currentLocation.name : 'Zalexy';
+
+  // Refresh config data when modal opens
+  React.useEffect(() => {
+    if (open) {
+      refreshWaiverPrograms();
+      refreshAgeGroups();
+      refreshWaiverTemplates();
+    }
+  }, [open, refreshWaiverPrograms, refreshAgeGroups, refreshWaiverTemplates]);
 
   // Form Data State
   const [profileData, setProfileData] = useState({

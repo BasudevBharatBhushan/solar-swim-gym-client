@@ -126,7 +126,7 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
 
         <Grid size={{ xs: 12 }}>
             <FormControl fullWidth size="small">
-                <InputLabel id="waiver-program-label">State Waiver Program (Optional)</InputLabel>
+                <InputLabel id="waiver-program-label" shrink>State Waiver Program (Optional)</InputLabel>
                 <Select
                     labelId="waiver-program-label"
                     value={selectValue}

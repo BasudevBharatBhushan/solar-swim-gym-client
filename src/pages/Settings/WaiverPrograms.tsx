@@ -45,7 +45,7 @@ export const WaiverPrograms = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await configService.getWaiverPrograms(locationId || undefined);
+            const res = await configService.getWaiverPrograms();
             setData(res || []);
         } catch (err) {
             console.error(err);
