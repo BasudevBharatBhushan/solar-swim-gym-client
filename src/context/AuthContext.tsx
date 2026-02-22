@@ -23,37 +23,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [token, setToken] = useState<string | null>(sessionStorage.getItem('token'));
-  const [role, setRole] = useState<string | null>(sessionStorage.getItem('role'));
-  const [loginId, setLoginId] = useState<string | null>(sessionStorage.getItem('loginId'));
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [role, setRole] = useState<string | null>(localStorage.getItem('role'));
+  const [loginId, setLoginId] = useState<string | null>(localStorage.getItem('loginId'));
   const [userParams, setUserParams] = useState<any | null>(
-    sessionStorage.getItem('userParams') ? JSON.parse(sessionStorage.getItem('userParams')!) : null
+    localStorage.getItem('userParams') ? JSON.parse(localStorage.getItem('userParams')!) : null
   );
 
   // Global Location State
   const [locations, setLocationsState] = useState<Location[]>(() => {
-    const savedLocations = sessionStorage.getItem('locations');
+    const savedLocations = localStorage.getItem('locations');
     return savedLocations ? JSON.parse(savedLocations) : [];
   });
   const [currentLocationId, setCurrentLocationIdState] = useState<string | null>(
-    sessionStorage.getItem('currentLocationId')
+    localStorage.getItem('currentLocationId')
   );
 
   const setLocations = (newLocations: Location[]) => {
-    sessionStorage.setItem('locations', JSON.stringify(newLocations));
+    localStorage.setItem('locations', JSON.stringify(newLocations));
     setLocationsState(newLocations);
   };
 
   const setCurrentLocationId = (id: string) => {
-    sessionStorage.setItem('currentLocationId', id);
+    localStorage.setItem('currentLocationId', id);
     setCurrentLocationIdState(id);
   };
 
   const login = (newToken: string, newRole: string, newLoginId: string, newParams: any = {}) => {
-    sessionStorage.setItem('token', newToken);
-    sessionStorage.setItem('role', newRole);
-    sessionStorage.setItem('loginId', newLoginId);
-    sessionStorage.setItem('userParams', JSON.stringify(newParams));
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('role', newRole);
+    localStorage.setItem('loginId', newLoginId);
+    localStorage.setItem('userParams', JSON.stringify(newParams));
 
     setToken(newToken);
     setRole(newRole);
@@ -76,12 +76,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('role');
-    sessionStorage.removeItem('loginId');
-    sessionStorage.removeItem('userParams');
-    sessionStorage.removeItem('currentLocationId');
-    sessionStorage.removeItem('locations');
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('loginId');
+    localStorage.removeItem('userParams');
+    localStorage.removeItem('currentLocationId');
+    localStorage.removeItem('locations');
 
     setToken(null);
     setRole(null);

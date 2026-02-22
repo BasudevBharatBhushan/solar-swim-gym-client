@@ -37,8 +37,13 @@ import { CreditCard, Subscriptions } from '@mui/icons-material';
 import { getLocationConfig } from './utils/locationConfig';
 
 const LoginRedirect = () => {
+  const { isAuthenticated, role } = useAuth();
   const locations = getLocationConfig();
   const location = useLocation();
+
+  if (isAuthenticated) {
+    return <Navigate to={role === 'MEMBER' ? '/portal' : '/admin/leads'} replace />;
+  }
 
   if (locations.length > 0) {
     return <Navigate to={`/${locations[0].slug}/login${location.search}`} replace />;

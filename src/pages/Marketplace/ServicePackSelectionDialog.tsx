@@ -169,12 +169,27 @@ export const ServicePackSelectionDialog = ({
                 session_id: selectedSessionId || undefined,
                 billing_period_start: billingStart || undefined,
                 billing_period_end: billingEnd || undefined,
+                metadata: {
+                    service_name: service.name,
+                    service_category: service.service_type,
+                    service_type: service.type,
+                    service_pack_name: pack.name,
+                    special_program: pack.waiver_program_id ? waiverPrograms.find(w => w.waiver_program_id === pack.waiver_program_id)?.name : 'None',
+                    classes: pack.classes,
+                    duration_months: pack.duration_months,
+                    duration_days: pack.duration_days,
+                    is_shrabable: pack.is_shrabable,
+                    max_uses_per_period: pack.max_uses_per_period,
+                    usage_period_length: pack.usage_period_length,
+                    usage_period_unit: pack.usage_period_unit,
+                },
                 coverage: selectedProfileIds.map(id => {
                      const p = profiles.find(prof => prof.profile_id === id);
                      return {
                          profile_id: id,
                          name: `${p?.first_name} ${p?.last_name}`,
-                         role: id === primaryId ? 'PRIMARY' : 'ADD_ON'
+                         role: id === primaryId ? 'PRIMARY' : 'ADD_ON',
+                         age_group: p?.date_of_birth ? getAgeGroupName(p.date_of_birth, ageGroups) : undefined
                      };
                 })
             };
@@ -195,10 +210,25 @@ export const ServicePackSelectionDialog = ({
                         session_id: selectedSessionId || undefined,
                         billing_period_start: billingStart || undefined,
                         billing_period_end: billingEnd || undefined,
+                        metadata: {
+                            service_name: service.name,
+                            service_category: service.service_type,
+                            service_type: service.type,
+                            service_pack_name: pack.name,
+                            special_program: pack.waiver_program_id ? waiverPrograms.find(w => w.waiver_program_id === pack.waiver_program_id)?.name : 'None',
+                            classes: pack.classes,
+                            duration_months: pack.duration_months,
+                            duration_days: pack.duration_days,
+                            is_shrabable: pack.is_shrabable,
+                            max_uses_per_period: pack.max_uses_per_period,
+                            usage_period_length: pack.usage_period_length,
+                            usage_period_unit: pack.usage_period_unit,
+                        },
                         coverage: [{
                              profile_id: id,
                              name: `${eligible.profile.first_name} ${eligible.profile.last_name}`,
-                             role: 'PRIMARY'
+                             role: 'PRIMARY',
+                             age_group: eligible.profile.date_of_birth ? getAgeGroupName(eligible.profile.date_of_birth, ageGroups) : undefined
                         }]
                     };
                     newItems.push(item);
@@ -207,25 +237,34 @@ export const ServicePackSelectionDialog = ({
         }
 
         // --- LIMIT VALIDATION ---
-        if ((pack.max_uses_per_period || 0) > 0 && pack.classes) {
-            // 1. From Active Subscriptions matching this pack
-            const activeRedemptions = activeSubscriptions
-                .filter(sub => sub.reference_id === pack.service_pack_id && sub.status === 'ACTIVE')
-                .reduce((total, sub) => total + (pack.classes || 0), 0);
+        if ((pack.max_uses_per_period || 0) > 0) {
+            // "how may packages are allowed to be purchased by a particular profile within a particular duration"
+            for (const profileId of selectedProfileIds) {
+                // 1. From Active Subscriptions for THIS PROFILE matching this pack
+                const activePacksForProfile = activeSubscriptions.filter(sub => 
+                    sub.reference_id === pack.service_pack_id && 
+                    sub.status === 'ACTIVE' && 
+                    (sub.coverage?.some((c: any) => c.profile_id === profileId) || sub.subscription_coverage?.some((c: any) => c.profile_id === profileId))
+                ).length;
 
-            // 2. From Current Cart
-            const cartRedemptions = currentCart
-                .filter(item => item.type === 'SERVICE' && item.referenceId === pack.service_pack_id)
-                .reduce((total, item) => total + (pack.classes || 0), 0);
-            
-            // 3. New Items
-            const newRedemptions = newItems.length * (pack.classes || 0);
+                // 2. From Current Cart for THIS PROFILE matching this pack
+                const cartPacksForProfile = currentCart.filter(item => 
+                    item.type === 'SERVICE' && 
+                    item.referenceId === pack.service_pack_id &&
+                    item.coverage?.some(c => c.profile_id === profileId)
+                ).length;
+                
+                // 3. New Items: 1 pack per selected profile for this purchase
+                const newPacksForProfile = 1;
 
-            const totalProjected = activeRedemptions + cartRedemptions + newRedemptions;
-            
-            if (totalProjected > (pack.max_uses_per_period || 0)) {
-                setError(`Purchase limit exceeded. You can have a maximum of ${pack.max_uses_per_period} classes per period. You currently have ${activeRedemptions} active and ${cartRedemptions} in cart. Adding this would total ${totalProjected}.`);
-                return;
+                const totalProjected = activePacksForProfile + cartPacksForProfile + newPacksForProfile;
+                
+                if (totalProjected > (pack.max_uses_per_period || 0)) {
+                    const profile = profiles.find(p => p.profile_id === profileId);
+                    const profileName = profile ? `${profile.first_name} ${profile.last_name}` : 'A selected profile';
+                    setError(`${profileName} has reached the purchase limit for this service pack (${pack.max_uses_per_period} per period). They currently have ${activePacksForProfile} active and ${cartPacksForProfile} in cart.`);
+                    return;
+                }
             }
         }
 

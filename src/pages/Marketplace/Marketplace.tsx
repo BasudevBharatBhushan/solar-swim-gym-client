@@ -69,8 +69,10 @@ import {
 } from './membershipSuggestion';
 import { cartService } from '../../services/cartService';
 import { PaymentDialog } from './PaymentDialog';
+import { ContractsSigningDialog } from './ContractsSigningDialog';
 import { ServicePackSelectionDialog } from './ServicePackSelectionDialog';
 import { ServicePackSelection, CartItem, CoverageProfile, AccountProfile } from '../../types/marketplace';
+import { waiverService, WaiverTemplate } from '../../services/waiverService';
 
 // Removed local CoverageProfile interface - using CartItem's structure or just relying on inference
 // Removed local AccountProfile interface - using shared types
@@ -178,6 +180,10 @@ export const Marketplace = () => {
 
     const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
     const [pendingServiceSelection, setPendingServiceSelection] = useState<ServicePackSelection | null>(null);
+
+    // Contract Signing State
+    const [contractsOpen, setContractsOpen] = useState(false);
+    const [activeTemplates, setActiveTemplates] = useState<WaiverTemplate[]>([]);
 
     // Per-item discount state: keyed by CartItem.id
     interface ItemDiscountState {
@@ -607,9 +613,7 @@ export const Marketplace = () => {
         }
         return getSpecificityScore(suggestedCandidate.range);
     }, [suggestedCandidate]);
-
-    const isInCart = (id: string) => cart.some((item) => item.id === id);
-
+    const isInCart = (idPrefix: string) => cart.some((item) => item.id === idPrefix || item.id.startsWith(`${idPrefix}-`));
     const removeFromCart = async (id: string) => {
         const item = cart.find(i => i.id === id);
         if (item?.cart_id) {
@@ -632,34 +636,16 @@ export const Marketplace = () => {
      */
     const hasActivePrimary = useMemo(() => {
         // 1. Check Cart for 'BASE' item with 'PRIMARY' role
-        const cartPrimary = cart.some(item => item.type === 'BASE' && item.name.includes('(PRIMARY)')); 
-        // Note: checking name is brittle, better to check metadata or assume BASE usually implies a plan?
-        // Actually, our BasePlanCard logic sets name = `... (PRIMARY)`. 
-        // Better: check if we have any BASE item that maps to a primary base price? 
-        // Let's check `item.metadata?.role === 'PRIMARY'` if we added it?
-        // In handleConfirmBaseTermSelection we set name. Let's look at coverage?
-        // Coverage roles aren't set until coverage dialog. 
-        // But `pendingBaseCard.role` was used to create the item.
-        // Let's rely on the conventions we set: Base items don't explicitly store 'role' in top-level,
-        // but coverage does. However, for a solitary check before coverage is set (if any?),
-        // `basePlanCards` logic separates them.
-        
-        // Let's try to match cart items to base prices and check role from there?
-        // Or check `item.coverage` for PRIMARY role?
         const cartHasPrimary = cart.some(item => {
              if (item.type !== 'BASE') return false;
-             // Coverage might be empty if just added? No, we add coverage immediately after.
-             return item.coverage?.some(c => c.role === 'PRIMARY');
+             return item.metadata?.role === 'PRIMARY' || item.name.includes('(PRIMARY)');
         });
 
         if (cartHasPrimary) return true;
 
         // 2. Check Active Subscriptions
-        // Look for subscription_type = 'MEMBERSHIP_FEE' | 'MEMBERSHIP_RENEWAL' ... 
-        // And check if it's a PRIMARY plan.
-        // The `Subscription` object has `coverage`.
         const subHasPrimary = subscriptions.some(sub => 
-            (sub.subscription_type.startsWith('MEMBERSHIP')) &&
+            sub.subscription_type.startsWith('MEMBERSHIP') && sub.status === 'ACTIVE' &&
             (sub.coverage?.some((c: any) => c.role === 'PRIMARY') || sub.subscription_coverage?.some((c: any) => c.role === 'PRIMARY'))
         );
 
@@ -869,23 +855,48 @@ export const Marketplace = () => {
             const profile = profilesById.get(id);
             if (!profile) return false;
 
+            let isAllowed = true;
+
             if (item.type === 'BASE' && item.ageGroupId) {
                 if (profile.date_of_birth) {
                     const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups);
                     const matchedGroup = ageGroups.find((group) => group.name === ageGroupName);
-                    return matchedGroup?.age_group_id === item.ageGroupId;
+                    if (matchedGroup?.age_group_id !== item.ageGroupId) {
+                        isAllowed = false;
+                    }
+                } else {
+                    isAllowed = false;
                 }
-                return false;
             } else if (item.type === 'MEMBERSHIP' && item.membershipRange) {
                 if (profile.date_of_birth) {
                     const bucket = classifyAgeFromDob(profile.date_of_birth);
                     const range = item.membershipRange;
                     const maxAllowed = bucket === 'child' ? range.children.max : bucket === 'adult' ? range.adults.max : range.seniors.max;
-                    return maxAllowed > 0;
+                    if (maxAllowed === 0) {
+                        isAllowed = false;
+                    }
+                } else {
+                    isAllowed = false;
                 }
-                return false;
             }
-            return true;
+
+            // Rule: Disable if profile is already assigned a BASE or MEMBERSHIP plan in cart or active subscriptions
+            if (isAllowed && (item.type === 'BASE' || item.type === 'MEMBERSHIP')) {
+                const profileInCart = cart.some(cartItem => 
+                    (cartItem.type === 'BASE' || cartItem.type === 'MEMBERSHIP') && 
+                    cartItem.coverage?.some(c => c.profile_id === id) && 
+                    cartItem.id !== item.id
+                );
+                if (profileInCart) isAllowed = false;
+
+                const profileHasActive = subscriptions.some(sub => 
+                    sub.subscription_type.startsWith('MEMBERSHIP') && sub.status === 'ACTIVE' &&
+                    (sub.coverage?.some((c: any) => c.profile_id === id) || sub.subscription_coverage?.some((c: any) => c.profile_id === id))
+                );
+                if (profileHasActive) isAllowed = false;
+            }
+
+            return isAllowed;
         });
 
         setSelectedProfileIds(allowedSelection);
@@ -911,46 +922,50 @@ export const Marketplace = () => {
             };
         });
 
-        const nextItem: CartItem = {
+        let itemsToProcess: CartItem[] = [{
             ...pendingItem,
             coverage,
-        };
+        }];
 
         if (accountId && currentLocationId) {
-            const frontendId = nextItem.id;
-            const existingItem = cart.find(i => i.id === frontendId);
-            
-            const dbPayload = cartService.transformToCartData(nextItem, accountId, currentLocationId);
-            if (existingItem?.cart_id) {
-                dbPayload.cart_id = existingItem.cart_id;
-            }
-
-            cartService.upsertItem(dbPayload, currentLocationId)
-                .then((savedItem) => {
-                    setCart((prev) => {
-                        const nextWithId = { ...nextItem, cart_id: savedItem.cart_id };
-                        const existingIndex = prev.findIndex((cartItem) => cartItem.id === frontendId);
+            Promise.all(itemsToProcess.map(async (nextItem) => {
+                const frontendId = nextItem.id;
+                const existingItem = cart.find(i => i.id === frontendId);
+                const dbPayload = cartService.transformToCartData(nextItem, accountId, currentLocationId);
+                if (existingItem?.cart_id) {
+                    dbPayload.cart_id = existingItem.cart_id;
+                }
+                const savedItem = await cartService.upsertItem(dbPayload, currentLocationId);
+                return { ...nextItem, cart_id: savedItem.cart_id };
+            })).then((savedItems) => {
+                setCart((prev) => {
+                    let nextCart = [...prev];
+                    savedItems.forEach(savedItem => {
+                        const existingIndex = nextCart.findIndex((cartItem) => cartItem.id === savedItem.id);
                         if (existingIndex >= 0) {
-                            const updated = [...prev];
-                            updated[existingIndex] = nextWithId;
-                            return updated;
+                            nextCart[existingIndex] = savedItem;
+                        } else {
+                            nextCart.push(savedItem);
                         }
-                        return [...prev, nextWithId];
                     });
-                })
-                .catch((err) => {
-                    console.error('Failed to save cart item:', err);
-                    setMarketplaceError('Failed to save cart item to server.');
+                    return nextCart;
                 });
+            }).catch((err) => {
+                console.error('Failed to save cart items:', err);
+                setMarketplaceError('Failed to save cart items to server.');
+            });
         } else {
             setCart((prev) => {
-                const existingIndex = prev.findIndex((cartItem) => cartItem.id === nextItem.id);
-                if (existingIndex >= 0) {
-                    const updated = [...prev];
-                    updated[existingIndex] = nextItem;
-                    return updated;
-                }
-                return [...prev, nextItem];
+                let nextCart = [...prev];
+                itemsToProcess.forEach(nextItem => {
+                    const existingIndex = nextCart.findIndex((cartItem) => cartItem.id === nextItem.id);
+                    if (existingIndex >= 0) {
+                        nextCart[existingIndex] = nextItem;
+                    } else {
+                        nextCart.push(nextItem);
+                    }
+                });
+                return nextCart;
             });
         }
 
@@ -982,7 +997,7 @@ export const Marketplace = () => {
         }
 
         const baseItem: CartItem = {
-            id: `BASE-${selectedTerm.base_price_id}`,
+            id: `BASE-${selectedTerm.base_price_id}-${Date.now()}`,
             type: 'BASE',
             referenceId: selectedTerm.base_price_id,
             name: `${pendingBaseCard.name} - ${pendingBaseCard.ageGroupName} (${pendingBaseCard.role})`,
@@ -991,6 +1006,7 @@ export const Marketplace = () => {
             ageGroupId: pendingBaseCard.ageGroupId,
             metadata: {
                 subscription_term_id: selectedTerm.subscription_term_id,
+                role: pendingBaseCard.role,
             },
         };
 
@@ -1020,7 +1036,7 @@ export const Marketplace = () => {
         }
 
         const membershipItem: CartItem = {
-            id: `MEMBERSHIP-${pendingMembershipCandidate.categoryId}-${selectedFeeType}`,
+            id: `MEMBERSHIP-${pendingMembershipCandidate.categoryId}-${selectedFeeType}-${Date.now()}`,
             type: 'MEMBERSHIP',
             referenceId: pendingMembershipCandidate.categoryId,
             membershipCategoryId: pendingMembershipCandidate.categoryId,
@@ -1138,7 +1154,43 @@ export const Marketplace = () => {
         if (!accountId || !currentLocationId || marketplaceError || cart.length === 0) {
             return;
         }
-        setPaymentOpen(true);
+
+        setSubmitting(true);
+        try {
+            // Collect unique service IDs and membership category IDs from the cart
+            const serviceIds = new Set<string>();
+            const membershipIds = new Set<string>();
+
+            cart.forEach(item => {
+                if (item.type === 'SERVICE' && item.serviceId) {
+                    serviceIds.add(item.serviceId);
+                } else if (item.type === 'MEMBERSHIP' && item.membershipCategoryId) {
+                    membershipIds.add(item.membershipCategoryId);
+                }
+            });
+
+            // Fetch all active waiver templates for the location
+            const response = await waiverService.getWaiverTemplates(currentLocationId);
+            
+            // Filter templates that match the cart items
+            const requiredTemplates = response.data.filter((t: WaiverTemplate) => 
+                (t.is_active !== false) && 
+                ((t.service_id && serviceIds.has(t.service_id)) || 
+                 (t.membership_category_id && membershipIds.has(t.membership_category_id)))
+            );
+
+            if (requiredTemplates.length > 0) {
+                setActiveTemplates(requiredTemplates);
+                setContractsOpen(true);
+            } else {
+                setPaymentOpen(true);
+            }
+        } catch (err) {
+            console.error('Failed to prepare checkout:', err);
+            setMarketplaceError('Failed to verify required contracts. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     if (loading) {
@@ -2064,6 +2116,28 @@ export const Marketplace = () => {
                                 }
                             }
 
+                            // Rule: Disable if profile is already assigned a BASE or MEMBERSHIP plan in cart or active subscriptions
+                            if (isAllowed && (pendingItem?.type === 'BASE' || pendingItem?.type === 'MEMBERSHIP')) {
+                                const profileInCart = cart.some(item => 
+                                    (item.type === 'BASE' || item.type === 'MEMBERSHIP') && 
+                                    item.coverage?.some(c => c.profile_id === profile.profile_id) && 
+                                    item.id !== pendingItem.id
+                                );
+                                if (profileInCart) {
+                                    isAllowed = false;
+                                    restrictionReason = 'Already selected for a plan in cart';
+                                } else {
+                                    const profileHasActive = subscriptions.some(sub => 
+                                        sub.subscription_type.startsWith('MEMBERSHIP') && sub.status === 'ACTIVE' &&
+                                        (sub.coverage?.some((c: any) => c.profile_id === profile.profile_id) || sub.subscription_coverage?.some((c: any) => c.profile_id === profile.profile_id))
+                                    );
+                                    if (profileHasActive) {
+                                        isAllowed = false;
+                                        restrictionReason = 'Already has an active membership';
+                                    }
+                                }
+                            }
+
                             const profileAge = profile.date_of_birth ? calculateAge(profile.date_of_birth) : null;
 
                             return (
@@ -2240,6 +2314,21 @@ export const Marketplace = () => {
                     <Button onClick={() => setMembershipInfoOpen(false)}>Close</Button>
                 </DialogActions>
             </Dialog>
+
+            <ContractsSigningDialog 
+                open={contractsOpen}
+                onClose={() => setContractsOpen(false)}
+                cart={cart}
+                templates={activeTemplates}
+                primaryProfile={primaryMember}
+                locationId={currentLocationId!}
+                subscriptionTerms={subscriptionTerms}
+                companyConfig={{ name: 'Solar Swim Gym', address: '123 Main St' }} // Replace with actual company config if available
+                onSuccess={() => {
+                    setContractsOpen(false);
+                    setPaymentOpen(true);
+                }}
+            />
 
             <PaymentDialog
                 open={paymentOpen}

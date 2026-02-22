@@ -100,6 +100,7 @@ export const cartService = {
       billing_period_end: item.billing_period_end,
       // Metadata can store extra info like coverage/profiles if the backend supports it
       metadata: {
+        ...(item.metadata || {}),
         id: item.id,
         coverage: item.coverage,
         name: item.name,

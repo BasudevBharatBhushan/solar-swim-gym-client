@@ -41,6 +41,7 @@ interface ClientOnboardingModalProps {
   onClose: () => void;
   onSuccess: () => void;
   mode?: 'staff' | 'user';
+  locationNameProp?: string;
 }
 
 const steps = ['Profile', 'Family Details', 'Waiver Signing', 'Review'];
@@ -54,7 +55,7 @@ interface WaiverComposeDraft {
   accountId?: string;
 }
 
-export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, mode = 'staff' }) => {
+export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, mode = 'staff', locationNameProp }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -64,7 +65,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const { refreshWaiverPrograms, refreshAgeGroups, refreshWaiverTemplates } = useConfig();
   
   const currentLocation = locations.find(loc => loc.location_id === currentLocationId);
-  const locationName = currentLocation ? currentLocation.name : 'Zalexy';
+  const locationName = locationNameProp || (currentLocation ? currentLocation.name : 'Zalexy');
 
   // Refresh config data when modal opens
   React.useEffect(() => {
@@ -83,6 +84,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     mobile: '',
     date_of_birth: null,
     family_count: 1,
+    waiver_program_id: '',
     // ... other fields
   });
 
@@ -566,7 +568,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                                         email: '',
                                         mobile: '',
                                         date_of_birth: null,
-                                        family_count: 1
+                                        family_count: 1,
+                                        waiver_program_id: ''
                                     });
                                     setFamilyMembers([]);
                                     setSignedWaivers({});
@@ -608,7 +611,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                                 email: '',
                                 mobile: '',
                                 date_of_birth: null,
-                                family_count: 1
+                                family_count: 1,
+                                waiver_program_id: ''
                             });
                             setFamilyMembers([]);
                             setSignedWaivers({});

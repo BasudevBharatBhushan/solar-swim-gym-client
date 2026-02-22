@@ -84,6 +84,19 @@ export const WaiverTemplates = () => {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
+  // --- Dynamic Variables Extraction ---
+  const dynamicVariables = useMemo(() => {
+    const regex = /\[(.*?)\]/g;
+    const matches = editorContent.matchAll(regex);
+    const vars = new Set<string>();
+    for (const match of matches) {
+      if (match[1] && !['FullName', 'GuardianName', 'AcceptSignature', 'CurrentDate'].includes(match[1])) {
+        vars.add(match[1]);
+      }
+    }
+    return Array.from(vars);
+  }, [editorContent]);
+
   // --- Categories ---
   const categories = useMemo(() => [
     { label: 'Services', key: 'service', icon: <Pool /> },
@@ -96,7 +109,6 @@ export const WaiverTemplates = () => {
   // --- Data Fetching Helper ---
   const fetchCategoryData = async (catKey: string) => {
       if (!currentLocationId) return;
-      if (categoryData[catKey]) return; // Already loaded
 
       setLoadingCategory(catKey);
       try {
@@ -178,13 +190,12 @@ export const WaiverTemplates = () => {
       setSelectedTargetId(targetId);
   };
 
-  // --- Initial Load ---
   useEffect(() => {
       // Load initial category if set
-      if (expandedCategory && !categoryData[expandedCategory]) {
+      if (expandedCategory) {
           fetchCategoryData(expandedCategory);
       }
-  }, [currentLocationId, expandedCategory]); // eslint-disable-line
+  }, [currentLocationId, expandedCategory, ageGroups, subscriptionTerms]); // Re-fetch if config data changes
 
   // --- Fetch Template ---
   useEffect(() => {
@@ -248,11 +259,11 @@ export const WaiverTemplates = () => {
   return (
     <Box sx={{ pb: 5 }}>
         <PageHeader 
-            title="Waiver Templates" 
+            title="Waiver & Contract Templates" 
             description="Manage legal waivers and disclaimers for services, memberships, and plans."
             breadcrumbs={[
                 { label: 'Settings', href: '/admin/settings' },
-                { label: 'Waiver Templates', active: true }
+                { label: 'Waiver & Contract Templates', active: true }
             ]}
         />
         
@@ -262,7 +273,7 @@ export const WaiverTemplates = () => {
                 <Paper sx={{ height: '100%', borderRadius: 2, overflow: 'hidden', border: '1px solid #e2e8f0', bgcolor: '#fff' }} elevation={0}>
                     <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9', bgcolor: '#f8fafc' }}>
                          <Typography variant="overline" fontWeight={800} sx={{ color: '#64748b !important' }}>
-                             CATEGORIES
+                             WAIVER & CONTRACT TEMPLATE
                          </Typography>
                     </Box>
                     <List component="nav" sx={{ p: 0 }}>
@@ -343,7 +354,7 @@ export const WaiverTemplates = () => {
                                             letterSpacing: '0.1em',
                                             color: '#64748b !important'
                                         }}>
-                                            WAIVER TEMPLATE EDITOR
+                                            WAIVER & CONTRACT TEMPLATE EDITOR
                                         </Typography>
                                     </Box>
                                     <Typography variant="h5" sx={{ 
@@ -468,9 +479,18 @@ export const WaiverTemplates = () => {
 
                          {/* Instructions Banner */}
                          <Alert severity="info" icon={<Info fontSize="inherit" />} sx={{ mx: 3, mt: 3, mb: 1, borderRadius: 2 }}>
-                            <Typography variant="caption" fontWeight={600} sx={{ color: '#1e293b !important' }}>
-                                 Dynamic Variables: Use <code>[FullName]</code>, <code>[GuardianName]</code> to insert the participant's name. Use <code>[AcceptSignature]</code> to accept signature. Use <code>[CurrentDate]</code> for current date.
-                            </Typography>
+                            <Box>
+                                <Typography variant="caption" fontWeight={600} sx={{ color: '#1e293b !important', display: 'block', mb: 0.5 }}>
+                                    Standard Variables: Use <code>[FullName]</code>, <code>[GuardianName]</code>, <code>[AcceptSignature]</code>, <code>[CurrentDate]</code>.
+                                </Typography>
+                                {dynamicVariables.length > 0 && (
+                                    <Typography variant="caption" fontWeight={600} sx={{ color: '#3b82f6 !important' }}>
+                                        Detected Variables in Document: {dynamicVariables.map((v, i) => (
+                                            <code key={i} style={{ marginLeft: i === 0 ? 0 : '4px' }}>[{v}]</code>
+                                        ))}
+                                    </Typography>
+                                )}
+                            </Box>
                         </Alert>
 
                         {/* Editor Area */}

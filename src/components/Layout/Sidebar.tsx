@@ -31,7 +31,7 @@ import {
   CreditCard,
   Assignment,
 } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 //Import logo from asset
 import logo from '../../assets/logo.png';
@@ -74,7 +74,7 @@ const menuItems: MenuItem[] = [
       },
       { text: 'Waiver Programs', icon: <Description />, path: '/admin/settings/waiver-programs' },
       { text: 'Discount Codes', icon: <LocalOffer />, path: '/admin/discounts' },
-      { text: 'Waiver Templates', icon: <Assignment />, path: '/admin/settings/waiver-templates' },
+      { text: 'Waiver & Contract Templates', icon: <Assignment />, path: '/admin/settings/waiver-templates' },
       { text: 'Email Settings', icon: <Email />, path: '/admin/email-settings' },
       { text: 'Dropdown Values', icon: <Assignment />, path: '/admin/settings/dropdown-values' },
       { text: 'Billing', icon: <CreditCard />, path: '/admin/billing' },
@@ -83,7 +83,6 @@ const menuItems: MenuItem[] = [
 ];
 
 export const Sidebar = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const { role, userParams } = useAuth();
   
@@ -94,11 +93,6 @@ export const Sidebar = () => {
   const handleClick = (text: string) => {
     setOpenItems((prev) => ({ ...prev, [text]: !prev[text] }));
   };
-
-  const handleNavigate = (path: string) => {
-    navigate(path);
-  };
-
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     if (item.roleVerified && !item.roleVerified(role)) {
       return null;
@@ -150,11 +144,10 @@ export const Sidebar = () => {
         <ListItem disablePadding sx={{ display: 'block' }}>
           <ListItemButton
             selected={isSelected && !hasChildren} // Only highlight leaf nodes or handle parents differently
+            {...(!hasChildren && item.path ? { component: Link, to: item.path } : {})}
             onClick={() => {
               if (hasChildren) {
                 handleClick(item.text);
-              } else if (item.path) {
-                handleNavigate(item.path);
               }
             }}
             sx={{ 

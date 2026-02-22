@@ -4,6 +4,8 @@ export interface WaiverTemplate {
   waiver_template_id: string;
   location_id: string;
   ageprofile_id: string | null;
+  service_id?: string | null;
+  membership_category_id?: string | null;
   content: string;
   is_active: boolean;
 }
@@ -45,9 +47,10 @@ export interface GetSignedWaiversResponse {
 }
 
 export const waiverService = {
-  // Fetch all waiver templates (Globally accessible, no location filter)
-  getWaiverTemplates: async () => {
-    return apiClient.get('/waiver-templates');
+  // Fetch all waiver templates
+  getWaiverTemplates: async (locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get('/waiver-templates', {}, options);
   },
 
   // Upload signature image

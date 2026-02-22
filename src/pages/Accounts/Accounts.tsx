@@ -123,9 +123,8 @@ export const Accounts = () => {
 
   const getPrimaryProfile = (account: Account) => {
       if (!account.profiles || account.profiles.length === 0) return { name: 'Unknown', email: '-' };
-      // Assuming first profile is primary for now as per API contract notes, 
-      // or we could look for is_primary if available later.
-      const primary = account.profiles[0]; 
+      // Look for the profile marked as primary, or fallback to the first one
+      const primary = account.profiles.find((p: any) => p.is_primary) || account.profiles[0]; 
       return {
           name: `${primary.first_name} ${primary.last_name}`,
           email: primary.email || '-'

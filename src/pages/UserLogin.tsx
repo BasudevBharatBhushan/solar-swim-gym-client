@@ -33,10 +33,17 @@ export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', lo
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login, setCurrentLocationId } = useAuth();
+  const { login, setCurrentLocationId, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/portal');
+    }
+  }, [isAuthenticated, navigate]);
 
   // Set location context on mount if provided
   React.useEffect(() => {
@@ -346,6 +353,7 @@ export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', lo
             // Success state is handled inside the modal for 'user' mode
         }}
         mode="user"
+        locationNameProp={companyName}
       />
     </Box>
   );

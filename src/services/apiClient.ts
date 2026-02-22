@@ -12,8 +12,8 @@ const TOKEN_KEY = 'token';
  * Get the current auth token from storage
  */
 export const getToken = () => {
-  if (typeof sessionStorage !== 'undefined') {
-    return sessionStorage.getItem(TOKEN_KEY);
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem(TOKEN_KEY);
   }
   return null;
 };
@@ -22,8 +22,8 @@ export const getToken = () => {
  * Set the auth token to storage
  */
 export const setToken = (token: string) => {
-  if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(TOKEN_KEY, token);
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(TOKEN_KEY, token);
   }
 };
 
@@ -31,8 +31,8 @@ export const setToken = (token: string) => {
  * Remove the auth token from storage
  */
 export const removeToken = () => {
-  if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.removeItem(TOKEN_KEY);
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(TOKEN_KEY);
   }
 };
 

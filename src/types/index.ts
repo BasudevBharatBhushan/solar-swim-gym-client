@@ -9,6 +9,8 @@ export interface Profile {
       code: string;
       name: string;
   };
+  is_primary?: boolean;
+  relationship?: string;
 }
 
 export interface Account {
