@@ -1155,11 +1155,19 @@ export const Marketplace = () => {
             return {
                 profile_id: member.profile_id,
                 role: roleLabel,
+                exempt: false,
+                exempt_reason: '',
             };
         });
     };
 
     const constructSubscriptionPayload = (item: CartItem) => {
+        const coverage = getCoveragePayload(item);
+        const topLevelRole = coverage.find(c => c.role === 'PRIMARY') ? 'PRIMARY' : 'ADD_ON';
+
+        // Get session_id from item or metadata
+        const sessionId = (item.session_id || (item.metadata as any)?.session_id) || null;
+
         const payload: Record<string, unknown> = {
             account_id: accountId,
             location_id: currentLocationId,
@@ -1174,29 +1182,20 @@ export const Marketplace = () => {
                       ? 'SERVICE'
                       : 'MEMBERSHIP_FEE',
             reference_id: item.referenceId,
+            subscription_term_id: item.subscriptionTermId || null,
             unit_price_snapshot: item.actualPrice ?? item.price,
             total_amount: item.price,
-            coverage: getCoveragePayload(item),
+            actual_total_amount: item.actualPrice ?? item.price,
+            discount_amount: item.discountAmount ?? 0,
+            discount_percentage: item.discountPercentage ?? 0,
+            discount_code: item.discountCode ?? '',
+            role: topLevelRole,
+            status: 'ACTIVE',
+            billing_period_start: item.billing_period_start || null,
+            billing_period_end: item.billing_period_end || null,
+            session_id: sessionId,
+            coverage,
         };
-
-        // Include discount tracking fields if a discount was applied
-        if (item.actualPrice !== undefined && item.actualPrice !== item.price) {
-            payload.actual_total_amount = item.actualPrice;
-            payload.discount_amount = item.discountAmount ?? 0;
-            payload.discount_percentage = item.discountPercentage ?? 0;
-            if (item.discountCode) {
-                payload.discount_code = item.discountCode;
-            }
-        }
-
-        if (item.type === 'BASE' && item.subscriptionTermId) {
-            payload.subscription_term_id = item.subscriptionTermId;
-        }
-
-        if (item.metadata) {
-            const { age_group_id, id, cart_id, name, type, feeType, membershipCategoryId, membershipProgramId, ageGroupId, membershipRange, serviceId, ...otherMetadata } = item.metadata as any;
-            Object.assign(payload, otherMetadata);
-        }
 
         return payload;
     };
@@ -2271,25 +2270,10 @@ export const Marketplace = () => {
                                     isAllowed = false;
                                     restrictionReason = 'Date of birth missing';
                                 }
-                            } else if (pendingItem?.type === 'MEMBERSHIP' && pendingItem.membershipRange) {
-                                if (profile.date_of_birth) {
-                                    const ageGroupId = classifyAgeFromDob(profile.date_of_birth, ageGroups);
-                                    const range = pendingItem.membershipRange;
-                                    const maxAllowed = ageGroupId ? range[ageGroupId]?.max : 0;
-                                    
-                                    if (maxAllowed === 0) {
-                                        isAllowed = false;
-                                        const groupName = ageGroups.find(g => g.age_group_id === ageGroupId)?.name || 'This age group';
-                                        restrictionReason = `${groupName}s not allowed in this plan`;
-                                    }
-                                } else {
-                                    isAllowed = false;
-                                    restrictionReason = 'Date of birth missing';
-                                }
                             }
 
                             // Rule: Disable if profile is already assigned a BASE or MEMBERSHIP plan in cart or active subscriptions
-                            if (isAllowed && (pendingItem?.type === 'BASE' || pendingItem?.type === 'MEMBERSHIP')) {
+                            if (isAllowed && pendingItem?.type === 'BASE') {
                                 const profileInCart = cart.some(item => 
                                     (item.type === 'BASE' || item.type === 'MEMBERSHIP') && 
                                     item.coverage?.some(c => c.profile_id === profile.profile_id) && 

@@ -176,9 +176,29 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, onSucces
                                         textTransform: 'none',
                                         fontSize: '1rem',
                                         boxShadow: '0 8px 16px -4px rgba(59, 130, 246, 0.4)',
+                                        mb: 1.5
                                     }}
                                 >
                                     Pay ${total.toFixed(2)}
+                                </Button>
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    size="medium"
+                                    onClick={onSuccess}
+                                    sx={{ 
+                                        borderRadius: 2,
+                                        fontWeight: 700,
+                                        textTransform: 'none',
+                                        color: 'text.secondary',
+                                        borderColor: 'divider',
+                                        '&:hover': {
+                                            bgcolor: '#f1f5f9',
+                                            borderColor: 'text.disabled'
+                                        }
+                                    }}
+                                >
+                                    Skip Payment & Continue
                                 </Button>
                             </Box>
 
