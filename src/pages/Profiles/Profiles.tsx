@@ -14,6 +14,10 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { accountService, ProfileResult } from '../../services/accountService';
+import { crmService } from '../../services/crmService';
+import { ClientOnboardingModal } from '../Accounts/ClientOnboarding/ClientOnboardingModal';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { Button } from '@mui/material';
 
 interface ColumnSearch {
   first_name?: string;
@@ -31,6 +35,7 @@ export const Profiles = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Search & Sort State
   const [globalSearch, setGlobalSearch] = useState('');
@@ -98,8 +103,30 @@ export const Profiles = () => {
   };
 
   const handleColumnSearch = (field: keyof ColumnSearch, val: string) => {
-    setColumnSearch(prev => ({ ...prev, [field]: val }));
+    setColumnSearch((prev: ColumnSearch) => ({ ...prev, [field]: val }));
     setPage(0); 
+  };
+
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+  
+  const handleSuccess = async () => {
+      setLoading(true);
+      try {
+          // Trigger Reindex as requested on Accounts page
+          await crmService.reindexAccounts(currentLocationId || undefined);
+      } catch (error) {
+          console.error('Failed to trigger automatic reindex', error);
+      }
+
+      // Refresh list
+      if (page !== 0) {
+          setPage(0); 
+      } else {
+          fetchProfiles();
+      }
+      setSuccess('Client added successfully!');
+      handleCloseModal();
   };
 
   const renderSortIcon = (field: string) => {
@@ -114,23 +141,39 @@ export const Profiles = () => {
         title="Profiles" 
         description="View and manage client profiles across all accounts."
         breadcrumbs={[{ label: 'System', href: '/admin' }, { label: 'Profiles', active: true }]}
+        action={
+            <Button
+              variant="contained"
+              startIcon={<PersonAddIcon />}
+              onClick={handleOpenModal}
+              sx={{
+                bgcolor: '#4182f9',
+                '&:hover': { bgcolor: '#3a75e0' },
+                textTransform: 'none',
+                borderRadius: '8px',
+                px: 3
+              }}
+            >
+              Add Client
+            </Button>
+        }
       />
 
       <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', bgcolor: 'white' }}>
         {/* Actions Toolbar */}
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <TextField 
-                    size="small" 
-                    placeholder="Global Search..." 
-                    value={globalSearch}
-                    onChange={(e) => handleGlobalSearch(e.target.value)}
-                    InputProps={{ 
-                      startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" color="action" /></InputAdornment>,
-                      sx: { borderRadius: '8px', bgcolor: '#f8fafc', '& fieldset': { border: 'none' } }
-                    }}
-                    sx={{ width: 280 }}
-                />
+                    <TextField 
+                        size="small" 
+                        placeholder="Global Search..." 
+                        value={globalSearch}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleGlobalSearch(e.target.value)}
+                        InputProps={{ 
+                          startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" color="action" /></InputAdornment>,
+                          sx: { borderRadius: '8px', bgcolor: '#f8fafc', '& fieldset': { border: 'none' } }
+                        }}
+                        sx={{ width: 280 }}
+                    />
             </Box>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <IconButton onClick={fetchProfiles} color="primary" title="Refresh">
@@ -170,13 +213,13 @@ export const Profiles = () => {
                     {/* Column Search Row */}
                     <TableRow>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }}>
-                          <TextField size="small" fullWidth placeholder="First/Last Name" value={columnSearch.first_name || ''} onChange={(e) => handleColumnSearch('first_name', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
+                          <TextField size="small" fullWidth placeholder="First/Last Name" value={columnSearch.first_name || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleColumnSearch('first_name', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
                         </TableCell>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }}>
-                          <TextField size="small" fullWidth placeholder="Email" value={columnSearch.email || ''} onChange={(e) => handleColumnSearch('email', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
+                          <TextField size="small" fullWidth placeholder="Email" value={columnSearch.email || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleColumnSearch('email', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
                         </TableCell>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }}>
-                          <TextField size="small" fullWidth placeholder="Mobile" value={columnSearch.mobile || ''} onChange={(e) => handleColumnSearch('mobile', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
+                          <TextField size="small" fullWidth placeholder="Mobile" value={columnSearch.mobile || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleColumnSearch('mobile', e.target.value)} variant="standard" InputProps={{ disableUnderline: false, sx: { fontSize: '0.8rem' } }} />
                         </TableCell>
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }} />
                         <TableCell sx={{ py: 1, borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 52, zIndex: 1, bgcolor: 'white' }} />
@@ -186,7 +229,7 @@ export const Profiles = () => {
                 <TableBody>
                     {loading && profiles.length === 0 ? (
                         <TableRow><TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>Loading profiles...</TableCell></TableRow>
-                    ) : profiles.map((profile) => {
+                    ) : profiles.map((profile: ProfileResult) => {
                         const mobile = profile.mobile || profile.guardian_mobile || profile.emergency_contact_phone || '-';
                         return (
                             <TableRow 
@@ -237,7 +280,7 @@ export const Profiles = () => {
             page={page}
             onPageChange={(_, p) => setPage(p)}
             rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            onRowsPerPageChange={(e: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
             sx={{ borderTop: '1px solid #f1f5f9' }}
         />
       </Paper>
@@ -248,6 +291,12 @@ export const Profiles = () => {
       <Snackbar open={!!success} autoHideDuration={6000} onClose={() => setSuccess(null)}>
          <Alert severity="success">{success}</Alert>
       </Snackbar>
+
+      <ClientOnboardingModal 
+        open={isModalOpen} 
+        onClose={handleCloseModal} 
+        onSuccess={handleSuccess}
+      />
     </Box>
   );
 };

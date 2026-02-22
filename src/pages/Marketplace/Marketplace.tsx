@@ -71,6 +71,7 @@ import { cartService } from '../../services/cartService';
 import { PaymentDialog } from './PaymentDialog';
 import { ContractsSigningDialog } from './ContractsSigningDialog';
 import { ServicePackSelectionDialog } from './ServicePackSelectionDialog';
+import { ManagerPasscodeDialog } from '../../components/Common/ManagerPasscodeDialog';
 import { ServicePackSelection, CartItem, CoverageProfile, AccountProfile } from '../../types/marketplace';
 import { waiverService, WaiverTemplate } from '../../services/waiverService';
 
@@ -208,6 +209,16 @@ export const Marketplace = () => {
     const [serviceSearchQuery, setServiceSearchQuery] = useState('');
     const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
     const [selectedMembershipAgeGroupIds, setSelectedMembershipAgeGroupIds] = useState<string[]>([]);
+
+    // Passcode State
+    const [passcodeOpen, setPasscodeOpen] = useState(false);
+    const [pendingDiscountAction, setPendingDiscountAction] = useState<{
+        type: 'CODE' | 'MANUAL';
+        itemId: string;
+        serviceId?: string;
+        manualType?: 'amount' | 'percentage';
+        manualValue?: string;
+    } | null>(null);
 
     const subscriptionTermOrder = useMemo(() => {
         return new Map(subscriptionTerms.map((term, index) => [term.subscription_term_id, index]));
@@ -708,8 +719,15 @@ export const Marketplace = () => {
     }, [accountId, currentLocationId]);
 
     /** Validate a discount code and apply it to the given cart item */
-    const handleApplyDiscountCode = useCallback(async (itemId: string, serviceId?: string) => {
+    const handleApplyDiscountCode = useCallback(async (itemId: string, serviceId?: string, skipAuth = false) => {
         if (!currentLocationId) return;
+
+        // If staff, require passcode before applying
+        if (canApplyManualDiscount && !passcodeOpen && !skipAuth) {
+            setPendingDiscountAction({ type: 'CODE', itemId, serviceId });
+            setPasscodeOpen(true);
+            return;
+        }
         const discountState = getItemDiscount(itemId);
         const code = discountState.code.trim();
         if (!code) return;
@@ -780,10 +798,17 @@ export const Marketplace = () => {
             [itemId]: { ...getItemDiscount(itemId), codeStatus: 'valid', codeError: undefined, appliedDiscount: discount, manualAmount: '', manualPercentage: '' },
         }));
         applyDiscountToCartItem(itemId, discount);
-    }, [currentLocationId, getItemDiscount, applyDiscountToCartItem]);
+    }, [currentLocationId, getItemDiscount, applyDiscountToCartItem, canApplyManualDiscount, passcodeOpen]);
 
     /** Apply a manual discount (amount or percentage) to a cart item */
-    const handleManualDiscountApply = useCallback((itemId: string, type: 'amount' | 'percentage', value: string) => {
+    const handleManualDiscountApply = useCallback((itemId: string, type: 'amount' | 'percentage', value: string, skipAuth = false) => {
+        // If staff, require passcode before applying
+        if (canApplyManualDiscount && !passcodeOpen && !skipAuth) {
+            setPendingDiscountAction({ type: 'MANUAL', itemId, manualType: type, manualValue: value });
+            setPasscodeOpen(true);
+            return;
+        }
+
         setCart((prev) => prev.map((item) => {
             if (item.id !== itemId) return item;
             const originalPrice = item.actualPrice ?? item.price;
@@ -815,7 +840,23 @@ export const Marketplace = () => {
 
             return updatedItem;
         }));
-    }, [accountId, currentLocationId]);
+    }, [accountId, currentLocationId, passcodeOpen, canApplyManualDiscount]);
+
+    const handlePasscodeSuccess = useCallback(() => {
+        if (!pendingDiscountAction) return;
+
+        const action = pendingDiscountAction;
+        // Close dialog first
+        setPasscodeOpen(false);
+        setPendingDiscountAction(null);
+
+        // Call functions with skipAuth=true
+        if (action.type === 'CODE') {
+            handleApplyDiscountCode(action.itemId, action.serviceId, true);
+        } else if (action.type === 'MANUAL' && action.manualType && action.manualValue) {
+            handleManualDiscountApply(action.itemId, action.manualType, action.manualValue, true);
+        }
+    }, [pendingDiscountAction, handleApplyDiscountCode, handleManualDiscountApply]);
 
     /** Remove any applied discount from a cart item, restoring original price */
     const removeDiscount = useCallback((itemId: string) => {
@@ -2505,6 +2546,15 @@ export const Marketplace = () => {
                         setSubmitting(false);
                     }
                 }}
+            />
+
+            <ManagerPasscodeDialog 
+                open={passcodeOpen}
+                onClose={() => {
+                    setPasscodeOpen(false);
+                    setPendingDiscountAction(null);
+                }}
+                onSuccess={handlePasscodeSuccess}
             />
         </Box>
     );
