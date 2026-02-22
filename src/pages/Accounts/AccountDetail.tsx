@@ -541,7 +541,7 @@ export const AccountDetail = () => {
 
       <AccountSummary account={account} />
 
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Left Panel: Profile List */}
         <Grid size={{ xs: 12, md: 4 }}>
           <ProfileList 
@@ -553,15 +553,47 @@ export const AccountDetail = () => {
 
         {/* Right Panel: Tabs */}
         <Grid size={{ xs: 12, md: 8 }}>
-            <Paper sx={{ width: '100%', minHeight: 400, borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
-                    <Tabs value={tabValue} onChange={handleTabChange} aria-label="account detail tabs">
+            <Paper 
+                elevation={0}
+                sx={{ 
+                    width: '100%', 
+                    minHeight: 500, 
+                    borderRadius: '16px', 
+                    border: '1px solid #e2e8f0',
+                    bgcolor: '#ffffff',
+                    overflow: 'hidden'
+                }}
+            >
+                <Box sx={{ borderBottom: 1, borderColor: '#f1f5f9', px: 1, bgcolor: '#f8fafc' }}>
+                    <Tabs 
+                        value={tabValue} 
+                        onChange={handleTabChange} 
+                        aria-label="account detail tabs"
+                        sx={{
+                            '& .MuiTab-root': {
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: '0.85rem',
+                                minWidth: 120,
+                                py: 2,
+                                color: '#64748b',
+                                '&.Mui-selected': {
+                                    color: '#3b82f6',
+                                }
+                            },
+                            '& .MuiTabs-indicator': {
+                                height: 3,
+                                borderRadius: '3px 3px 0 0',
+                                bgcolor: '#3b82f6'
+                            }
+                        }}
+                    >
                         <Tab label="Profile Details" />
                         <Tab label="Purchases" />
                         <Tab label="Waivers" />
                     </Tabs>
                 </Box>
-                <Box sx={{ p: 3 }}>
+                <Box sx={{ p: 4 }}>
                     {tabValue === 0 && (
                         <ProfileDetail profile={selectedProfile} accountId={account.account_id} />
                     )}

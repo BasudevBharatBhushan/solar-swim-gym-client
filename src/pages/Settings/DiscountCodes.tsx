@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import {
   Box,
@@ -16,19 +17,32 @@ import {
   TableHead,
   TableRow,
   Switch,
-  FormControlLabel,
   Stack,
   Tabs,
   Tab,
-  Divider,
   Alert,
   Snackbar,
   MenuItem,
   Select,
   FormControl,
-  FormHelperText
+  Drawer,
+  Tooltip,
+  Avatar,
+  CircularProgress
 } from '@mui/material';
-import { Add, FilterList, Download, Edit, Delete, LocalOffer, MonetizationOn, InfoOutlined, CalendarToday } from '@mui/icons-material';
+import { 
+  Add, 
+  FilterList, 
+  Download, 
+  Edit, 
+  Delete, 
+  LocalOffer, 
+  MonetizationOn, 
+  CalendarToday,
+  Close,
+  CheckCircle,
+  TrendingUp
+} from '@mui/icons-material';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { discountService, Discount } from '../../services/discountService';
 import { serviceCatalog, Service } from '../../services/serviceCatalog';
@@ -39,6 +53,7 @@ export const DiscountCodes = () => {
     const [tabValue, setTabValue] = useState(0);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [services, setServices] = useState<Service[]>([]);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     
     // Form State
     const [editingDiscountId, setEditingDiscountId] = useState<string | null>(null);
@@ -70,7 +85,6 @@ export const DiscountCodes = () => {
                 serviceCatalog.getServices(locationId)
             ]);
             setDiscounts(discountData || []);
-            // Handle possibility that serviceData.data exists
             const servicesList = serviceData.data || serviceData;
             setServices(Array.isArray(servicesList) ? servicesList : []);
         } catch (error) {
@@ -101,6 +115,12 @@ export const DiscountCodes = () => {
         setIsActive(discount.is_active);
         setStartDate(discount.start_date ? discount.start_date.split('T')[0] : '');
         setEndDate(discount.end_date ? discount.end_date.split('T')[0] : '');
+        setIsDrawerOpen(true);
+    };
+
+    const handleNewClick = () => {
+        resetForm();
+        setIsDrawerOpen(true);
     };
 
     const resetForm = () => {
@@ -112,11 +132,6 @@ export const DiscountCodes = () => {
         setIsActive(true);
         setStartDate('');
         setEndDate('');
-        
-        // Use a small timeout to ensure field exists if we toggle something
-        setTimeout(() => {
-            nameInputRef.current?.focus();
-        }, 100);
     };
 
     const handleSaveDiscount = async () => {
@@ -154,11 +169,12 @@ export const DiscountCodes = () => {
             
             setMessage({ 
                 type: 'success', 
-                text: editingDiscountId ? 'Discount code updated successfully' : 'Discount code created successfully' 
+                text: editingDiscountId ? 'Discount updated successfully' : 'Discount created successfully' 
             });
             
+            setIsDrawerOpen(false);
             resetForm();
-            loadDiscounts(); // Refresh list
+            loadDiscounts();
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message || 'Failed to save discount' });
         } finally {
@@ -172,165 +188,207 @@ export const DiscountCodes = () => {
         return true;
     });
 
+    const activeCount = discounts.filter(d => d.is_active).length;
+
     return (
-        <Box sx={{ p: 3, maxWidth: 1600, mx: 'auto' }}>
+        <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1400, mx: 'auto' }}>
             <PageHeader 
-                title="Discount Code Management"
-                description="Create, monitor, and manage promotional offers for swim programs."
+                title="Promotions & Discounts"
+                description="Manage seasonal offers, referral codes, and special program discounts."
                 breadcrumbs={[
                     { label: 'Settings', href: '/admin/settings' },
-                    { label: 'Discount Codes', active: true }
+                    { label: 'Discounts', active: true }
                 ]}
                 action={
                     <Button 
                         variant="contained" 
                         startIcon={<Add />}
-                        onClick={resetForm}
+                        onClick={handleNewClick}
                         sx={{ 
                             textTransform: 'none', 
-                            fontWeight: 700, 
-                            bgcolor: '#42A5F5',
-                            boxShadow: '0 4px 10px rgba(66, 165, 245, 0.3)',
-                            borderRadius: 1.5,
+                            fontWeight: 800, 
+                            bgcolor: '#3b82f6',
+                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)',
+                            borderRadius: '10px',
                             px: 3,
-                            py: 1
+                            py: 1,
+                            '&:hover': { bgcolor: '#2563eb' }
                         }}
                     >
-                        New Discount
+                        Create Discount
                     </Button>
                 }
             />
 
             {message && (
-                <Snackbar open={true} autoHideDuration={6000} onClose={() => setMessage(null)}>
-                    <Alert severity={message.type} onClose={() => setMessage(null)}>{message.text}</Alert>
+                <Snackbar open={true} autoHideDuration={4000} onClose={() => setMessage(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+                    <Alert variant="filled" severity={message.type} onClose={() => setMessage(null)} sx={{ borderRadius: '10px' }}>
+                        {message.text}
+                    </Alert>
                 </Snackbar>
             )}
 
             <Grid container spacing={3}>
-                {/* Left Column: List */}
-                <Grid size={{ xs: 12, md: 8 }} sx={{ display: 'flex' }}>
-                    <Paper sx={{ flex: 1, p: 2, borderRadius: 2, border: '1px solid #E0E0E0', minHeight: 400 }}>
-                        {/* Toolbar */}
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Grid size={12}>
+                    <Paper 
+                        elevation={0}
+                        sx={{ 
+                            borderRadius: '16px', 
+                            border: '1px solid #e2e8f0', 
+                            overflow: 'hidden',
+                            bgcolor: '#ffffff'
+                        }}
+                    >
+                        {/* Status Bar */}
+                        <Box sx={{ p: 2, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Tabs 
                                 value={tabValue} 
-                                onChange={(_, v) => setTabValue(v)}
+                                onChange={(_: any, v: any) => setTabValue(v)}
                                 sx={{ 
                                     minHeight: 0,
                                     '& .MuiTab-root': { 
                                         textTransform: 'none', 
-                                        fontWeight: 600, 
-                                        minHeight: 0, 
-                                        minWidth: 80,
-                                        px: 2,
-                                        py: 1,
-                                        borderRadius: 1,
-                                        mr: 1
+                                        fontWeight: 700, 
+                                        minHeight: 40,
+                                        px: 3,
+                                        borderRadius: '8px',
+                                        fontSize: '0.85rem',
+                                        color: '#64748b',
+                                        '&.Mui-selected': { color: '#3b82f6', bgcolor: '#eff6ff' }
                                     },
-                                    '& .Mui-selected': {
-                                        bgcolor: '#E3F2FD',
-                                        color: '#1976D2'
-                                    },
-                                    '& .MuiTabs-indicator': {
-                                        display: 'none'
-                                    }
+                                    '& .MuiTabs-indicator': { display: 'none' }
                                 }}
                             >
-                                <Tab label="All Codes" />
-                                <Tab label="Active" />
+                                <Tab label={`All Codes (${discounts.length})`} />
+                                <Tab label={`Active (${activeCount})`} />
                                 <Tab label="Archived" />
                             </Tabs>
 
-                            <Stack direction="row" spacing={1}>
-                                <Button variant="outlined" startIcon={<FilterList />} size="small" sx={{ textTransform: 'none', color: '#546E7A', borderColor: '#CFD8DC' }}>Filter</Button>
-                                <Button variant="outlined" startIcon={<Download />} size="small" sx={{ textTransform: 'none', color: '#546E7A', borderColor: '#CFD8DC' }}>Export</Button>
+                            <Stack direction="row" spacing={1.5}>
+                                <Tooltip title="Filter discounts">
+                                    <IconButton size="small" sx={{ border: '1px solid #e2e8f0', p: 1, borderRadius: '8px' }}>
+                                        <FilterList fontSize="small" sx={{ color: '#64748b' }} />
+                                    </IconButton>
+                                </Tooltip>
+                                <Button 
+                                    variant="outlined" 
+                                    startIcon={<Download />} 
+                                    size="small" 
+                                    sx={{ 
+                                        textTransform: 'none', 
+                                        color: '#64748b', 
+                                        borderColor: '#e2e8f0',
+                                        fontWeight: 600,
+                                        borderRadius: '8px',
+                                        px: 2
+                                    }}
+                                >
+                                    Export CSV
+                                </Button>
                             </Stack>
                         </Box>
 
-                        <TableContainer>
-                            <Table size="medium">
+                        <TableContainer sx={{ minHeight: 400 }}>
+                            <Table stickyHeader>
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>CODE</TableCell>
-                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>TYPE</TableCell>
-                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>VALUE</TableCell>
-                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>STATUS</TableCell>
-                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>VALIDITY</TableCell>
-                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>SERVICE</TableCell>
-                                        <TableCell sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>STAFF</TableCell>
-                                        <TableCell align="right" sx={{ color: '#90A4AE', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>ACTIONS</TableCell>
+                                        <TableCell sx={{ bgcolor: '#ffffff', color: '#94a3b8', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>Discount Code</TableCell>
+                                        <TableCell sx={{ bgcolor: '#ffffff', color: '#94a3b8', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>Type & Value</TableCell>
+                                        <TableCell sx={{ bgcolor: '#ffffff', color: '#94a3b8', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>Status</TableCell>
+                                        <TableCell sx={{ bgcolor: '#ffffff', color: '#94a3b8', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>Validity Period</TableCell>
+                                        <TableCell sx={{ bgcolor: '#ffffff', color: '#94a3b8', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>Applicable For</TableCell>
+                                        <TableCell align="right" sx={{ bgcolor: '#ffffff', color: '#94a3b8', fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', py: 2 }}>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {loading && discounts.length === 0 ? (
-                                        <TableRow><TableCell colSpan={6} align="center">Loading...</TableCell></TableRow>
+                                        <TableRow>
+                                            <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
+                                                <CircularProgress size={30} sx={{ mb: 2 }} />
+                                                <Typography variant="body2" color="text.secondary">Fetching discounts...</Typography>
+                                            </TableCell>
+                                        </TableRow>
                                     ) : filteredDiscounts.length === 0 ? (
-                                        <TableRow><TableCell colSpan={6} align="center">No discounts found</TableCell></TableRow>
+                                        <TableRow>
+                                            <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
+                                                <Box sx={{ opacity: 0.3, mb: 2 }}>
+                                                    <LocalOffer sx={{ fontSize: 48 }} />
+                                                </Box>
+                                                <Typography variant="body1" fontWeight={600} color="text.secondary">No discounts found</Typography>
+                                                <Typography variant="caption" color="text.secondary">Try adjusting your filters or create a new code.</Typography>
+                                            </TableCell>
+                                        </TableRow>
                                     ) : filteredDiscounts.map((discount) => {
                                         const isPercentage = discount.discount.includes('%');
-                                        const displayType = isPercentage ? 'Percentage' : 'Flat Amount';
                                         const displayValue = isPercentage ? discount.discount : `$${discount.discount}`;
-                                        const serviceName = discount.service_id ? services.find(s => s.service_id === discount.service_id)?.name || 'Error' : 'All Services';
+                                        const serviceName = discount.service_id ? services.find(s => s.service_id === discount.service_id)?.name || 'Error' : 'All Store Services';
                                         
                                         return (
-                                        <TableRow key={discount.discount_id} sx={{ borderTop: '1px solid #F5F5F5' }}>
+                                        <TableRow key={discount.discount_id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                             <TableCell>
-                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, bgcolor: '#F5F5F5', px: 1, py: 0.5, borderRadius: 1, display: 'inline-block' }}>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', bgcolor: '#f1f5f9', px: 1.5, py: 0.75, borderRadius: '6px', display: 'inline-block', border: '1px solid #e2e8f0', letterSpacing: '0.5px' }}>
                                                     {discount.discount_code}
                                                 </Typography>
                                             </TableCell>
                                             <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    {isPercentage ? 
-                                                        <LocalOffer sx={{ fontSize: 16, color: '#2196F3' }} /> : 
-                                                        <MonetizationOn sx={{ fontSize: 16, color: '#2196F3' }} />
-                                                    }
-                                                    <Typography variant="body2" sx={{ color: '#455A64' }}>{displayType}</Typography>
-                                                </Box>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{displayValue}</Typography>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Avatar sx={{ bgcolor: isPercentage ? '#eff6ff' : '#ecfdf5', color: isPercentage ? '#3b82f6' : '#10b981', width: 32, height: 32 }}>
+                                                        {isPercentage ? <TrendingUp sx={{ fontSize: 16 }} /> : <MonetizationOn sx={{ fontSize: 16 }} />}
+                                                    </Avatar>
+                                                    <Box>
+                                                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b' }}>{displayValue}</Typography>
+                                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>{isPercentage ? 'Percentage' : 'Flat Amount'}</Typography>
+                                                    </Box>
+                                                </Stack>
                                             </TableCell>
                                             <TableCell>
                                                 <Chip 
-                                                    label={discount.is_active ? '● ACTIVE' : '● INACTIVE'} 
+                                                    label={discount.is_active ? 'ACTIVE' : 'ARCHIVED'} 
                                                     size="small"
+                                                    variant="filled"
                                                     sx={{ 
-                                                        bgcolor: discount.is_active ? '#E8F5E9' : '#ECEFF1', 
-                                                        color: discount.is_active ? '#2E7D32' : '#78909C',
+                                                        bgcolor: discount.is_active ? '#dcfce7' : '#f1f5f9', 
+                                                        color: discount.is_active ? '#166534' : '#64748b',
                                                         fontWeight: 800,
                                                         fontSize: '0.65rem',
-                                                        borderRadius: 4
+                                                        borderRadius: '6px',
+                                                        height: 24,
+                                                        '& .MuiChip-label': { px: 1.5 }
                                                     }} 
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <CalendarToday sx={{ fontSize: 14, color: '#90A4AE' }} />
-                                                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                                                        <Typography variant="caption" sx={{ color: '#78909C', fontSize: '0.65rem', fontWeight: 700 }}>
-                                                            {discount.start_date ? new Date(discount.start_date).toLocaleDateString() : 'No Start'}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: '#78909C', fontSize: '0.65rem', fontWeight: 700 }}>
-                                                            {discount.end_date ? new Date(discount.end_date).toLocaleDateString() : 'No End'}
+                                                <Stack spacing={0.5}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <CalendarToday sx={{ fontSize: 14, color: '#94a3b8' }} />
+                                                        <Typography variant="caption" sx={{ color: '#475569', fontWeight: 600 }}>
+                                                            {discount.start_date ? new Date(discount.start_date).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'No start date'}
                                                         </Typography>
                                                     </Box>
-                                                </Box>
+                                                    {discount.end_date && (
+                                                        <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 700, ml: 3 }}>
+                                                            Exp: {new Date(discount.end_date).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                                                        </Typography>
+                                                    )}
+                                                </Stack>
                                             </TableCell>
                                             <TableCell>
-                                                <Typography variant="body2" sx={{ color: '#263238', fontWeight: 600 }}>{serviceName}</Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" sx={{ color: '#455A64', fontSize: '0.75rem', fontWeight: 500 }}>{discount.staff_name || 'System'}</Typography>
+                                                <Typography variant="body2" sx={{ color: '#334155', fontWeight: 700, fontSize: '0.8rem' }}>{serviceName}</Typography>
+                                                <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 500 }}>Added by {discount.staff_name || 'Admin'}</Typography>
                                             </TableCell>
                                             <TableCell align="right">
-                                                <IconButton size="small" sx={{ color: '#90A4AE' }} onClick={() => handleEditClick(discount)}>
-                                                    <Edit fontSize="small" />
-                                                </IconButton>
-                                                <IconButton size="small" sx={{ color: '#90A4AE' }}>
-                                                    <Delete fontSize="small" />
-                                                </IconButton>
+                                                <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                                    <Tooltip title="Edit Discount">
+                                                        <IconButton size="small" onClick={() => handleEditClick(discount)} sx={{ color: '#64748b', '&:hover': { color: '#3b82f6', bgcolor: '#eff6ff' } }}>
+                                                            <Edit fontSize="small" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title="Delete">
+                                                        <IconButton size="small" sx={{ color: '#64748b', '&:hover': { color: '#ef4444', bgcolor: '#fef2f2' } }}>
+                                                            <Delete fontSize="small" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </Stack>
                                             </TableCell>
                                         </TableRow>
                                     )})}
@@ -338,172 +396,203 @@ export const DiscountCodes = () => {
                             </Table>
                         </TableContainer>
                         
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 3, px: 1 }}>
-                            <Typography variant="caption" color="text.secondary">Showing {filteredDiscounts.length} codes</Typography>
+                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
+                            <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 600 }}>
+                                {filteredDiscounts.length} promotional codes listed
+                            </Typography>
                         </Box>
-
                     </Paper>
                 </Grid>
+            </Grid>
 
-                {/* Right Column: Define/Edit Discount */}
-                <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex' }}>
-                    <Paper sx={{ flex: 1, p: 3, borderRadius: 2, border: '1px solid #E0E0E0', minHeight: 400 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                            <Box sx={{ bgcolor: '#42A5F5', borderRadius: '50%', color: 'white', p: 0.5, display: 'flex' }}>
-                                {editingDiscountId ? <Edit sx={{ fontSize: 20 }} /> : <Add sx={{ fontSize: 20 }} />}
-                            </Box>
-                            <Box>
-                                <Typography variant="subtitle1" fontWeight="bold">
-                                    {editingDiscountId ? 'Edit Discount Code' : 'New Discount'}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    {editingDiscountId ? 'Update parameters for this promo code.' : 'Configure rule parameters for the promo code.'}
-                                </Typography>
-                            </Box>
+            {/* Side Drawer for Form */}
+            <Drawer
+                anchor="right"
+                open={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                PaperProps={{
+                    sx: { width: { xs: '100%', sm: 450 }, border: 'none', boxShadow: '-10px 0 25px rgba(0,0,0,0.05)' }
+                }}
+            >
+                <Box sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    {/* Drawer Header */}
+                    <Box sx={{ p: 3, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box>
+                            <Typography variant="h6" fontWeight={800} color="#1e293b">
+                                {editingDiscountId ? 'Edit Discount' : 'New Discount Code'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                                Configure promotional rule parameters
+                            </Typography>
                         </Box>
-                        
-                        <Divider sx={{ mb: 3 }} />
+                        <IconButton onClick={() => setIsDrawerOpen(false)} sx={{ bgcolor: '#fff', border: '1px solid #e2e8f0' }}>
+                            <Close />
+                        </IconButton>
+                    </Box>
 
-                        <Stack spacing={3}>
+                    {/* Drawer Content */}
+                    <Box sx={{ p: 3, flexGrow: 1, overflowY: 'auto' }}>
+                        <Stack spacing={4}>
                             <Box>
-                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>DISCOUNT CODE NAME</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
+                                    Discount Code Name
+                                </Typography>
                                 <TextField 
                                     fullWidth 
                                     inputRef={nameInputRef}
-                                    placeholder="E.G. FLASH20" 
+                                    placeholder="E.G. WELCOME2026" 
                                     value={discountName}
                                     onChange={(e) => setDiscountName(e.target.value)}
-                                    size="medium"
-                                    sx={{ 
-                                        '& .MuiOutlinedInput-root': { borderRadius: 1.5, bgcolor: '#FFFFFF' } 
-                                    }}
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: '#f8fafc' } }}
                                 />
                             </Box>
 
                             <Box>
-                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>DISCOUNT TYPE</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
+                                    Discount Logic
+                                </Typography>
                                 <Grid container spacing={2}>
-                                    <Grid size={{ xs: 6 }}>
+                                    <Grid size={6}>
                                         <Paper 
-                                            variant="outlined" 
+                                            elevation={0}
+                                            onClick={() => setDiscountType('Percentage')}
                                             sx={{ 
                                                 p: 2, 
                                                 cursor: 'pointer',
-                                                borderRadius: 1.5,
-                                                bgcolor: discountType === 'Percentage' ? '#E3F2FD' : 'white',
-                                                borderColor: discountType === 'Percentage' ? '#2196F3' : '#E0E0E0',
-                                                borderWidth: discountType === 'Percentage' ? 2 : 1
+                                                borderRadius: '12px',
+                                                border: '2px solid',
+                                                borderColor: discountType === 'Percentage' ? '#3b82f6' : '#e2e8f0',
+                                                bgcolor: discountType === 'Percentage' ? '#f0f9ff' : '#ffffff',
+                                                transition: 'all 0.2s ease',
+                                                '&:hover': { borderColor: '#3b82f6', bgcolor: '#f8fafc' }
                                             }}
-                                            onClick={() => setDiscountType('Percentage')}
                                         >
-                                           <LocalOffer sx={{ color: discountType === 'Percentage' ? '#2196F3' : '#90A4AE', mb: 1 }} />
-                                           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: discountType === 'Percentage' ? '#1976D2' : '#455A64' }}>Percentage</Typography>
-                                           <Typography variant="caption" sx={{ color: '#78909C', fontSize: '0.65rem' }}>Deduct from total</Typography>
+                                           <Avatar sx={{ bgcolor: discountType === 'Percentage' ? '#3b82f6' : '#f1f5f9', color: discountType === 'Percentage' ? '#fff' : '#64748b', mb: 1.5, width: 36, height: 36 }}>
+                                                <LocalOffer sx={{ fontSize: 18 }} />
+                                           </Avatar>
+                                           <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b' }}>Percentage</Typography>
+                                           <Typography variant="caption" sx={{ color: '#94a3b8' }}>Deduct % off total</Typography>
                                         </Paper>
                                     </Grid>
-                                    <Grid size={{ xs: 6 }}>
+                                    <Grid size={6}>
                                         <Paper 
-                                            variant="outlined" 
+                                            elevation={0}
+                                            onClick={() => setDiscountType('Flat')}
                                             sx={{ 
                                                 p: 2, 
                                                 cursor: 'pointer',
-                                                borderRadius: 1.5,
-                                                bgcolor: discountType === 'Flat' ? '#E3F2FD' : 'white',
-                                                borderColor: discountType === 'Flat' ? '#2196F3' : '#E0E0E0',
-                                                borderWidth: discountType === 'Flat' ? 2 : 1
+                                                borderRadius: '12px',
+                                                border: '2px solid',
+                                                borderColor: discountType === 'Flat' ? '#10b981' : '#e2e8f0',
+                                                bgcolor: discountType === 'Flat' ? '#f0fdf4' : '#ffffff',
+                                                transition: 'all 0.2s ease',
+                                                '&:hover': { borderColor: '#10b981', bgcolor: '#f8fafc' }
                                             }}
-                                            onClick={() => setDiscountType('Flat')}
                                         >
-                                           <MonetizationOn sx={{ color: discountType === 'Flat' ? '#2196F3' : '#90A4AE', mb: 1 }} />
-                                           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: discountType === 'Flat' ? '#1976D2' : '#455A64' }}>Flat Amount</Typography>
-                                           <Typography variant="caption" sx={{ color: '#78909C', fontSize: '0.65rem' }}>Fixed dollar value</Typography>
+                                           <Avatar sx={{ bgcolor: discountType === 'Flat' ? '#10b981' : '#f1f5f9', color: discountType === 'Flat' ? '#fff' : '#64748b', mb: 1.5, width: 36, height: 36 }}>
+                                                <MonetizationOn sx={{ fontSize: 18 }} />
+                                           </Avatar>
+                                           <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b' }}>Flat Amount</Typography>
+                                           <Typography variant="caption" sx={{ color: '#94a3b8' }}>Fixed dollar value</Typography>
                                         </Paper>
                                     </Grid>
                                 </Grid>
                             </Box>
 
                             <Box>
-                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>DISCOUNT VALUE</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
+                                    Discount Value
+                                </Typography>
                                 <TextField 
                                     fullWidth 
                                     value={discountValue}
                                     onChange={(e) => setDiscountValue(e.target.value)}
+                                    type="number"
+                                    placeholder="0.00"
                                     InputProps={{
-                                        startAdornment: <InputAdornment position="start" sx={{ fontWeight: 800, color: '#546E7A' }}>{discountType === 'Percentage' ? '%' : '$'}</InputAdornment>
+                                        startAdornment: <InputAdornment position="start" sx={{ fontWeight: 800, color: '#1e293b' }}>{discountType === 'Percentage' ? '%' : '$'}</InputAdornment>
                                     }}
-                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                                 />
                             </Box>
 
                             <Box>
-                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>TARGET SERVICE (OPTIONAL)</Typography>
-                                <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}>
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
+                                    Restrict to Service
+                                </Typography>
+                                <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}>
                                     <Select
                                         value={selectedServiceId}
-                                        onChange={(e) => setSelectedServiceId(e.target.value as string)}
+                                        onChange={(e: any) => setSelectedServiceId(e.target.value as string)}
                                         displayEmpty
                                     >
-                                        <MenuItem value="all">Applicable for All Services</MenuItem>
+                                        <MenuItem value="all">
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                <CheckCircle sx={{ fontSize: 16, color: '#3b82f6' }} />
+                                                <Typography variant="body2" fontWeight={600}>All Store Services</Typography>
+                                            </Stack>
+                                        </MenuItem>
                                         {services.map((service) => (
                                             <MenuItem key={service.service_id} value={service.service_id}>
-                                                {service.name}
+                                                <Typography variant="body2">{service.name}</Typography>
                                             </MenuItem>
                                         ))}
                                     </Select>
-                                    <FormHelperText sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
-                                        <InfoOutlined sx={{ fontSize: 14 }} />
-                                        {selectedServiceId === 'all' 
-                                            ? "This discount can be applied to any service." 
-                                            : `This discount is restricted to ${services.find(s => s.service_id === selectedServiceId)?.name}.`}
-                                    </FormHelperText>
                                 </FormControl>
                             </Box>
 
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 6 }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>START DATE</Typography>
-                                    <TextField 
-                                        fullWidth 
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        InputLabelProps={{ shrink: true }}
-                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
-                                    />
-                                </Grid>
-                                <Grid size={{ xs: 6 }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#546E7A', mb: 1, display: 'block', textTransform: 'uppercase', fontSize: '0.7rem' }}>END DATE</Typography>
-                                    <TextField 
-                                        fullWidth 
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        InputLabelProps={{ shrink: true }}
-                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
-                                    />
-                                </Grid>
-                            </Grid>
-
                             <Box>
-                                <FormControlLabel 
-                                    control={
-                                        <Switch 
-                                            checked={isActive} 
-                                            onChange={(e) => setIsActive(e.target.checked)}
-                                            color="success"
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
+                                    Validity Period
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid size={6}>
+                                        <TextField 
+                                            fullWidth 
+                                            type="date"
+                                            label="Start Date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            InputLabelProps={{ shrink: true }}
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                                         />
-                                    } 
-                                    label={<Typography variant="body2" fontWeight="bold">Active</Typography>} 
+                                    </Grid>
+                                    <Grid size={6}>
+                                        <TextField 
+                                            fullWidth 
+                                            type="date"
+                                            label="Expiry Date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            InputLabelProps={{ shrink: true }}
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                        />
+                                    </Grid>
+                                </Grid>
+                            </Box>
+
+                            <Box sx={{ p: 2, bgcolor: '#fdf2f2', borderRadius: '10px', border: '1px solid #fecaca', display: 'flex', gap: 2, alignItems: 'center' }}>
+                                <Switch 
+                                    checked={isActive} 
+                                    onChange={(e: any) => setIsActive(e.target.checked)}
+                                    color="success"
                                 />
+                                <Box>
+                                    <Typography variant="body2" fontWeight={800} color="#991b1b">Active & Discoverable</Typography>
+                                    <Typography variant="caption" color="#b91c1c">Turn off to archive and prevent new usage.</Typography>
+                                </Box>
                             </Box>
                         </Stack>
+                    </Box>
 
-                        <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
+                    {/* Drawer Footer */}
+                    <Box sx={{ p: 3, borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc' }}>
+                        <Stack direction="row" spacing={2}>
                             <Button 
                                 fullWidth 
                                 variant="outlined" 
-                                onClick={resetForm}
-                                sx={{ color: '#546E7A', borderColor: '#CFD8DC', borderRadius: 1.5, textTransform: 'none', fontWeight: 600, py: 1 }}
+                                onClick={() => setIsDrawerOpen(false)}
+                                sx={{ color: '#64748b', borderColor: '#e2e8f0', borderRadius: '10px', textTransform: 'none', fontWeight: 700, py: 1.5 }}
                             >
                                 Cancel
                             </Button>
@@ -512,14 +601,14 @@ export const DiscountCodes = () => {
                                 variant="contained" 
                                 onClick={handleSaveDiscount}
                                 disabled={loading}
-                                sx={{ bgcolor: '#42A5F5',  borderRadius: 1.5, textTransform: 'none', fontWeight: 700, py: 1, boxShadow: 'none' }}
+                                sx={{ bgcolor: '#3b82f6', borderRadius: '10px', textTransform: 'none', fontWeight: 800, py: 1.5, boxShadow: 'none' }}
                             >
-                                {loading ? 'Saving...' : editingDiscountId ? 'Update Discount' : 'Save Discount'}
+                                {loading ? 'Processing...' : editingDiscountId ? 'Update Promotion' : 'Activate Discount'}
                             </Button>
-                        </Box>
-                    </Paper>
-                </Grid>
-            </Grid>
+                        </Stack>
+                    </Box>
+                </Box>
+            </Drawer>
         </Box>
     );
 };

@@ -435,15 +435,15 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
               <Typography color="text.secondary" fontWeight={600}>All registration waivers are signed!</Typography>
             </Box>
           ) : (
-            <TableContainer component={Paper} elevation={0} variant="outlined">
+            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
               <Table>
-                <TableHead sx={{ bgcolor: '#fffbeb' }}>
+                <TableHead sx={{ bgcolor: '#fffbeb', borderBottom: '1px solid #fef3c7' }}>
                   <TableRow>
-                    <TableCell>Profile</TableCell>
-                    <TableCell>Age Group</TableCell>
-                    <TableCell>Waiver Type</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell align="right">Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#92400e', fontSize: '0.75rem', textTransform: 'uppercase' }}>Profile</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#92400e', fontSize: '0.75rem', textTransform: 'uppercase' }}>Age Group</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#92400e', fontSize: '0.75rem', textTransform: 'uppercase' }}>Waiver Type</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#92400e', fontSize: '0.75rem', textTransform: 'uppercase' }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: '#92400e', fontSize: '0.75rem', textTransform: 'uppercase' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -512,15 +512,15 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
               <Typography color="text.secondary">No signed waivers found.</Typography>
             </Box>
           ) : (
-            <TableContainer component={Paper} elevation={0} variant="outlined">
+            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px', overflow: 'hidden' }}>
               <Table>
-                <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                <TableHead sx={{ bgcolor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
                   <TableRow>
-                    <TableCell>Waiver Type</TableCell>
-                    <TableCell>Signed By</TableCell>
-                    <TableCell>Signed Date</TableCell>
-                    <TableCell>Signature</TableCell>
-                    <TableCell align="right">Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>Waiver Type</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>Signed By</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>Signed Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>Signature</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: '#475569', fontSize: '0.75rem', textTransform: 'uppercase' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

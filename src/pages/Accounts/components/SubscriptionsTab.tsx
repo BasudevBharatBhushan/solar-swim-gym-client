@@ -147,7 +147,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
             size="small" 
             onClick={handleAddSubscription}
           >
-            Marketplace
+            Store
           </Button>
       </Box>
 
