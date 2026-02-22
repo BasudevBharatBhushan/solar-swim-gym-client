@@ -1756,9 +1756,35 @@ export const Marketplace = () => {
                                                     x
                                                 </Typography>
                                             </IconButton>
-                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, pr: 3 }}>
-                                                {item.name}
-                                            </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, pr: 3, flexWrap: 'wrap' }}>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                                    {item.name}
+                                                </Typography>
+                                                {(() => {
+                                                    const badge = item.type === 'SERVICE' 
+                                                        ? { label: 'Service', color: '#1d4ed8', bgcolor: '#dbeafe' }
+                                                        : item.type === 'MEMBERSHIP'
+                                                        ? { label: 'Membership Plan', color: '#15803d', bgcolor: '#dcfce7' }
+                                                        : item.type === 'BASE' 
+                                                        ? { label: 'Membership Fee', color: '#c2410c', bgcolor: '#fff7ed' }
+                                                        : { label: item.type, color: '#475569', bgcolor: '#f1f5f9' };
+                                                    return (
+                                                        <Chip
+                                                            label={badge.label.toUpperCase()}
+                                                            size="small"
+                                                            sx={{
+                                                                height: 18,
+                                                                fontSize: '0.55rem',
+                                                                fontWeight: 800,
+                                                                bgcolor: badge.bgcolor,
+                                                                color: badge.color,
+                                                                borderRadius: 0.5,
+                                                                letterSpacing: '0.04em'
+                                                            }}
+                                                        />
+                                                    );
+                                                })()}
+                                            </Box>
 
                                             {/* Price display */}
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>

@@ -153,23 +153,24 @@ export const ContractsSigningDialog = ({
                     const breakdownParts: string[] = [];
                     
                     // 1. Primary Base Plans
-                    const primaryPlans = cart.filter(c => c.type === 'BASE' && c.name.includes('(PRIMARY)'));
+                    const primaryPlans = cart.filter(c => c.type === 'BASE' && c.name.toLowerCase().includes('primary'));
                     primaryPlans.forEach(p => {
                         const termName = subscriptionTerms.find(t => t.subscription_term_id === p.subscriptionTermId)?.name || 'Recurring';
-                        breakdownParts.push(`Membership Fee (Primary): ${p.name} (${termName}) - ${fmtCurr(p.price)}`);
+                        breakdownParts.push(`<li><strong>Membership Fee (Primary):</strong> ${p.name} (${termName}) - <strong>${fmtCurr(p.price)}</strong></li>`);
                     });
 
                     // 2. Add-on Base Plans
-                    const addonPlans = cart.filter(c => c.type === 'BASE' && c.name.includes('(ADD_ON)'));
+                    const addonPlans = cart.filter(c => c.type === 'BASE' && c.name.toLowerCase().includes('add_on'));
                     addonPlans.forEach(p => {
                         const termName = subscriptionTerms.find(t => t.subscription_term_id === p.subscriptionTermId)?.name || 'Recurring';
-                        breakdownParts.push(`Add-on Fee: ${p.name} (${termName}) - ${fmtCurr(p.price)}`);
+                        breakdownParts.push(`<li><strong>Add-on Fee:</strong> ${p.name} (${termName}) - <strong>${fmtCurr(p.price)}</strong></li>`);
                     });
 
                     // 3. Joining/Admission fees (the item itself)
-                    breakdownParts.push(`${item.feeType === 'ANNUAL' ? 'Renewal' : 'Joining'} Fee: ${fmtCurr(item.price)}`);
+                    breakdownParts.push(`<li><strong>${item.feeType === 'ANNUAL' ? 'Renewal' : 'Joining'} Fee:</strong> ${item.name} - <strong>${fmtCurr(item.price)}</strong></li>`);
 
-                    content = content.replace(/\[membershp_fee_breakdown\]/g, breakdownParts.join('\n'));
+                    const breakdownHtml = `<ul style="margin-top: 8px; margin-bottom: 8px; padding-left: 20px; list-style-type: disc;">${breakdownParts.join('')}</ul>`;
+                    content = content.replace(/\[membership_fee_breakdown\]|\[membershp_fee_breakdown\]/g, breakdownHtml);
                     
                     const coveredNames = (item.coverage || []).map((c: any) => c.name).join(', ') || 'N/A';
                     content = content.replace(/\[profile_coverage\]/g, coveredNames);
@@ -332,7 +333,7 @@ export const ContractsSigningDialog = ({
             </DialogTitle>
 
             <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <Grid container sx={{ flex: 1, overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
+                <Grid container sx={{ flex: 1, height: '100%', overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
                     
                     {/* Sidebar Tabs */}
                     <Grid size={{ xs: 12, md: 3 }} sx={{ 
@@ -340,7 +341,8 @@ export const ContractsSigningDialog = ({
                         borderBottom: isMobile ? '1px solid #e2e8f0' : 'none',
                         bgcolor: '#f8fafc',
                         overflowY: 'auto',
-                        maxHeight: isMobile ? '200px' : '100%'
+                        maxHeight: isMobile ? '200px' : '100%',
+                        height: isMobile ? 'auto' : '100%'
                     }}>
                         {!isMobile && (
                             <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
@@ -368,7 +370,7 @@ export const ContractsSigningDialog = ({
                                         }}
                                     >
                                         <Box sx={{ width: '100%', mb: 0.5 }}>
-                                            <Typography variant="body2" fontWeight={activeTab === idx ? 700 : 600} color={activeTab === idx ? 'primary.main' : 'text.primary'} noWrap>
+                                            <Typography variant="body2" fontWeight={activeTab === idx ? 700 : 600} color={activeTab === idx ? 'primary.main' : 'text.primary'}>
                                                 {c.cartItem.name}
                                             </Typography>
                                         </Box>
@@ -388,8 +390,8 @@ export const ContractsSigningDialog = ({
                     </Grid>
 
                     {/* Editor Area */}
-                    <Grid size={{ xs: 12, md: 9 }} sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#fff' }}>
-                        <Box sx={{ flex: 1, overflowY: 'auto', p: isMobile ? 2 : 3 }}>
+                    <Grid size={{ xs: 12, md: 9 }} sx={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: '#fff', minHeight: 0, height: isMobile ? 'auto' : '100%' }}>
+                        <Box sx={{ flex: 1, overflowY: 'auto', p: isMobile ? 2 : 4, minHeight: 0 }}>
                             {currentContract.error && (
                                 <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{currentContract.error}</Alert>
                             )}
@@ -408,6 +410,7 @@ export const ContractsSigningDialog = ({
                                 agreed={currentContract.agreed}
                                 onAgreeChange={handleAgreeChange}
                                 hideCheckbox={true}
+                                fullHeight={true}
                                 signatureComponent={
                                     !currentContract.isSigned ? (
                                         <SignaturePad 
