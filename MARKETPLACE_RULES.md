@@ -20,8 +20,11 @@ These rules determine which membership programs and categories a household is el
 *   **Enforcement**: 
     *   The "Add" button for Add-on cards is disabled or shows an error if no Primary is detected.
     *   Validation checks both active subscriptions (via `billingService.getAccountSubscriptions`) and current cart contents.
+*   **Coverage Dialog Behavior**: 
+    *   Profiles are automatically **disabled and unchecked** in the selection modal if they already hold an active membership or if the same plan is already assigned to them in the cart.
+    *   This prevents duplicate assignments and ensures that only eligible family members can be selected for a new plan or fee.
 *   **Implementation File**: `src/pages/Marketplace/Marketplace.tsx`
-    *   Logic: `hasActivePrimary` check and `handleStartAddBaseCard`.
+    *   Logic: `hasActivePrimary` check, `handleStartAddBaseCard`, and `openCoverageDialogForItem`.
 
 ---
 
@@ -83,10 +86,14 @@ Rules defining the limits and usage behavior of service packs.
 Rules governing how items are structured in the cart and how their dates are determined.
 
 *   **Rule Logic**:
-    *   **Sharable Item Structure**: If a pack is sharable, selecting multiple profiles creates **one** cart item. The price is taken from the first profile selected (the primary), and other profiles are added as "ADD_ON" coverage.
-    *   **Non-Sharable Item Structure**: If a pack is NOT sharable, selecting multiple profiles creates **multiple** separate cart items, each priced according to the specific age group of that profile.
+    *   **Consolidated Selection (Multi-Select)**: If multiple profiles are selected *simultaneously* in the coverage modal for a Membership Plan or Fee, they are grouped into a **single cart line item** with multiple covers.
+    *   **Sequential Selections (Separate Lines)**: If a user adds a plan/fee for Profile A, completes it, and then separately clicks "Add" again to add the same plan/fee for Profile B, the system creates **separate cart line items**.
+    *   **Identification Logic**: This is enforced using timestamped internal IDs (e.g., `BASE-ID-TIMESTAMP`) which ensure that each initiation of an "Add" action is treated as a distinct transaction.
+    *   **Sharable Item Structure**: For Service Packs, if a pack is sharable, selecting multiple profiles creates **one** cart item. The price is taken from the first profile selected (the primary), and other profiles are added as "ADD_ON" coverage.
+    *   **Non-Sharable Item Structure**: For Service Packs, if a pack is NOT sharable, selecting multiple profiles creates **multiple** separate cart items.
     *   **Session-Based Billing**: When a session is selected, the `billing_period_start` and `billing_period_end` are automatically populated from the session's start and expiry dates.
 *   **Implementation Files**: 
+    *   `src/pages/Marketplace/Marketplace.tsx` (Logic: `handleConfirmCoverage` and `handleConfirmFeeSelection`)
     *   `src/pages/Marketplace/ServicePackSelectionDialog.tsx` (Logic: `handleConfirm` and `handleSessionChange`)
 
 ---

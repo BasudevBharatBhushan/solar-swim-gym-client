@@ -53,7 +53,7 @@ import {
 
 export const Memberships = () => {
   const { currentLocationId } = useAuth();
-  const { waiverPrograms, dropdownValues } = useConfig();
+  const { waiverPrograms, dropdownValues, ageGroups } = useConfig();
   
   // Data State
   const [programs, setPrograms] = useState<MembershipProgram[]>([]);
@@ -250,7 +250,7 @@ export const Memberships = () => {
                              priority: 1, 
                              result: 'ALLOW', 
                              message: 'Eligibility Rule', 
-                             condition_json: { minAdult: 1, maxAdult: 1 }
+                             condition_json: {}
                          }
                       ]
                   }
@@ -322,7 +322,7 @@ export const Memberships = () => {
                  priority: 1, 
                  result: 'ALLOW', 
                  message: 'Eligibility Rule', 
-                 condition_json: { minAdult: 1, maxAdult: 1 } 
+                 condition_json: {} 
              }
           ]
       };
@@ -638,18 +638,26 @@ export const Memberships = () => {
                               value={rule.condition_json[maxKey] ?? ''}
                               onChange={(e) => updateDraftRule(0, maxKey, e.target.value)}
                           />
-                      )}
+                       )}
                   </Grid>
               </Grid>
           </Box>
       );
 
       return (
-
           <Grid container spacing={3}>
-              <Grid size={{ xs: 12, sm: 4 }}>{renderGroup('Children', <ChildCare fontSize="small"/>, 'minChild', 'maxChild')}</Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>{renderGroup('Adults', <Person fontSize="small"/>, 'minAdult', 'maxAdult')}</Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>{renderGroup('Seniors', <Elderly fontSize="small"/>, 'minSenior', 'maxSenior')}</Grid>
+              {ageGroups.map((group) => (
+                  <Grid size={{ xs: 12, sm: 4 }} key={group.age_group_id}>
+                      {renderGroup(
+                          group.name, 
+                          group.name.toLowerCase().includes('child') ? <ChildCare fontSize="small"/> : 
+                          group.name.toLowerCase().includes('senior') ? <Elderly fontSize="small"/> : 
+                          <Person fontSize="small"/>, 
+                          `min_${group.age_group_id}`, 
+                          `max_${group.age_group_id}`
+                      )}
+                  </Grid>
+              ))}
           </Grid>
       );
   };

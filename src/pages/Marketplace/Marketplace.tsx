@@ -56,10 +56,7 @@ import { membershipService } from '../../services/membershipService';
 import { Service, serviceCatalog } from '../../services/serviceCatalog';
 import { discountService, Discount } from '../../services/discountService';
 import {
-    AgeBucket,
     CategoryCandidate,
-    EligibilityResult,
-    HouseholdCounts,
     buildHouseholdCountsFromBaseCart,
     classifyAgeFromDob,
     getAllCategoriesWithEligibility,
@@ -580,7 +577,7 @@ export const Marketplace = () => {
     }, [accountAgeGroupIds, basePrices, subscriptionTermOrder]);
 
     const baseCartItems = useMemo(() => cart.filter((item) => item.type === 'BASE'), [cart]);
-    const householdCounts = useMemo(() => buildHouseholdCountsFromBaseCart(baseCartItems), [baseCartItems]);
+    const householdCounts = useMemo(() => buildHouseholdCountsFromBaseCart(baseCartItems, ageGroups), [baseCartItems, ageGroups]);
     const missingDobProfileIds = useMemo(() => getBaseCartMissingDobProfileIds(baseCartItems), [baseCartItems]);
 
     const missingDobNames = useMemo(() => {
@@ -591,8 +588,8 @@ export const Marketplace = () => {
     }, [missingDobProfileIds, profilesById]);
 
     const eligibilityResults = useMemo(
-        () => getAllCategoriesWithEligibility(membershipPrograms, householdCounts),
-        [householdCounts, membershipPrograms]
+        () => getAllCategoriesWithEligibility(membershipPrograms, householdCounts, ageGroups),
+        [householdCounts, membershipPrograms, ageGroups]
     );
 
     const eligibleCandidates = useMemo(
@@ -604,15 +601,15 @@ export const Marketplace = () => {
         if (baseCartItems.length === 0 || missingDobProfileIds.length > 0) {
             return null;
         }
-        return getSuggestedCategory(eligibleCandidates, householdCounts);
-    }, [baseCartItems.length, eligibleCandidates, householdCounts, missingDobProfileIds.length]);
+        return getSuggestedCategory(eligibleCandidates, householdCounts, ageGroups);
+    }, [baseCartItems.length, eligibleCandidates, householdCounts, missingDobProfileIds.length, ageGroups]);
 
     const suggestedSpecificity = useMemo(() => {
         if (!suggestedCandidate) {
             return null;
         }
-        return getSpecificityScore(suggestedCandidate.range);
-    }, [suggestedCandidate]);
+        return getSpecificityScore(suggestedCandidate.range, ageGroups);
+    }, [suggestedCandidate, ageGroups]);
     const isInCart = (idPrefix: string) => cart.some((item) => item.id === idPrefix || item.id.startsWith(`${idPrefix}-`));
     const removeFromCart = async (id: string) => {
         const item = cart.find(i => i.id === id);
@@ -869,9 +866,9 @@ export const Marketplace = () => {
                 }
             } else if (item.type === 'MEMBERSHIP' && item.membershipRange) {
                 if (profile.date_of_birth) {
-                    const bucket = classifyAgeFromDob(profile.date_of_birth);
+                    const ageGroupId = classifyAgeFromDob(profile.date_of_birth, ageGroups);
                     const range = item.membershipRange;
-                    const maxAllowed = bucket === 'child' ? range.children.max : bucket === 'adult' ? range.adults.max : range.seniors.max;
+                    const maxAllowed = ageGroupId ? range[ageGroupId]?.max : 0;
                     if (maxAllowed === 0) {
                         isAllowed = false;
                     }
@@ -2102,13 +2099,14 @@ export const Marketplace = () => {
                                 }
                             } else if (pendingItem?.type === 'MEMBERSHIP' && pendingItem.membershipRange) {
                                 if (profile.date_of_birth) {
-                                    const bucket = classifyAgeFromDob(profile.date_of_birth);
+                                    const ageGroupId = classifyAgeFromDob(profile.date_of_birth, ageGroups);
                                     const range = pendingItem.membershipRange;
-                                    const maxAllowed = bucket === 'child' ? range.children.max : bucket === 'adult' ? range.adults.max : range.seniors.max;
+                                    const maxAllowed = ageGroupId ? range[ageGroupId]?.max : 0;
                                     
                                     if (maxAllowed === 0) {
                                         isAllowed = false;
-                                        restrictionReason = `${bucket.charAt(0).toUpperCase() + bucket.slice(1)}s not allowed in this plan`;
+                                        const groupName = ageGroups.find(g => g.age_group_id === ageGroupId)?.name || 'This age group';
+                                        restrictionReason = `${groupName}s not allowed in this plan`;
                                     }
                                 } else {
                                     isAllowed = false;
@@ -2293,9 +2291,17 @@ export const Marketplace = () => {
                                             {typeof entry.candidate.annualFee === 'number' ? formatCurrency(entry.candidate.annualFee) : 'n/a'}
                                         </TableCell>
                                         <TableCell>
-                                            {`${entry.candidate.range.children.min}-${Number.isFinite(entry.candidate.range.children.max) ? entry.candidate.range.children.max : 'inf'} / `}
-                                            {`${entry.candidate.range.adults.min}-${Number.isFinite(entry.candidate.range.adults.max) ? entry.candidate.range.adults.max : 'inf'} / `}
-                                            {`${entry.candidate.range.seniors.min}-${Number.isFinite(entry.candidate.range.seniors.max) ? entry.candidate.range.seniors.max : 'inf'}`}
+                                            {ageGroups.map((group, idx) => {
+                                                const r = (entry.candidate.range as any)[group.age_group_id];
+                                                const min = r?.min ?? 0;
+                                                const max = r?.max ?? Number.POSITIVE_INFINITY;
+                                                return (
+                                                    <span key={group.age_group_id}>
+                                                        {`${group.name}: ${min}-${Number.isFinite(max) ? max : 'inf'}`}
+                                                        {idx < ageGroups.length - 1 ? ' / ' : ''}
+                                                    </span>
+                                                );
+                                            })}
                                         </TableCell>
                                     </TableRow>
                                 ))}

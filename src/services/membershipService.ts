@@ -15,13 +15,7 @@ export interface MembershipRule {
   priority: number;
   result: 'ALLOW' | 'DENY';
   condition_json: {
-    minChild?: number;
-    maxChild?: number;
-    minAdult?: number;
-    maxAdult?: number;
-    minSenior?: number;
-    maxSenior?: number;
-    [key: string]: any;
+    [key: string]: number | undefined;
   }; 
   message?: string;
 }

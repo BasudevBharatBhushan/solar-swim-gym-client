@@ -1,17 +1,12 @@
 import { MembershipCategory, MembershipProgram } from '../../services/membershipService';
-
-export type AgeBucket = 'child' | 'adult' | 'senior';
+import { AgeGroup } from '../../context/ConfigContext';
 
 export interface HouseholdCounts {
-  children: number;
-  adults: number;
-  seniors: number;
+  [ageGroupId: string]: number;
 }
 
 export interface RuleRange {
-  children: { min: number; max: number };
-  adults: { min: number; max: number };
-  seniors: { min: number; max: number };
+  [ageGroupId: string]: { min: number; max: number };
 }
 
 export interface CategoryCandidate {
@@ -86,7 +81,7 @@ const activeFeeAmount = (category: MembershipCategory, feeType: 'JOINING' | 'ANN
   return fee?.amount;
 };
 
-export const classifyAgeFromDob = (dob: string | Date): AgeBucket => {
+export const classifyAgeFromDob = (dob: string | Date, ageGroups: AgeGroup[]): string | null => {
   const birthDate = new Date(dob);
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
@@ -95,13 +90,8 @@ export const classifyAgeFromDob = (dob: string | Date): AgeBucket => {
     age -= 1;
   }
 
-  if (age >= 65) {
-    return 'senior';
-  }
-  if (age >= 18) {
-    return 'adult';
-  }
-  return 'child';
+  const match = ageGroups.find(g => age >= (g.min_age ?? 0) && age <= (g.max_age ?? 999));
+  return match?.age_group_id || null;
 };
 
 export const getBaseCartMissingDobProfileIds = (baseCartItems: BaseCartItemLike[]): string[] => {
@@ -127,7 +117,10 @@ export const getBaseCartMissingDobProfileIds = (baseCartItems: BaseCartItemLike[
   return Array.from(missing);
 };
 
-export const buildHouseholdCountsFromBaseCart = (baseCartItems: BaseCartItemLike[]): HouseholdCounts => {
+export const buildHouseholdCountsFromBaseCart = (
+  baseCartItems: BaseCartItemLike[],
+  ageGroups: AgeGroup[]
+): HouseholdCounts => {
   const uniqueProfiles = new Map<string, CoverageLike>();
 
   baseCartItems.forEach((item) => {
@@ -141,69 +134,65 @@ export const buildHouseholdCountsFromBaseCart = (baseCartItems: BaseCartItemLike
     });
   });
 
-  const counts: HouseholdCounts = {
-    children: 0,
-    adults: 0,
-    seniors: 0,
-  };
+  const counts: HouseholdCounts = {};
+  ageGroups.forEach(g => {
+    counts[g.age_group_id] = 0;
+  });
 
   uniqueProfiles.forEach((coveredProfile) => {
     if (!coveredProfile.date_of_birth) {
       return;
     }
-    const bucket = classifyAgeFromDob(coveredProfile.date_of_birth);
-    if (bucket === 'child') {
-      counts.children += 1;
-      return;
+    const ageGroupId = classifyAgeFromDob(coveredProfile.date_of_birth, ageGroups);
+    if (ageGroupId && counts[ageGroupId] !== undefined) {
+      counts[ageGroupId] += 1;
     }
-    if (bucket === 'adult') {
-      counts.adults += 1;
-      return;
-    }
-    counts.seniors += 1;
   });
 
   return counts;
 };
 
-export const extractCategoryRange = (category: MembershipCategory): RuleRange => {
+export const extractCategoryRange = (category: MembershipCategory, ageGroups: AgeGroup[]): RuleRange => {
   const selectedRule = firstAllowRule(category);
   const conditionJson = selectedRule?.condition_json ?? {};
 
-  return {
-    children: {
-      min: toMinNumber(conditionJson.minChild),
-      max: toMaxNumber(conditionJson.maxChild),
-    },
-    adults: {
-      min: toMinNumber(conditionJson.minAdult),
-      max: toMaxNumber(conditionJson.maxAdult),
-    },
-    seniors: {
-      min: toMinNumber(conditionJson.minSenior),
-      max: toMaxNumber(conditionJson.maxSenior),
-    },
-  };
+  const range: RuleRange = {};
+  ageGroups.forEach(g => {
+    range[g.age_group_id] = {
+      min: toMinNumber(conditionJson[`min_${g.age_group_id}`]),
+      max: toMaxNumber(conditionJson[`max_${g.age_group_id}`]),
+    };
+  });
+
+  return range;
 };
 
-export const isCategoryEligible = (counts: HouseholdCounts, range: RuleRange): boolean => {
-  const childEligible = counts.children >= range.children.min && counts.children <= range.children.max;
-  const adultEligible = counts.adults >= range.adults.min && counts.adults <= range.adults.max;
-  const seniorEligible = counts.seniors >= range.seniors.min && counts.seniors <= range.seniors.max;
-  return childEligible && adultEligible && seniorEligible;
+export const isCategoryEligible = (counts: HouseholdCounts, range: RuleRange, ageGroups: AgeGroup[]): boolean => {
+  return ageGroups.every(g => {
+    const count = counts[g.age_group_id] || 0;
+    const r = range[g.age_group_id];
+    if (!r) return count === 0; // If no rule, only allow if count is 0
+    return count >= r.min && count <= r.max;
+  });
 };
 
-export const getSpecificityScore = (range: RuleRange): number => {
-  return (
-    rangeWidth(range.children.min, range.children.max) +
-    rangeWidth(range.adults.min, range.adults.max) +
-    rangeWidth(range.seniors.min, range.seniors.max)
-  );
+export const getSpecificityScore = (range: RuleRange, ageGroups: AgeGroup[]): number => {
+  let score = 0;
+  ageGroups.forEach(g => {
+    const r = range[g.age_group_id];
+    if (r) {
+      score += rangeWidth(r.min, r.max);
+    } else {
+      score += SPECIFICITY_INFINITY_CAP;
+    }
+  });
+  return score;
 };
 
 export const getAllCategoriesWithEligibility = (
   programs: MembershipProgram[],
-  counts: HouseholdCounts
+  counts: HouseholdCounts,
+  ageGroups: AgeGroup[]
 ): EligibilityResult[] => {
   const results: EligibilityResult[] = [];
 
@@ -217,7 +206,7 @@ export const getAllCategoriesWithEligibility = (
             return;
           }
 
-          const range = extractCategoryRange(category);
+          const range = extractCategoryRange(category, ageGroups);
           const candidate: CategoryCandidate = {
             programId: program.membership_program_id,
             programName: program.name,
@@ -230,8 +219,8 @@ export const getAllCategoriesWithEligibility = (
 
           results.push({
             candidate,
-            eligible: isCategoryEligible(counts, range),
-            specificityScore: getSpecificityScore(range),
+            eligible: isCategoryEligible(counts, range, ageGroups),
+            specificityScore: getSpecificityScore(range, ageGroups),
             totalFee: totalFeeForSort(candidate),
           });
         });
@@ -253,7 +242,8 @@ export const getAllCategoriesWithEligibility = (
 
 export const getSuggestedCategory = (
   eligibleCategories: CategoryCandidate[],
-  counts: HouseholdCounts
+  counts: HouseholdCounts,
+  ageGroups: AgeGroup[]
 ): CategoryCandidate | null => {
   void counts;
   if (eligibleCategories.length === 0) {
@@ -261,8 +251,8 @@ export const getSuggestedCategory = (
   }
 
   const sorted = [...eligibleCategories].sort((left, right) => {
-    const leftSpecificity = getSpecificityScore(left.range);
-    const rightSpecificity = getSpecificityScore(right.range);
+    const leftSpecificity = getSpecificityScore(left.range, ageGroups);
+    const rightSpecificity = getSpecificityScore(right.range, ageGroups);
     if (leftSpecificity !== rightSpecificity) {
       return leftSpecificity - rightSpecificity;
     }

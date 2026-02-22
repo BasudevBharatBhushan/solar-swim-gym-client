@@ -21,9 +21,7 @@ export interface AccountProfile {
 }
 
 export interface RuleRange {
-    children: { min: number; max: number };
-    adults: { min: number; max: number };
-    seniors: { min: number; max: number };
+    [ageGroupId: string]: { min: number; max: number };
 }
 
 export interface CartItem {
