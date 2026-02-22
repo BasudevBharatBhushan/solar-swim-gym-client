@@ -7,9 +7,13 @@ import ShieldIcon from '@mui/icons-material/Shield';
 import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 
+import EditIcon from '@mui/icons-material/Edit';
+import { Button } from '@mui/material';
+
 interface ProfileDetailProps {
   profile: any;
   accountId?: string;
+  onEdit?: () => void;
 }
 
 const DetailItem = ({ icon, label, value }: { icon: any, label: string, value: string }) => (
@@ -28,7 +32,7 @@ const DetailItem = ({ icon, label, value }: { icon: any, label: string, value: s
   </Stack>
 );
 
-export const ProfileDetail = ({ profile }: ProfileDetailProps) => {
+export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
   if (!profile) return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', py: 8 }}>
        <PersonIcon sx={{ fontSize: '4rem', color: '#e2e8f0', mb: 2 }} />
@@ -38,9 +42,28 @@ export const ProfileDetail = ({ profile }: ProfileDetailProps) => {
 
   return (
     <Box>
-        <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', mb: 4, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AssignmentIndIcon sx={{ color: '#3b82f6' }} /> Member Profile
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <AssignmentIndIcon sx={{ color: '#3b82f6' }} /> Member Profile
+            </Typography>
+            <Button
+                startIcon={<EditIcon sx={{ fontSize: '1rem !important' }} />}
+                onClick={onEdit}
+                size="small"
+                sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    color: '#64748b',
+                    bgcolor: '#f1f5f9',
+                    px: 1.5,
+                    borderRadius: '8px',
+                    '&:hover': { bgcolor: '#e2e8f0', color: '#1e293b' }
+                }}
+            >
+                Edit
+            </Button>
+        </Box>
 
         <Grid container spacing={1}>
             <Grid size={{ xs: 12, sm: 6 }}>

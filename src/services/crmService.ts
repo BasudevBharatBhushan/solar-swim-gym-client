@@ -94,4 +94,9 @@ export const crmService = {
       }
     });
   },
+
+  upsertProfile: async (profileData: any, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/crm/profiles/upsert', profileData, options);
+  },
 };

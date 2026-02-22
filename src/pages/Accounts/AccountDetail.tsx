@@ -22,6 +22,7 @@ import { ProfileList } from './components/ProfileList';
 import { ProfileDetail } from './components/ProfileDetail';
 import { SubscriptionsTab } from './components/SubscriptionsTab';
 import { WaiversTab } from './components/WaiversTab';
+import { ProfileUpsertDialog } from './components/ProfileUpsertDialog';
 import { useAuth } from '../../context/AuthContext';
 
 interface WaiverComposeDraft {
@@ -59,6 +60,8 @@ export const AccountDetail = () => {
   // Actions State
   const [actionLoading, setActionLoading] = useState(false);
   const [openCompose, setOpenCompose] = useState(false);
+  const [openProfileUpsert, setOpenProfileUpsert] = useState(false);
+  const [profileToEdit, setProfileToEdit] = useState<any>(null);
   const [composeDraft, setComposeDraft] = useState<WaiverComposeDraft | null>(null);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'error' | 'success' | 'warning' | 'info' }>({
     open: false,
@@ -304,68 +307,70 @@ export const AccountDetail = () => {
     return age;
   };
 
-  useEffect(() => {
-    const fetchAccount = async () => {
-      if (!accountId || !currentLocationId) return;
-      setLoading(true);
+  const fetchAccount = async () => {
+    if (!accountId || !currentLocationId) return;
+    setLoading(true);
+    try {
+      const response = await crmService.getAccountDetails(accountId, currentLocationId || undefined);
+      const data = response.data || response;
+      
+      // Normalize data: ensure 'profiles' exists even if API returns 'profile'
+      const normalizedData = {
+          ...data,
+          profiles: data.profiles || data.profile || []
+      };
+      
+      setAccount(normalizedData);
+      // Auto-select the primary member only if nothing is selected or if previous selection is gone
+      const primaryProfile = normalizedData.profiles?.find((p: any) => p.is_primary);
+      if (!selectedProfileId) {
+          setSelectedProfileId(primaryProfile?.profile_id || normalizedData.profiles?.[0]?.profile_id || null);
+      }
+
+      // Check waiver status for all profiles
       try {
-        const response = await crmService.getAccountDetails(accountId, currentLocationId || undefined);
-        const data = response.data || response;
-        
-        // Normalize data: ensure 'profiles' exists even if API returns 'profile'
-        const normalizedData = {
-            ...data,
-            profiles: data.profiles || data.profile || []
-        };
-        
-        setAccount(normalizedData);
-        // Auto-select the primary member
-        const primaryProfile = normalizedData.profiles?.find((p: any) => p.is_primary);
-        setSelectedProfileId(primaryProfile?.profile_id || normalizedData.profiles?.[0]?.profile_id || null);
+        const profiles = normalizedData.profiles || [];
+        if (profiles.length > 0) {
+          const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
+            waiverService.getWaiverTemplates(),
+            configService.getAgeGroups()
+          ]);
+          const templates = (waiverTemplatesRes as any).data || [];
+          const ageGroups = (ageGroupsRes as any) || [];
 
-        // Check waiver status for all profiles
-        try {
-          const profiles = normalizedData.profiles || [];
-          if (profiles.length > 0) {
-            const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
-              waiverService.getWaiverTemplates(),
-              configService.getAgeGroups()
-            ]);
-            const templates = (waiverTemplatesRes as any).data || [];
-            const ageGroups = (ageGroupsRes as any) || [];
+          let foundUnsigned = false;
+          for (const profile of profiles) {
+            const age = calculateAge(profile.date_of_birth);
+            const group = ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+            const matchedTemplate = templates.find((t: any) => 
+              t.is_active && (t.ageprofile_id === group?.age_group_id || !t.ageprofile_id)
+            );
 
-            let foundUnsigned = false;
-            for (const profile of profiles) {
-              const age = calculateAge(profile.date_of_birth);
-              const group = ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
-              const matchedTemplate = templates.find((t: any) => 
-                t.is_active && (t.ageprofile_id === group?.age_group_id || !t.ageprofile_id)
-              );
-
-              if (matchedTemplate) {
-                const signedRes = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
-                const signed = signedRes.data || [];
-                const hasRegistration = signed.some((w: any) => w.waiver_type === 'REGISTRATION');
-                if (!hasRegistration) {
-                  foundUnsigned = true;
-                  break;
-                }
+            if (matchedTemplate) {
+              const signedRes = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
+              const signed = signedRes.data || [];
+              const hasRegistration = signed.some((w: any) => w.waiver_type === 'REGISTRATION');
+              if (!hasRegistration) {
+                foundUnsigned = true;
+                break;
               }
             }
-            setHasUnsignedWaivers(foundUnsigned);
           }
-        } catch (waiverErr) {
-          console.warn('Could not determine waiver status', waiverErr);
+          setHasUnsignedWaivers(foundUnsigned);
         }
-
-      } catch (err: any) {
-        console.error("Failed to fetch account details", err);
-        setError("Failed to load account details. " + (err.message || ''));
-      } finally {
-        setLoading(false);
+      } catch (waiverErr) {
+        console.warn('Could not determine waiver status', waiverErr);
       }
-    };
 
+    } catch (err: any) {
+      console.error("Failed to fetch account details", err);
+      setError("Failed to load account details. " + (err.message || ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchAccount();
   }, [accountId, currentLocationId]);
 
@@ -378,6 +383,21 @@ export const AccountDetail = () => {
     // Optionally switch to details tab when clicking a profile, 
     // or stay on subscriptions tab to see that profile's subscriptions
     // For now, let's keep the user on the current tab to allow rapid filtering of subscriptions
+  };
+
+  const handleAddMember = () => {
+    setProfileToEdit(null);
+    setOpenProfileUpsert(true);
+  };
+
+  const handleEditMember = (profile: any) => {
+    setProfileToEdit(profile);
+    setOpenProfileUpsert(true);
+  };
+
+  const handleUpsertSuccess = () => {
+      fetchAccount();
+      showToast("Profile updated successfully!", "success");
   };
 
   if (loading) {
@@ -548,6 +568,7 @@ export const AccountDetail = () => {
             profiles={account.profiles || []} 
             selectedProfileId={selectedProfileId} 
             onSelectProfile={handleProfileSelect} 
+            onAddMember={handleAddMember}
           />
         </Grid>
 
@@ -595,7 +616,11 @@ export const AccountDetail = () => {
                 </Box>
                 <Box sx={{ p: 4 }}>
                     {tabValue === 0 && (
-                        <ProfileDetail profile={selectedProfile} accountId={account.account_id} />
+                        <ProfileDetail 
+                            profile={selectedProfile} 
+                            accountId={account.account_id} 
+                            onEdit={() => handleEditMember(selectedProfile)}
+                        />
                     )}
                     {tabValue === 1 && (
                         <SubscriptionsTab accountId={account.account_id} selectedProfileId={selectedProfileId} />
@@ -639,6 +664,14 @@ export const AccountDetail = () => {
                 )}
             </DialogContent>
         </Dialog>
+
+        <ProfileUpsertDialog
+            open={openProfileUpsert}
+            onClose={() => setOpenProfileUpsert(false)}
+            onSuccess={handleUpsertSuccess}
+            account_id={account.account_id}
+            profile={profileToEdit}
+        />
     </Box>
   );
 };

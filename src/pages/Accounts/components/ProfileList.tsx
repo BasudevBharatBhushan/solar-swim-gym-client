@@ -1,18 +1,21 @@
 
-import { List, ListItemButton, ListItemText, ListItemAvatar, Avatar, Paper, Typography, Box, Chip } from '@mui/material';
+import { List, ListItemButton, ListItemText, ListItemAvatar, Avatar, Paper, Typography, Box, Chip, Button } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import StarIcon from '@mui/icons-material/Star';
 import PeopleIcon from '@mui/icons-material/People';
 import { useConfig } from '../../../context/ConfigContext';
 import { getAgeGroupName } from '../../../lib/ageUtils';
 
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+
 interface ProfileListProps {
   profiles: any[];
   selectedProfileId: string | null;
   onSelectProfile: (profileId: string) => void;
+  onAddMember: () => void;
 }
 
-export const ProfileList = ({ profiles, selectedProfileId, onSelectProfile }: ProfileListProps) => {
+export const ProfileList = ({ profiles, selectedProfileId, onSelectProfile, onAddMember }: ProfileListProps) => {
   const { ageGroups } = useConfig();
 
   // Sort: primary first
@@ -38,7 +41,25 @@ export const ProfileList = ({ profiles, selectedProfileId, onSelectProfile }: Pr
         <Typography variant="subtitle1" fontWeight="800" color="#1e293b" sx={{ fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
           Members
         </Typography>
-        <Chip label={profiles.length} size="small" sx={{ fontWeight: 700, height: 20, fontSize: '0.65rem', bgcolor: '#e2e8f0' }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+           <Chip label={profiles.length} size="small" sx={{ fontWeight: 700, height: 20, fontSize: '0.65rem', bgcolor: '#e2e8f0' }} />
+           <Button
+               startIcon={<PersonAddIcon sx={{ fontSize: '1.2rem !important' }} />}
+               onClick={(e) => { e.stopPropagation(); onAddMember(); }}
+               size="small"
+               sx={{
+                   textTransform: 'none',
+                   fontWeight: 700,
+                   fontSize: '0.75rem',
+                   minWidth: 'auto',
+                   px: 1,
+                   color: '#3b82f6',
+                   '&:hover': { bgcolor: '#eff6ff' }
+               }}
+           >
+               Add
+           </Button>
+        </Box>
       </Box>
       <List sx={{ p: 0 }}>
         <ListItemButton
