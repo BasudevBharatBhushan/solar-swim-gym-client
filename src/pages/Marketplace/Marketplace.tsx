@@ -43,6 +43,9 @@ import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import StarIcon from '@mui/icons-material/Star';
+import SearchIcon from '@mui/icons-material/Search';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import { InputAdornment, MenuItem, Select, OutlinedInput } from '@mui/material';
 
 import { PageHeader } from '../../components/Common/PageHeader';
 import { useAuth } from '../../context/AuthContext';
@@ -200,6 +203,11 @@ export const Marketplace = () => {
 
     // Only SUPERADMIN / ADMIN / STAFF may enter manual discounts
     const canApplyManualDiscount = ['SUPERADMIN', 'ADMIN', 'STAFF'].includes(role ?? '');
+
+    // Search and Filter State
+    const [serviceSearchQuery, setServiceSearchQuery] = useState('');
+    const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+    const [selectedMembershipAgeGroupIds, setSelectedMembershipAgeGroupIds] = useState<string[]>([]);
 
     const subscriptionTermOrder = useMemo(() => {
         return new Map(subscriptionTerms.map((term, index) => [term.subscription_term_id, index]));
@@ -575,6 +583,11 @@ export const Marketplace = () => {
                 return left.ageGroupName.localeCompare(right.ageGroupName);
             });
     }, [accountAgeGroupIds, basePrices, subscriptionTermOrder]);
+    
+    const filteredBasePlanCards = useMemo(() => {
+        if (selectedMembershipAgeGroupIds.length === 0) return basePlanCards;
+        return basePlanCards.filter(card => selectedMembershipAgeGroupIds.includes(card.ageGroupId));
+    }, [basePlanCards, selectedMembershipAgeGroupIds]);
 
     const baseCartItems = useMemo(() => cart.filter((item) => item.type === 'BASE'), [cart]);
     const householdCounts = useMemo(() => buildHouseholdCountsFromBaseCart(baseCartItems, ageGroups), [baseCartItems, ageGroups]);
@@ -1301,6 +1314,37 @@ export const Marketplace = () => {
                         <Box sx={{ p: 0 }}>
                             {tabValue === 0 && (
                                 <Box sx={{ p: 3 }}>
+                                    {/* Membership Filters */}
+                                    <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <FilterListIcon sx={{ fontSize: 18 }} /> Filter by Age:
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                            {ageGroups.filter(ag => accountAgeGroupIds.has(ag.age_group_id)).map(group => {
+                                                const isSelected = selectedMembershipAgeGroupIds.includes(group.age_group_id);
+                                                return (
+                                                    <Chip
+                                                        key={group.age_group_id}
+                                                        label={group.name}
+                                                        onClick={() => {
+                                                            setSelectedMembershipAgeGroupIds(prev => 
+                                                                prev.includes(group.age_group_id) 
+                                                                    ? prev.filter(id => id !== group.age_group_id)
+                                                                    : [...prev, group.age_group_id]
+                                                            );
+                                                        }}
+                                                        color={isSelected ? "primary" : "default"}
+                                                        variant={isSelected ? "filled" : "outlined"}
+                                                        sx={{ fontWeight: 600 }}
+                                                    />
+                                                );
+                                            })}
+                                            {selectedMembershipAgeGroupIds.length > 0 && (
+                                                <Button size="small" onClick={() => setSelectedMembershipAgeGroupIds([])}>Clear</Button>
+                                            )}
+                                        </Box>
+                                    </Box>
+
                                     <Stack spacing={3}>
                                         <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1317,7 +1361,7 @@ export const Marketplace = () => {
                                             </Box>
 
                                             <Grid container spacing={2}>
-                                                {basePlanCards.map((card) => {
+                                                {filteredBasePlanCards.map((card) => {
                                                     const selectedTerms = card.terms.filter((term) => term.base_price_id && isInCart(`BASE-${term.base_price_id}`));
 
                                                     return (
@@ -1437,10 +1481,10 @@ export const Marketplace = () => {
                                                     );
                                                 })}
 
-                                                {basePlanCards.length === 0 && (
+                                                {filteredBasePlanCards.length === 0 && (
                                                     <Grid size={12}>
                                                         <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                                                            No membership cards matched the account age profiles.
+                                                            No membership cards matched the selected filters.
                                                         </Typography>
                                                     </Grid>
                                                 )}
@@ -1528,13 +1572,66 @@ export const Marketplace = () => {
                             )}
 
                             {tabValue === 1 && (
-                                <Grid container spacing={3} sx={{ p: 3 }}>
-                                    {services
-                                        .filter((service) => service.packs && service.packs.length > 0)
-                                        .flatMap((service) =>
-                                            (service.packs || []).map((pack) => ({ service, pack }))
-                                        )
-                                        .map(({ service, pack }) => {
+                                <Box sx={{ p: 3 }}>
+                                    {/* Service Search and Filters */}
+                                    <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                                        <TextField
+                                            placeholder="Search service packs..."
+                                            size="small"
+                                            value={serviceSearchQuery}
+                                            onChange={(e) => setServiceSearchQuery(e.target.value)}
+                                            sx={{ flexGrow: 1, minWidth: '250px' }}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <SearchIcon sx={{ color: 'text.secondary' }} />
+                                                    </InputAdornment>
+                                                ),
+                                            }}
+                                        />
+                                        
+                                        <FormControl size="small" sx={{ minWidth: 200 }}>
+                                            <Select
+                                                multiple
+                                                displayEmpty
+                                                value={selectedServiceIds}
+                                                onChange={(e) => setSelectedServiceIds(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                                                input={<OutlinedInput />}
+                                                renderValue={(selected) => {
+                                                    if (selected.length === 0) {
+                                                        return <Typography variant="body2" color="text.secondary">Filter by Service</Typography>;
+                                                    }
+                                                    return `Services (${selected.length})`;
+                                                }}
+                                            >
+                                                {services.map((service) => (
+                                                    <MenuItem key={service.service_id} value={service.service_id}>
+                                                        <Checkbox checked={selectedServiceIds.indexOf(service.service_id) > -1} />
+                                                        <Typography variant="body2">{service.name}</Typography>
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                        
+                                        {(serviceSearchQuery || selectedServiceIds.length > 0) && (
+                                            <Button size="small" onClick={() => { setServiceSearchQuery(''); setSelectedServiceIds([]); }}>
+                                                Reset
+                                            </Button>
+                                        )}
+                                    </Box>
+
+                                    <Grid container spacing={3}>
+                                        {services
+                                            .filter((service) => selectedServiceIds.length === 0 || selectedServiceIds.includes(service.service_id))
+                                            .flatMap((service) =>
+                                                (service.packs || [])
+                                                    .filter((pack) => 
+                                                        pack.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+                                                        service.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())
+                                                    )
+                                                    .map((pack) => ({ service, pack }))
+                                            )
+                                            .map(({ service, pack }) => {
                                             const minPrice = (pack.prices || []).length > 0
                                                 ? Math.min(...(pack.prices || []).map((priceItem) => parseNumericPrice(priceItem.price)))
                                                 : 0;
@@ -1667,15 +1764,25 @@ export const Marketplace = () => {
                                                 </Grid>
                                             );
                                         })}
-                                    {services.filter((service) => service.packs && service.packs.length > 0).flatMap((service) => service.packs).length === 0 && (
+                                    {services
+                                        .filter((service) => selectedServiceIds.length === 0 || selectedServiceIds.includes(service.service_id))
+                                        .flatMap((service) =>
+                                            (service.packs || []).filter((pack) => 
+                                                pack.name.toLowerCase().includes(serviceSearchQuery.toLowerCase()) ||
+                                                service.name.toLowerCase().includes(serviceSearchQuery.toLowerCase())
+                                            )
+                                        ).length === 0 && (
                                         <Grid size={12}>
                                             <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-                                                No services with packs found for this location.
+                                                {serviceSearchQuery || selectedServiceIds.length > 0 
+                                                    ? 'No services matched your search or filters.' 
+                                                    : 'No services with packs found for this location.'}
                                             </Typography>
                                         </Grid>
                                     )}
                                 </Grid>
-                            )}
+                            </Box>
+                        )}
                         </Box>
                     </Paper>
                 </Grid>
