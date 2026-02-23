@@ -311,7 +311,9 @@ export const Marketplace = () => {
                                 subscriptionTermId: i.subscription_term_id,
                                 serviceId: metadata.serviceId,
                                 ageGroupId: metadata.ageGroupId,
-                                membershipRange: metadata.membershipRange
+                                membershipRange: metadata.membershipRange,
+                                billing_period_start: i.billing_period_start,
+                                billing_period_end: i.billing_period_end,
                             };
                         });
                         setCart(mappedCart);
@@ -2220,7 +2222,7 @@ export const Marketplace = () => {
                     <Button onClick={() => setTermDialogOpen(false)} color="inherit">
                         Cancel
                     </Button>
-                    <Button onClick={handleConfirmBaseTermSelection} variant="contained" disabled={!selectedTermId}>
+                    <Button onClick={handleConfirmBaseTermSelection} variant="contained" disabled={!selectedTermId || !selectedBaseStartDate}>
                         Continue
                     </Button>
                 </DialogActions>
@@ -2558,20 +2560,54 @@ export const Marketplace = () => {
                 onSuccess={async () => {
                     setSubmitting(true);
                     try {
+                        const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
+                        
                         // 1. Copy cart items to subscriptions
-                        await Promise.all(
-                            cart.map((item) => {
-                                const payload = constructSubscriptionPayload(item);
-                                return billingService.createSubscription(payload, currentLocationId || undefined);
-                            })
-                        );
+                        const subscriptionPromises = cart.map((item) => {
+                            const payload = constructSubscriptionPayload(item);
+                            return billingService.createSubscription(payload, currentLocationId || undefined);
+                        });
+                        
+                        const subResponses = await Promise.all(subscriptionPromises);
+                        
+                        // Extract successfully created subscription IDs
+                        const createdSubIds = subResponses
+                            .map((res: any) => res?.data?.subscription_id || res?.subscription_id)
+                            .filter(Boolean);
 
-                        // 2. Clear server-side cart
+                        // 2. Create Invoice
+                        let newInvoiceId: string | null = null;
+                        if (createdSubIds.length > 0 && accountId && currentLocationId) {
+                            try {
+                                const invoicePayload = {
+                                    account_id: accountId,
+                                    location_id: currentLocationId,
+                                    total_amount: totalAmount,
+                                    status: 'DRAFT'
+                                };
+                                const invResponse = await billingService.createInvoice(invoicePayload, currentLocationId);
+                                newInvoiceId = invResponse?.data?.invoice_id || invResponse?.invoice_id;
+                                
+                                // 3. Update Subscriptions with new invoice ID
+                                if (newInvoiceId) {
+                                    await Promise.all(
+                                        createdSubIds.map((subId: string) => 
+                                            billingService.updateSubscriptionInvoice(subId, newInvoiceId!, currentLocationId)
+                                        )
+                                    );
+                                }
+                            } catch (invErr) {
+                                console.error('Failed to create or link invoice:', invErr);
+                                // Non-blocking error for checkout
+                            }
+                        }
+
+                        // 4. Clear server-side cart
                         if (accountId && currentLocationId) {
                             await cartService.clearCart(accountId, currentLocationId);
                         }
 
-                        // 3. Clear local state
+                        // 5. Clear local state
                         setCart([]);
                         setItemDiscounts({});
 

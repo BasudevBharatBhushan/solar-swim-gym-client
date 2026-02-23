@@ -77,12 +77,23 @@ export const ServicePackSelectionDialog = ({
         const session = sessions.find(s => s.session_id === sessionId);
         if (session) {
             setBillingStart(session.start_date);
-            // Check if end_date exists on session type, fallback to start_date + duration if needed
-            // But the Session type has end_date in some definitions. 
-            // Checking the Session interface in serviceCatalog.ts: expects 'expiry_date' or 'end_date'
             setBillingEnd((session as any).end_date || (session as any).expiry_date || '');
         }
     };
+
+    // Auto-calculate billingEnd when billingStart changes and no session is selected
+    useEffect(() => {
+        if (!selectedSessionId && billingStart) {
+            const start = new Date(billingStart);
+            if (pack.duration_months) {
+                start.setMonth(start.getMonth() + pack.duration_months);
+                setBillingEnd(start.toISOString().split('T')[0]);
+            } else if (pack.duration_days) {
+                start.setDate(start.getDate() + pack.duration_days);
+                setBillingEnd(start.toISOString().split('T')[0]);
+            }
+        }
+    }, [billingStart, pack.duration_months, pack.duration_days, selectedSessionId]);
 
     const prices = pack.prices || [];
     
@@ -144,6 +155,11 @@ export const ServicePackSelectionDialog = ({
     const handleConfirm = () => {
         if (selectedProfileIds.length === 0) {
             setError('Please select at least one profile.');
+            return;
+        }
+
+        if (!billingStart || !billingEnd) {
+            setError('Please enter both Start Date and End Date.');
             return;
         }
 
@@ -441,7 +457,7 @@ export const ServicePackSelectionDialog = ({
                 <Button 
                     variant="contained" 
                     onClick={handleConfirm}
-                    disabled={selectedProfileIds.length === 0}
+                    disabled={selectedProfileIds.length === 0 || !billingStart || !billingEnd}
                 >
                     Add {selectedProfileIds.length} Item{selectedProfileIds.length !== 1 ? 's' : ''} to Cart
                 </Button>

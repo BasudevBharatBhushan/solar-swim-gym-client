@@ -22,6 +22,7 @@ import { ProfileList } from './components/ProfileList';
 import { ProfileDetail } from './components/ProfileDetail';
 import { SubscriptionsTab } from './components/SubscriptionsTab';
 import { WaiversTab } from './components/WaiversTab';
+import { InvoicesTab } from './components/InvoicesTab';
 import { ProfileUpsertDialog } from './components/ProfileUpsertDialog';
 import { useAuth } from '../../context/AuthContext';
 
@@ -43,8 +44,8 @@ export const AccountDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   
-  // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers
-  const [tabValue, setTabValue] = useState(0);
+  // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers, 3=Invoices
+  const [tabValue, setTabValue] = useState(3);
   const [searchParams] = useSearchParams();
 
   // Auto-switch to Waivers tab if ?tab=waivers is in the URL
@@ -380,9 +381,8 @@ export const AccountDetail = () => {
 
   const handleProfileSelect = (profileId: string) => {
     setSelectedProfileId(profileId);
-    // Optionally switch to details tab when clicking a profile, 
-    // or stay on subscriptions tab to see that profile's subscriptions
-    // For now, let's keep the user on the current tab to allow rapid filtering of subscriptions
+    // Switch to details tab when clicking a profile
+    setTabValue(0);
   };
 
   const handleAddMember = () => {
@@ -612,6 +612,7 @@ export const AccountDetail = () => {
                         <Tab label="Profile Details" />
                         <Tab label="Purchases" />
                         <Tab label="Waivers" />
+                        <Tab label="Invoices" />
                     </Tabs>
                 </Box>
                 <Box sx={{ p: 4 }}>
@@ -631,6 +632,9 @@ export const AccountDetail = () => {
                           selectedProfileId={selectedProfileId}
                           accountId={account.account_id}
                         />
+                    )}
+                    {tabValue === 3 && (
+                        <InvoicesTab accountId={account.account_id} />
                     )}
                 </Box>
             </Paper>

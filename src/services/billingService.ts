@@ -14,8 +14,23 @@ export const billingService = {
   },
 
   // Invoices & Payments
+  createInvoice: async (invoiceData: any, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/invoices', invoiceData, options);
+  },
+
+  getAccountInvoices: async (accountId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/invoices/accounts/${accountId}`, {}, options);
+  },
+
   getInvoice: async (invoiceId: string) => {
     return apiClient.get(`/invoices/${invoiceId}`);
+  },
+
+  updateSubscriptionInvoice: async (subscriptionId: string, invoiceId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.patch(`/billing/subscriptions/${subscriptionId}/pricing`, { invoice_id: invoiceId }, options);
   },
 
   recordPayment: async (paymentData: any) => {
