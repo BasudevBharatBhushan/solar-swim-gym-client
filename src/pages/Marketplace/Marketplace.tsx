@@ -2583,7 +2583,7 @@ export const Marketplace = () => {
                                     account_id: accountId,
                                     location_id: currentLocationId,
                                     total_amount: totalAmount,
-                                    status: 'DRAFT'
+                                    status: 'PENDING'
                                 };
                                 const invResponse = await billingService.createInvoice(invoicePayload, currentLocationId);
                                 newInvoiceId = invResponse?.data?.invoice_id || invResponse?.invoice_id;

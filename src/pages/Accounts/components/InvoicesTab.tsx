@@ -51,7 +51,8 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
 
   const getStatusColor = (status: string) => {
     switch (status?.toUpperCase()) {
-      case 'DRAFT': return 'warning';
+      case 'DRAFT': 
+      case 'PENDING': return 'warning';
       case 'PAID': return 'success';
       case 'PARTIAL': return 'info';
       case 'FAILED': return 'error';
@@ -119,9 +120,9 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
                   </TableCell>
                   <TableCell>
                     <Chip 
-                      label={invoice.status || 'DRAFT'} 
+                      label={invoice.status || 'PENDING'} 
                       size="small" 
-                      color={getStatusColor(invoice.status) as any}
+                      color={getStatusColor(invoice.status || 'PENDING') as any}
                       sx={{ fontWeight: 600, fontSize: '0.75rem' }}
                     />
                   </TableCell>
@@ -143,3 +144,4 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
     </Box>
   );
 };
+

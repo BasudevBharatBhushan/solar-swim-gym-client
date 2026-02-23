@@ -178,6 +178,7 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
 
   const statusColors: any = {
     'DRAFT': 'warning',
+    'PENDING': 'warning',
     'PAID': 'success',
     'PARTIAL': 'info',
     'FAILED': 'error'
@@ -221,8 +222,8 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
                   {invoice.created_at ? new Date(invoice.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
                 </Typography>
                 <Chip 
-                  label={invoice.status || 'DRAFT'} 
-                  color={statusColors[invoice.status || 'DRAFT']} 
+                  label={invoice.status || 'PENDING'} 
+                  color={statusColors[invoice.status || 'PENDING']} 
                   size="small"
                   sx={{ fontWeight: 800, borderRadius: 1, mt: 1 }} 
                 />
