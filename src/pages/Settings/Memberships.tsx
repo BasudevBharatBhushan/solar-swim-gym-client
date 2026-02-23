@@ -362,16 +362,25 @@ export const Memberships = () => {
           let updatedProgram: MembershipProgram;
           let targetCategoryId = draftCategory.category_id;
 
+          // Sanitize fees (convert empty string to 0)
+          const sanitizedCategory = {
+              ...draftCategory,
+              fees: draftCategory.fees.map(f => ({
+                  ...f,
+                  amount: f.amount === '' ? 0 : Number(f.amount)
+              }))
+          };
+
           if (selectedCategoryId === 'new') {
               updatedProgram = {
                   ...activeProgram,
-                  categories: [...activeProgram.categories, draftCategory]
+                  categories: [...activeProgram.categories, sanitizedCategory]
               };
           } else {
               updatedProgram = {
                   ...activeProgram,
                   categories: activeProgram.categories.map(c => 
-                      c.category_id === draftCategory.category_id ? draftCategory : c
+                      c.category_id === sanitizedCategory.category_id ? sanitizedCategory : c
                   )
               };
           }
@@ -382,7 +391,7 @@ export const Memberships = () => {
           // 3. Resolve Category ID for Services (Category ID is passed as membership_program_id in payload)
           if (selectedCategoryId === 'new') {
               // Find the new category ID by matching the name from our draft
-              const savedCat = savedProgram.categories.find(c => c.name === draftCategory.name);
+              const savedCat = savedProgram.categories.find(c => c.name === sanitizedCategory.name);
               if (savedCat) targetCategoryId = savedCat.category_id;
           }
 
@@ -428,10 +437,10 @@ export const Memberships = () => {
       setDraftCategory({ ...draftCategory, [field]: value });
   };
 
-  const updateDraftFee = (type: 'JOINING' | 'ANNUAL', amount: number) => {
+  const updateDraftFee = (type: 'JOINING' | 'ANNUAL', amount: any) => {
       if (!draftCategory) return;
       const newFees = draftCategory.fees.map(f => 
-          f.fee_type === type ? { ...f, amount } : f
+          f.fee_type === type ? { ...f, amount: amount === '' ? '' : Number(amount) } : f
       );
       setDraftCategory({ ...draftCategory, fees: newFees });
   };
@@ -690,8 +699,8 @@ export const Memberships = () => {
                              type="number"
                              fullWidth
                              variant="filled"
-                             value={item.fee?.amount || 0}
-                             onChange={(e) => updateDraftFee(item.type, Number(e.target.value))}
+                             value={item.fee?.amount ?? ''}
+                             onChange={(e) => updateDraftFee(item.type, e.target.value)}
                              InputProps={{
                                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
                                  disableUnderline: true,

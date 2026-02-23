@@ -408,7 +408,7 @@ const ServiceBasicInfo = memo(({
     );
 });
 
-const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, ageGroups: any[], onSave: (priceData: Record<string, { price: number, num_students: number, num_instructors: number }>) => Promise<void> }) => {
+const PricingPanel = memo(({ pack, ageGroups }: { pack: ServicePack, ageGroups: any[] }) => {
     const [priceData, setPriceData] = useState<Record<string, { price: string, students: string, instructors: string }>>({});
     const [loading, setLoading] = useState(false);
 
@@ -432,39 +432,25 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
         fetchPrices();
     }, [pack]);
 
-    const handleDataChange = (ageId: string, field: 'price' | 'students' | 'instructors', val: string) => {
-        setPriceData(prev => ({
-            ...prev,
-            [ageId]: {
-                ...(prev[ageId] || { price: '', students: '1', instructors: '1' }),
-                [field]: val
-            }
-        }));
-    };
+    const activeAgeGroups = ageGroups.filter(ag => {
+        const agId = ag.age_group_id || ag.id;
+        return priceData[agId] && priceData[agId].price !== '';
+    });
 
-    const handleSave = async () => {
-        setLoading(true);
-        const toSave: Record<string, { price: number, num_students: number, num_instructors: number }> = {};
-        Object.entries(priceData).forEach(([id, data]) => {
-            const priceNum = parseFloat(data.price);
-            if (!isNaN(priceNum)) {
-                toSave[id] = {
-                    price: priceNum,
-                    num_students: parseInt(data.students) || 1,
-                    num_instructors: parseInt(data.instructors) || 1
-                };
-            }
-        });
-        await onSave(toSave);
-        setLoading(false);
-    };
+    if (loading) {
+        return (
+            <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', p: 3, borderRadius: 2, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography sx={{ color: '#94a3b8' }}>Loading prices...</Typography>
+            </Paper>
+        );
+    }
 
     return (
         <Paper elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: 2, overflow: 'hidden', height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#64748b', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                        PACK PRICES
+                        PACK PRICES (VIEW ONLY)
                     </Typography>
                     <Chip 
                         label={pack.name.toUpperCase()} 
@@ -479,96 +465,49 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
                         }} 
                     />
                 </Box>
-
-                <Button variant="contained" size="small" startIcon={<SaveIcon sx={{ fontSize: '1rem !important' }} />} onClick={handleSave} disabled={loading} sx={{ bgcolor: '#1e293b', textTransform: 'none', px: 2, fontWeight: 700 }}>
-                    Save
-                </Button>
             </Box>
 
             <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: 2, mb: 2, px: 1 }}>
-                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em' }}>AGE GROUP</Typography>
-                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'center' }}>STUDENTS</Typography>
-                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'center' }}>INSTR.</Typography>
-                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'right' }}>RATE ($)</Typography>
-                </Box>
-                
-                {ageGroups.map(ag => {
-                    const agId = ag.age_group_id || ag.id || Math.random().toString();
-                    const data = priceData[agId] || { price: '', students: '1', instructors: '1' };
-                    return (
-                        <Box key={agId} sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: 2, alignItems: 'center', mb: 2.5, px: 1 }}>
-                            <Box>
-                                <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>{ag.name}</Typography>
-                                <Typography sx={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>
-                                    {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : (ag.description || 'N/A')}
-                                </Typography>
-                            </Box>
-                            
-                            <TextField 
-                                value={data.students} 
-                                onChange={(e) => handleDataChange(agId, 'students', e.target.value)}
-                                size="small"
-                                type="number"
-                                sx={{ 
-                                    '& .MuiOutlinedInput-root': { 
-                                        bgcolor: '#f8fafc',
-                                        borderRadius: '8px',
-                                        '& fieldset': { borderColor: '#f1f5f9' },
-                                        '& input': { textAlign: 'center', fontWeight: 600, py: 1 }
-                                    }
-                                }}
-                            />
-
-                            <TextField 
-                                value={data.instructors} 
-                                onChange={(e) => handleDataChange(agId, 'instructors', e.target.value)}
-                                size="small"
-                                type="number"
-                                sx={{ 
-                                    '& .MuiOutlinedInput-root': { 
-                                        bgcolor: '#f8fafc',
-                                        borderRadius: '8px',
-                                        '& fieldset': { borderColor: '#f1f5f9' },
-                                        '& input': { textAlign: 'center', fontWeight: 600, py: 1 }
-                                    }
-                                }}
-                            />
-
-                            <TextField 
-                                value={data.price} 
-                                onChange={(e) => handleDataChange(agId, 'price', e.target.value)}
-                                size="small"
-                                placeholder="N/A"
-                                InputProps={{
-                                    startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.875rem', color: '#94a3b8' } }}>$</InputAdornment>
-                                }}
-                                sx={{ 
-                                    '& .MuiOutlinedInput-root': { 
-                                        bgcolor: '#f8fafc',
-                                        borderRadius: '8px',
-                                        '& fieldset': { borderColor: '#f1f5f9' },
-                                        '& input': { textAlign: 'right', fontWeight: 700, py: 1 }
-                                    }
-                                }}
-                            />
+                {activeAgeGroups.length === 0 ? (
+                    <Box sx={{ p: 4, textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem' }}>No prices defined for this pack.</Box>
+                ) : (
+                    <>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: 2, mb: 2, px: 1 }}>
+                            <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em' }}>AGE GROUP</Typography>
+                            <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'center' }}>STUDENTS</Typography>
+                            <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'center' }}>INSTRUCTOR</Typography>
+                            <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'right' }}>RATE ($)</Typography>
                         </Box>
-                    );
-                })}
+                        
+                        {activeAgeGroups.map(ag => {
+                            const agId = ag.age_group_id || ag.id || Math.random().toString();
+                            const data = priceData[agId];
+                            if (!data) return null;
+                            return (
+                                <Box key={agId} sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: 2, alignItems: 'center', mb: 2.5, px: 1, borderBottom: '1px solid #f8fafc', pb: 1.5 }}>
+                                    <Box>
+                                        <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>{ag.name}</Typography>
+                                        <Typography sx={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                                            {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : (ag.description || 'N/A')}
+                                        </Typography>
+                                    </Box>
+                                    
+                                    <Typography sx={{ textAlign: 'center', fontWeight: 600, color: '#1e293b' }}>
+                                        {data.students}
+                                    </Typography>
 
-                <Alert 
-                    icon={<Box component="span" sx={{ fontSize: '1.2rem' }}>ℹ️</Box>}
-                    sx={{ 
-                        mt: 4, 
-                        bgcolor: '#f8fafc', 
-                        color: '#64748b', 
-                        fontSize: '0.75rem',
-                        '& .MuiAlert-message': { fontWeight: 500, lineHeight: 1.5, color: '#64748b' },
-                        border: 'none'
-                    }}
-                >
-                    Prices shown are specific to the selected pack. Student and Instructor values are for the display of this specific price tier. Leave empty to disable availability for that age group.
-                </Alert>
+                                    <Typography sx={{ textAlign: 'center', fontWeight: 600, color: '#1e293b' }}>
+                                        {data.instructors}
+                                    </Typography>
+
+                                    <Typography sx={{ textAlign: 'right', fontWeight: 700, color: '#10b981' }}>
+                                        ${data.price}
+                                    </Typography>
+                                </Box>
+                            );
+                        })}
+                    </>
+                )}
             </Box>
         </Paper>
     );
@@ -577,6 +516,7 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
 // ----------------------------------------------------------------------
 // Main Component
 // ----------------------------------------------------------------------
+
 
 export const Services = () => {
     const { currentLocationId } = useAuth();
@@ -639,6 +579,10 @@ export const Services = () => {
     const [packUsagePeriodUnit, setPackUsagePeriodUnit] = useState<string>('MONTH');
     const [packUsagePeriodLength, setPackUsagePeriodLength] = useState<number | ''>('');
     const [packEnforceUsageLimit, setPackEnforceUsageLimit] = useState(false);
+    
+    // Pricing State for Pack Modal
+    const [packPriceData, setPackPriceData] = useState<Record<string, { price: string, students: string, instructors: string }>>({});
+    const [isPackPricesLoading, setIsPackPricesLoading] = useState(false);
     
     // Deletion State
     const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
@@ -794,6 +738,26 @@ export const Services = () => {
         setPackUsagePeriodLength(pack?.usage_period_length || '');
         setPackEnforceUsageLimit(pack?.enforce_usage_limit || false);
         refreshWaiverPrograms(); // Force refresh waiver programs whenever modal opens
+        
+        // Fetch Pricing
+        if (pack?.service_pack_id) {
+            setIsPackPricesLoading(true);
+            try {
+                const res = await serviceCatalog.getPackPrices(pack.service_pack_id);
+                const map: Record<string, { price: string, students: string, instructors: string }> = {};
+                res.forEach((p: ServicePrice) => {
+                    map[p.age_group_id] = {
+                        price: p.price.toString(),
+                        students: (p.num_students ?? 1).toString(),
+                        instructors: (p.num_instructors ?? 1).toString()
+                    };
+                });
+                setPackPriceData(map);
+            } catch (err) { console.error(err); } finally { setIsPackPricesLoading(false); }
+        } else {
+            setPackPriceData({});
+        }
+
         setIsPackModalOpen(true);
     };
 
@@ -819,32 +783,45 @@ export const Services = () => {
                 usage_period_length: packUsagePeriodLength || null,
                 enforce_usage_limit: packEnforceUsageLimit
             };
-            await serviceCatalog.upsertServicePack(packPayload);
+            const packRes = await serviceCatalog.upsertServicePack(packPayload);
+            const savedPackId = packRes?.data?.service_pack_id || packRes?.service_pack_id || packRes?.id || currentPack?.service_pack_id;
             
-            setSuccess('Pack metadata saved');
+            if (savedPackId && currentLocationId) {
+                const toSave: Record<string, { price: number, num_students: number, num_instructors: number }> = {};
+                Object.entries(packPriceData).forEach(([id, data]) => {
+                    const priceNum = parseFloat(data.price);
+                    if (!isNaN(priceNum)) {
+                        toSave[id] = {
+                            price: priceNum,
+                            num_students: parseInt(data.students) || 1,
+                            num_instructors: parseInt(data.instructors) || 1
+                        };
+                    }
+                });
+
+                const promises = Object.entries(toSave).map(([ageGroupId, data]) => 
+                    serviceCatalog.upsertServicePrice({
+                        location_id: currentLocationId,
+                        service_pack_id: savedPackId,
+                        age_group_id: ageGroupId,
+                        price: data.price,
+                        num_students: data.num_students,
+                        num_instructors: data.num_instructors,
+                        subscription_term_id: null
+                    })
+                );
+                await Promise.all(promises);
+            }
+
+            setSuccess('Pack and pricing saved');
             setIsPackModalOpen(false);
             fetchPacks(svcId);
+            
+            if (selectedPack && (selectedPack.service_pack_id === savedPackId || selectedPack.id === savedPackId)) {
+                setSelectedPack({ ...selectedPack }); 
+            }
         } catch (err: any) { setError(err.message || 'Failed to save pack'); }
     };
-
-    const handleSavePackPrices = useCallback(async (priceData: Record<string, { price: number, num_students: number, num_instructors: number }>) => {
-        if (!selectedPack?.service_pack_id || !currentLocationId) return;
-        try {
-            const promises = Object.entries(priceData).map(([ageGroupId, data]) => 
-                serviceCatalog.upsertServicePrice({
-                    location_id: currentLocationId,
-                    service_pack_id: selectedPack.service_pack_id!,
-                    age_group_id: ageGroupId,
-                    price: data.price,
-                    num_students: data.num_students,
-                    num_instructors: data.num_instructors,
-                    subscription_term_id: null // Explicitly null as per requirement
-                })
-            );
-            await Promise.all(promises);
-            setSuccess('Prices updated successfully');
-        } catch (err: any) { setError('Failed to update prices'); console.error(err); }
-    }, [selectedPack, currentLocationId]);
 
     // --- Handlers: Deletion ---
 
@@ -1129,11 +1106,10 @@ export const Services = () => {
                                     <PricingPanel 
                                         pack={selectedPack} 
                                         ageGroups={ageGroups} 
-                                        onSave={handleSavePackPrices} 
                                     />
                                 ) : (
                                      <Paper sx={{ p: 3, textAlign: 'center', color: '#94a3b8', bgcolor: '#f8fafc', border: '1px dashed #e2e8f0', borderRadius: 2, height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        Select a Service Pack to manage prices.
+                                        Select a Service Pack to view prices.
                                     </Paper>
                                 )}
                             </Grid>
@@ -1337,8 +1313,100 @@ export const Services = () => {
                             </Paper>
                         </Grid>
                     </Grid>
+
+                    <Box sx={{ mt: 4, pt: 3, borderTop: '1px solid #e2e8f0' }}>
+                        <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 700, letterSpacing: '0.05em' }}>PRICING CONFIGURATION</Typography>
+                        {isPackPricesLoading ? (
+                            <Box sx={{ p: 3, textAlign: 'center', color: '#94a3b8' }}>Loading prices...</Box>
+                        ) : (
+                            <Paper variant="outlined" sx={{ p: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: 2, mb: 1, px: 1 }}>
+                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em' }}>AGE GROUP</Typography>
+                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'center' }}>STUDENTS</Typography>
+                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'center' }}>INSTRUCTOR</Typography>
+                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'right' }}>RATE ($)</Typography>
+                                </Box>
+                                
+                                {ageGroups.map(ag => {
+                                    const agId = ag.age_group_id || ag.id || Math.random().toString();
+                                    const data = packPriceData[agId] || { price: '', students: '1', instructors: '1' };
+                                    return (
+                                        <Box key={agId} sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: 2, alignItems: 'center', mb: 2, px: 1 }}>
+                                            <Box>
+                                                <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>{ag.name}</Typography>
+                                                <Typography sx={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>
+                                                    {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : (ag.description || 'N/A')}
+                                                </Typography>
+                                            </Box>
+                                            
+                                            <TextField 
+                                                value={data.students} 
+                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1' }), students: e.target.value } }))}
+                                                size="small"
+                                                type="number"
+                                                sx={{ 
+                                                    '& .MuiOutlinedInput-root': { 
+                                                        bgcolor: '#ffffff',
+                                                        borderRadius: '8px',
+                                                        '& input': { textAlign: 'center', fontWeight: 600, py: 1 }
+                                                    }
+                                                }}
+                                            />
+
+                                            <TextField 
+                                                value={data.instructors} 
+                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1' }), instructors: e.target.value } }))}
+                                                size="small"
+                                                type="number"
+                                                sx={{ 
+                                                    '& .MuiOutlinedInput-root': { 
+                                                        bgcolor: '#ffffff',
+                                                        borderRadius: '8px',
+                                                        '& input': { textAlign: 'center', fontWeight: 600, py: 1 }
+                                                    }
+                                                }}
+                                            />
+
+                                            <TextField 
+                                                value={data.price} 
+                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1' }), price: e.target.value } }))}
+                                                size="small"
+                                                placeholder="N/A"
+                                                InputProps={{
+                                                    startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.875rem', color: '#94a3b8' } }}>$</InputAdornment>
+                                                }}
+                                                sx={{ 
+                                                    '& .MuiOutlinedInput-root': { 
+                                                        bgcolor: '#ffffff',
+                                                        borderRadius: '8px',
+                                                        '& input': { textAlign: 'right', fontWeight: 700, py: 1 }
+                                                    }
+                                                }}
+                                            />
+                                        </Box>
+                                    );
+                                })}
+
+                                <Alert 
+                                    icon={<Box component="span" sx={{ fontSize: '1.2rem' }}>ℹ️</Box>}
+                                    sx={{ 
+                                        mt: 2, 
+                                        bgcolor: 'transparent', 
+                                        color: '#64748b', 
+                                        fontSize: '0.75rem',
+                                        '& .MuiAlert-message': { fontWeight: 500, lineHeight: 1.5, color: '#64748b' },
+                                        border: 'none',
+                                        p: 0
+                                    }}
+                                >
+                                    Leave rate blank for any age group that should not have access to this pack.
+                                </Alert>
+                            </Paper>
+                        )}
+                    </Box>
                 </DialogContent>
                 <DialogActions>
+
                     <Button onClick={() => setIsPackModalOpen(false)}>Cancel</Button>
                     <Button variant="contained" onClick={handleSavePack}>Save</Button>
                 </DialogActions>

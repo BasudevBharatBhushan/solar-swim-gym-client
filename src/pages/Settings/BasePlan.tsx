@@ -60,7 +60,7 @@ export const BasePlan = () => {
   const [isSaving, setIsSaving] = useState(false);
   
   // -- Edit State --
-  const [editedPrices, setEditedPrices] = useState<Record<string, number>>({}); // termId -> price
+  const [editedPrices, setEditedPrices] = useState<Record<string, number | string>>({}); // termId -> price
   const [editedPlanName, setEditedPlanName] = useState('');
   const [bundledServices, setBundledServices] = useState<MembershipService[]>([]);
   const [bundledServicesLoading, setBundledServicesLoading] = useState(false);
@@ -320,7 +320,7 @@ export const BasePlan = () => {
                 role: selectedProfile.role,     // CRITICAL: Backend needs this for uniqueness
                 age_group_id: selectedProfile.ageGroupId,
                 subscription_term_id: termId,
-                price: isNaN(price) ? 0 : price,
+                price: (price === '' || isNaN(price as any)) ? 0 : Number(price),
                 is_active: true
             });
         }
@@ -733,7 +733,7 @@ export const BasePlan = () => {
                                          {subscriptionTerms.map(term => {
                                              const existingPrice = getExistingPrice(selectedProfile!, term.subscription_term_id);
                                              const priceValue = isEditing 
-                                                 ? (editedPrices[term.subscription_term_id] ?? (existingPrice?.price || ''))
+                                                 ? (editedPrices[term.subscription_term_id] ?? (existingPrice?.price ?? ''))
                                                  : existingPrice?.price;
                                              
                                              const isRecurring = term.payment_mode === 'RECURRING';
@@ -752,7 +752,7 @@ export const BasePlan = () => {
                                                             value={priceValue}
                                                             onChange={(e) => {
                                                                 const val = e.target.value;
-                                                                const numVal = val === '' ? 0 : parseFloat(val);
+                                                                const numVal = val === '' ? '' : parseFloat(val);
                                                                 setEditedPrices(prev => ({ ...prev, [term.subscription_term_id]: numVal }));
                                                             }}
                                                             InputProps={{
