@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { 
   Box, 
   Typography, 
@@ -12,7 +11,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Button,
   Grid,
   Card,
   CardContent,
@@ -36,8 +34,7 @@ interface SubscriptionsTabProps {
 }
 
 export const SubscriptionsTab = ({ accountId, selectedProfileId }: SubscriptionsTabProps) => {
-  const navigate = useNavigate();
-  const { currentLocationId, role } = useAuth();
+  const { currentLocationId } = useAuth();
   const { ageGroups } = useConfig();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [serviceImages, setServiceImages] = useState<Record<string, string>>({});
@@ -133,14 +130,6 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   const serviceSubscriptions = filteredSubscriptions.filter(s => s.subscription_type === 'SERVICE');
   const membershipSubscriptions = filteredSubscriptions.filter(s => s.subscription_type !== 'SERVICE');
 
-  const handleAddSubscription = () => {
-        const isMember = role === 'MEMBER' || role === 'USER';
-        if (isMember) {
-            navigate('/portal/marketplace');
-        } else {
-            navigate(`/admin/accounts/${accountId}/marketplace`);
-        }
-  };
 
   if (loading) {
       return <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}><CircularProgress /></Box>;
@@ -152,15 +141,8 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
 
   return (
     <Box>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 3 }}>
           <Typography variant="h6">Purchases</Typography>
-          <Button 
-            variant="contained" 
-            size="small" 
-            onClick={handleAddSubscription}
-          >
-            Store
-          </Button>
       </Box>
 
       {/* Services Section */}

@@ -38,7 +38,7 @@ interface WaiverComposeDraft {
 export const AccountDetail = () => {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
-  const { currentLocationId } = useAuth();
+  const { currentLocationId, role } = useAuth();
   const [account, setAccount] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +98,15 @@ export const AccountDetail = () => {
         showToast(error.message || "Failed to send activation link", "error");
     } finally {
         setActionLoading(false);
+    }
+  };
+
+  const handleAddSubscription = () => {
+    const isMember = role === 'MEMBER' || role === 'USER';
+    if (isMember) {
+        navigate('/portal/marketplace');
+    } else {
+        navigate(`/admin/accounts/${accountId}/marketplace`);
     }
   };
 
@@ -381,8 +390,6 @@ export const AccountDetail = () => {
 
   const handleProfileSelect = (profileId: string) => {
     setSelectedProfileId(profileId);
-    // Switch to details tab when clicking a profile
-    setTabValue(0);
   };
 
   const handleAddMember = () => {
@@ -559,7 +566,7 @@ export const AccountDetail = () => {
         }
       />
 
-      <AccountSummary account={account} />
+      <AccountSummary account={account} onStoreClick={handleAddSubscription} />
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Left Panel: Profile List */}

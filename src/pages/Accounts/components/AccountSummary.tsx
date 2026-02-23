@@ -1,15 +1,15 @@
-
-import { Box, Paper, Typography, Chip, Grid, Stack } from '@mui/material';
+import { Box, Paper, Typography, Chip, Grid, Stack, Button, Tooltip } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
-import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon from '@mui/icons-material/People';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 
 interface AccountSummaryProps {
   account: any;
+  onStoreClick?: () => void;
 }
 
-export const AccountSummary = ({ account }: AccountSummaryProps) => {
+export const AccountSummary = ({ account, onStoreClick }: AccountSummaryProps) => {
   if (!account) return null;
 
   const primaryProfile = account.primary_profile || (account.profiles && account.profiles.find((p: any) => p.is_primary));
@@ -40,7 +40,7 @@ export const AccountSummary = ({ account }: AccountSummaryProps) => {
       }}
     >
       <Grid container spacing={3} alignItems="center">
-        <Grid size={{ xs: 12, md: 8 }}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
             <Typography variant="h4" fontWeight="800" color="#1e293b" sx={{ letterSpacing: '-0.5px' }}>
               {name}
@@ -66,30 +66,55 @@ export const AccountSummary = ({ account }: AccountSummaryProps) => {
                 {memberCount} {memberCount === 1 ? 'Member' : 'Members'}
               </Typography>
             </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CalendarMonthIcon sx={{ fontSize: '1rem', color: '#64748b' }} />
+              <Typography variant="body2" color="#64748b" fontWeight={500}>
+                Account Since {new Date(account.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+              </Typography>
+            </Box>
           </Stack>
         </Grid>
         
-        <Grid size={{ xs: 12, md: 4 }}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <Box 
             sx={{ 
               display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: { xs: 'flex-start', md: 'flex-end' },
-              gap: 1
+              flexDirection: 'row', 
+              justifyContent: { xs: 'flex-start', md: 'flex-end' },
+              alignItems: 'center',
+              height: '100%'
             }}
           >
-            <Stack direction="row" spacing={1} alignItems="center">
-              <FingerprintIcon sx={{ fontSize: '0.9rem', color: '#94a3b8' }} />
-              <Typography variant="caption" color="#94a3b8" fontWeight={500} sx={{ fontFamily: 'monospace' }}>
-                ID: {account.account_id}
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={1} alignItems="center">
-              <CalendarMonthIcon sx={{ fontSize: '0.9rem', color: '#94a3b8' }} />
-              <Typography variant="caption" color="#94a3b8" fontWeight={500}>
-                Account Since {new Date(account.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
-              </Typography>
-            </Stack>
+            <Tooltip title="Go to marketplace to purchase memberships or services" arrow>
+                <Button
+                    variant="contained"
+                    startIcon={<ShoppingCartIcon />}
+                    onClick={onStoreClick}
+                    sx={{
+                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                        color: 'white',
+                        fontWeight: 800,
+                        fontSize: '0.9rem',
+                        textTransform: 'none',
+                        px: 4,
+                        py: 1.5,
+                        borderRadius: '12px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: 'none',
+                        '&:hover': {
+                            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                            transform: 'translateY(-2px)',
+                            boxShadow: 'none',
+                        },
+                        '&:active': {
+                            transform: 'translateY(0)',
+                        },
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
+                >
+                    Store
+                </Button>
+            </Tooltip>
           </Box>
         </Grid>
       </Grid>
