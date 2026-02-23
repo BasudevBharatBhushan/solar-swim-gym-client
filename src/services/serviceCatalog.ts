@@ -37,6 +37,8 @@ export interface ServicePrice {
     age_group_id: string;
     subscription_term_id?: string; // Optional if not recurring
     price: number;
+    num_students?: number;
+    num_instructors?: number;
 }
 
 export interface Session {

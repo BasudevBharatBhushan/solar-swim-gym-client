@@ -23,6 +23,8 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { billingService } from '../../../services/billingService';
 import { serviceCatalog } from '../../../services/serviceCatalog';
+import { basePriceService, BasePrice } from '../../../services/basePriceService';
+import { membershipService, MembershipProgram } from '../../../services/membershipService';
 import { Subscription } from '../../../types';
 
 import { useConfig } from '../../../context/ConfigContext';
@@ -40,6 +42,8 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [serviceImages, setServiceImages] = useState<Record<string, string>>({});
   const [serviceDetails, setServiceDetails] = useState<Record<string, any>>({}); // To store extra pack details if needed
+  const [basePrices, setBasePrices] = useState<BasePrice[]>([]);
+  const [membershipPrograms, setMembershipPrograms] = useState<MembershipProgram[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +52,15 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
     const fetchSubscriptions = async () => {
       setLoading(true);
       try {
-        const response = await billingService.getAccountSubscriptions(accountId, currentLocationId || undefined);
+        const [bpData, mpData, response] = await Promise.all([
+            basePriceService.getAll(currentLocationId || ''),
+            membershipService.getMemberships(currentLocationId || ''),
+            billingService.getAccountSubscriptions(accountId, currentLocationId || undefined)
+        ]);
+
+        setBasePrices(bpData?.prices || []);
+        setMembershipPrograms(mpData || []);
+
         const subs = response.data || response || [];
         setSubscriptions(subs);
 
@@ -215,7 +227,12 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                           <Stack spacing={1} sx={{ mt: 1 }}>
                                              {/* Pack details if available */}
                                               {packDetails && (
-                                                <Box sx={{ display: 'flex', gap: 2 }}>
+                                                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                                                    {sub.billing_period_start && sub.billing_period_end && (
+                                                        <Typography variant="caption" sx={{ color: '#475569' }}>
+                                                            <strong>Period:</strong> {new Date(sub.billing_period_start).toLocaleDateString()} - {new Date(sub.billing_period_end).toLocaleDateString()}
+                                                        </Typography>
+                                                    )}
                                                     {packDetails.classes && (
                                                         <Typography variant="caption" sx={{ color: '#475569' }}>
                                                             <strong>Classes:</strong> {packDetails.classes}
@@ -290,6 +307,25 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                     <TableBody>
                         {membershipSubscriptions.map((sub) => {
                             const coverage = getCoverage(sub);
+                            
+                            let displayPlanName = sub.plan_name || 'Membership';
+                            let refInfo = sub.reference_id ? sub.reference_id.substring(0, 8) + '...' : 'N/A';
+                
+                            if (sub.subscription_type === 'MEMBERSHIP_FEE') {
+                                const bp = basePrices.find(p => p.base_price_id === sub.reference_id);
+                                if (bp) {
+                                    displayPlanName = bp.name;
+                                    refInfo = `${bp.age_group_name || ''} ${bp.role ? `(${bp.role})` : ''}`.trim() || refInfo;
+                                }
+                            } else if (sub.subscription_type === 'MEMBERSHIP_JOINING' || sub.subscription_type === 'MEMBERSHIP_RENEWAL') {
+                                const cat = membershipPrograms.flatMap(p => p.categories || []).find((c: any) => c.category_id === sub.reference_id);
+                                if (cat) {
+                                    displayPlanName = cat.name || displayPlanName;
+                                    const prog = membershipPrograms.find(p => (p.categories || []).some((c: any) => c.category_id === sub.reference_id));
+                                    refInfo = prog ? prog.name : 'Category';
+                                }
+                            }
+
                             return (
                                 <TableRow key={sub.subscription_id} hover>
                                     <TableCell>
@@ -302,10 +338,10 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                     </TableCell>
                                     <TableCell>
                                         <Typography variant="body2" fontWeight={600}>
-                                            {sub.plan_name || 'Membership'}
+                                            {displayPlanName}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            Ref: {sub.reference_id.substring(0, 8)}...
+                                            Ref: {refInfo}
                                         </Typography>
                                     </TableCell>
                                     <TableCell>

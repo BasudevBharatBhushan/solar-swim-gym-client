@@ -69,6 +69,12 @@ export const membershipService = {
     return apiClient.get('/memberships', {}, options);
   },
 
+  // Get Membership Category Details
+  getCategory: async (categoryId: string, locationId?: string): Promise<MembershipCategory> => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/memberships/category/${categoryId}`, {}, options);
+  },
+
   // Create or Update Membership Program
   saveMembershipProgram: async (programData: MembershipProgram, locationId?: string): Promise<MembershipProgram> => {
      const options = locationId ? { headers: { 'x-location-id': locationId } } : {};

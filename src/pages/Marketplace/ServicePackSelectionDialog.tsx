@@ -182,6 +182,8 @@ export const ServicePackSelectionDialog = ({
                     max_uses_per_period: pack.max_uses_per_period,
                     usage_period_length: pack.usage_period_length,
                     usage_period_unit: pack.usage_period_unit,
+                    num_students: primaryEligible.price.num_students,
+                    num_instructors: primaryEligible.price.num_instructors
                 },
                 coverage: selectedProfileIds.map(id => {
                      const p = profiles.find(prof => prof.profile_id === id);
@@ -223,6 +225,8 @@ export const ServicePackSelectionDialog = ({
                             max_uses_per_period: pack.max_uses_per_period,
                             usage_period_length: pack.usage_period_length,
                             usage_period_unit: pack.usage_period_unit,
+                            num_students: eligible.price.num_students,
+                            num_instructors: eligible.price.num_instructors
                         },
                         coverage: [{
                              profile_id: id,
@@ -304,8 +308,10 @@ export const ServicePackSelectionDialog = ({
                             <Table size="small">
                                 <TableHead sx={{ bgcolor: '#f1f5f9' }}>
                                     <TableRow>
-                                        <TableCell>Age Group</TableCell>
-                                        <TableCell align="right">Price</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Age Group</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 700 }}>Students</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 700 }}>Instructors</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700 }}>Price</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -314,13 +320,17 @@ export const ServicePackSelectionDialog = ({
                                         return (
                                             <TableRow key={idx}>
                                                 <TableCell>{ageGroup?.name || 'Unknown'}</TableCell>
-                                                <TableCell align="right">${Number(price.price).toFixed(2)}</TableCell>
+                                                <TableCell align="center">{price.num_students || 1}</TableCell>
+                                                <TableCell align="center">{price.num_instructors || 1}</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 700, color: '#2563eb' }}>
+                                                    ${Number(price.price).toFixed(2)}
+                                                </TableCell>
                                             </TableRow>
                                         );
                                     })}
                                      {prices.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={2} align="center">No pricing configured</TableCell>
+                                            <TableCell colSpan={4} align="center">No pricing configured</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>

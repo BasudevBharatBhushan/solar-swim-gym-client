@@ -30,6 +30,12 @@ export const basePriceService = {
     };
   },
 
+  // Get Base Price Details
+  getBasePrice: async (basePriceId: string, locationId?: string): Promise<BasePrice> => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/base-prices/${basePriceId}`, {}, options);
+  },
+
   // Create or Update Base Price
     // Supports both single object (legacy/create) and bulk object { prices: [] }
     upsert: async (data: BasePrice | { location_id: string; prices: BasePrice[] }, locationId?: string): Promise<BasePrice | BasePrice[]> => {

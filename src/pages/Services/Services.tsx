@@ -408,8 +408,8 @@ const ServiceBasicInfo = memo(({
     );
 });
 
-const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, ageGroups: any[], onSave: (prices: Record<string, number>) => Promise<void> }) => {
-    const [prices, setPrices] = useState<Record<string, string>>({});
+const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, ageGroups: any[], onSave: (priceData: Record<string, { price: number, num_students: number, num_instructors: number }>) => Promise<void> }) => {
+    const [priceData, setPriceData] = useState<Record<string, { price: string, students: string, instructors: string }>>({});
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -418,26 +418,42 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
             setLoading(true);
             try {
                 const res = await serviceCatalog.getPackPrices(pack.service_pack_id);
-                const map: Record<string, string> = {};
+                const map: Record<string, { price: string, students: string, instructors: string }> = {};
                 res.forEach((p: ServicePrice) => {
-                    map[p.age_group_id] = p.price.toString();
+                    map[p.age_group_id] = {
+                        price: p.price.toString(),
+                        students: (p.num_students ?? 1).toString(),
+                        instructors: (p.num_instructors ?? 1).toString()
+                    };
                 });
-                setPrices(map);
+                setPriceData(map);
             } catch (err) { console.error(err); } finally { setLoading(false); }
         };
         fetchPrices();
     }, [pack]);
 
-    const handleChange = (ageId: string, val: string) => {
-        setPrices(prev => ({ ...prev, [ageId]: val }));
+    const handleDataChange = (ageId: string, field: 'price' | 'students' | 'instructors', val: string) => {
+        setPriceData(prev => ({
+            ...prev,
+            [ageId]: {
+                ...(prev[ageId] || { price: '', students: '1', instructors: '1' }),
+                [field]: val
+            }
+        }));
     };
 
     const handleSave = async () => {
         setLoading(true);
-        const toSave: Record<string, number> = {};
-        Object.entries(prices).forEach(([id, val]) => {
-            const num = parseFloat(val);
-            if (!isNaN(num)) toSave[id] = num;
+        const toSave: Record<string, { price: number, num_students: number, num_instructors: number }> = {};
+        Object.entries(priceData).forEach(([id, data]) => {
+            const priceNum = parseFloat(data.price);
+            if (!isNaN(priceNum)) {
+                toSave[id] = {
+                    price: priceNum,
+                    num_students: parseInt(data.students) || 1,
+                    num_instructors: parseInt(data.instructors) || 1
+                };
+            }
         });
         await onSave(toSave);
         setLoading(false);
@@ -470,31 +486,64 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
             </Box>
 
             <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, px: 1 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: 2, mb: 2, px: 1 }}>
                     <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em' }}>AGE GROUP</Typography>
-                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em' }}>RATE ($)</Typography>
+                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'center' }}>STUDENTS</Typography>
+                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'center' }}>INSTR.</Typography>
+                    <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'right' }}>RATE ($)</Typography>
                 </Box>
                 
                 {ageGroups.map(ag => {
                     const agId = ag.age_group_id || ag.id || Math.random().toString();
+                    const data = priceData[agId] || { price: '', students: '1', instructors: '1' };
                     return (
-                        <Box key={agId} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, px: 1 }}>
+                        <Box key={agId} sx={{ display: 'grid', gridTemplateColumns: '1fr 100px 100px 100px', gap: 2, alignItems: 'center', mb: 2.5, px: 1 }}>
                             <Box>
                                 <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>{ag.name}</Typography>
                                 <Typography sx={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>
                                     {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : (ag.description || 'N/A')}
                                 </Typography>
                             </Box>
+                            
                             <TextField 
-                                value={prices[agId] || ''} 
-                                onChange={(e) => handleChange(agId, e.target.value)}
+                                value={data.students} 
+                                onChange={(e) => handleDataChange(agId, 'students', e.target.value)}
+                                size="small"
+                                type="number"
+                                sx={{ 
+                                    '& .MuiOutlinedInput-root': { 
+                                        bgcolor: '#f8fafc',
+                                        borderRadius: '8px',
+                                        '& fieldset': { borderColor: '#f1f5f9' },
+                                        '& input': { textAlign: 'center', fontWeight: 600, py: 1 }
+                                    }
+                                }}
+                            />
+
+                            <TextField 
+                                value={data.instructors} 
+                                onChange={(e) => handleDataChange(agId, 'instructors', e.target.value)}
+                                size="small"
+                                type="number"
+                                sx={{ 
+                                    '& .MuiOutlinedInput-root': { 
+                                        bgcolor: '#f8fafc',
+                                        borderRadius: '8px',
+                                        '& fieldset': { borderColor: '#f1f5f9' },
+                                        '& input': { textAlign: 'center', fontWeight: 600, py: 1 }
+                                    }
+                                }}
+                            />
+
+                            <TextField 
+                                value={data.price} 
+                                onChange={(e) => handleDataChange(agId, 'price', e.target.value)}
                                 size="small"
                                 placeholder="N/A"
                                 InputProps={{
                                     startAdornment: <InputAdornment position="start" sx={{ '& .MuiTypography-root': { fontSize: '0.875rem', color: '#94a3b8' } }}>$</InputAdornment>
                                 }}
                                 sx={{ 
-                                    maxWidth: 100, 
                                     '& .MuiOutlinedInput-root': { 
                                         bgcolor: '#f8fafc',
                                         borderRadius: '8px',
@@ -518,7 +567,7 @@ const PricingPanel = memo(({ pack, ageGroups, onSave }: { pack: ServicePack, age
                         border: 'none'
                     }}
                 >
-                    Prices shown are specific to the selected pack. Leave empty to disable availability for that age group.
+                    Prices shown are specific to the selected pack. Student and Instructor values are for the display of this specific price tier. Leave empty to disable availability for that age group.
                 </Alert>
             </Box>
         </Paper>
@@ -778,22 +827,24 @@ export const Services = () => {
         } catch (err: any) { setError(err.message || 'Failed to save pack'); }
     };
 
-    const handleSavePackPrices = useCallback(async (prices: Record<string, number>) => {
-        if (!selectedPack?.service_pack_id) return;
+    const handleSavePackPrices = useCallback(async (priceData: Record<string, { price: number, num_students: number, num_instructors: number }>) => {
+        if (!selectedPack?.service_pack_id || !currentLocationId) return;
         try {
-            const promises = Object.entries(prices).map(([ageGroupId, price]) => 
+            const promises = Object.entries(priceData).map(([ageGroupId, data]) => 
                 serviceCatalog.upsertServicePrice({
                     location_id: currentLocationId,
-                    service_pack_id: selectedPack.service_pack_id!, // Non-null asserted because of check above
+                    service_pack_id: selectedPack.service_pack_id!,
                     age_group_id: ageGroupId,
-                    price: price,
-                    subscription_term_id: null // Explicitly null as per new requirement
+                    price: data.price,
+                    num_students: data.num_students,
+                    num_instructors: data.num_instructors,
+                    subscription_term_id: null // Explicitly null as per requirement
                 })
             );
             await Promise.all(promises);
             setSuccess('Prices updated successfully');
         } catch (err: any) { setError('Failed to update prices'); console.error(err); }
-    }, [selectedPack]);
+    }, [selectedPack, currentLocationId]);
 
     // --- Handlers: Deletion ---
 
@@ -1025,7 +1076,6 @@ export const Services = () => {
                                                                     secondary={
                                                                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                                                                             {pack.classes && <Chip label={`${pack.classes} CLASSES`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
-                                                                            {pack.students_allowed && <Chip label={`${pack.students_allowed} STUDENTS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
                                                                             {pack.duration_months ? (
                                                                                 <Chip label={`${pack.duration_months} MONTHS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
                                                                             ) : pack.duration_days ? (
@@ -1125,18 +1175,7 @@ export const Services = () => {
                                 sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
                             />
                         </Grid>
-                        <Grid size={{ xs: 6 }}>
-                             <TextField 
-                                fullWidth 
-                                type="number" 
-                                label="Students Allowed" 
-                                value={packStudentsAllowed} 
-                                onChange={(e) => setPackStudentsAllowed(parseInt(e.target.value) || '')} 
-                                size="small" 
-                                helperText="Max students per pack" 
-                                sx={{ '& .MuiInputLabel-root': { fontWeight: 600 } }}
-                            />
-                        </Grid>
+                         {/* Removed: packStudentsAllowed TextField as requested */}
                         
                         <Grid size={{ xs: 12 }} sx={{ mt: 1 }}>
                             <Paper variant="outlined" sx={{ p: 3, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>

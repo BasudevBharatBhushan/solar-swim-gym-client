@@ -170,6 +170,7 @@ export const Marketplace = () => {
     const [termDialogOpen, setTermDialogOpen] = useState(false);
     const [pendingBaseCard, setPendingBaseCard] = useState<BasePlanCard | null>(null);
     const [selectedTermId, setSelectedTermId] = useState<string>('');
+    const [selectedBaseStartDate, setSelectedBaseStartDate] = useState<string>('');
 
     const [membershipInfoOpen, setMembershipInfoOpen] = useState(false);
     const [otherPlansOpen, setOtherPlansOpen] = useState(false);
@@ -1047,6 +1048,28 @@ export const Marketplace = () => {
             return;
         }
 
+        let endDateStr = '';
+        if (selectedBaseStartDate && selectedTermId) {
+            const termInfo = subscriptionTermMap.get(selectedTermId);
+            if (termInfo) {
+                const start = new Date(selectedBaseStartDate);
+                // Handle different recurrence units
+                const unit = (termInfo.recurrence_unit || 'MONTH').toUpperCase();
+                const value = termInfo.recurrence_unit_value || termInfo.duration_months || 1;
+                
+                if (unit === 'DAY') {
+                    start.setDate(start.getDate() + value);
+                } else if (unit === 'WEEK') {
+                    start.setDate(start.getDate() + (value * 7));
+                } else if (unit === 'YEAR') {
+                    start.setFullYear(start.getFullYear() + value);
+                } else {
+                    start.setMonth(start.getMonth() + value);
+                }
+                endDateStr = start.toISOString().split('T')[0];
+            }
+        }
+
         const baseItem: CartItem = {
             id: `BASE-${selectedTerm.base_price_id}-${Date.now()}`,
             type: 'BASE',
@@ -1055,15 +1078,20 @@ export const Marketplace = () => {
             price: selectedTerm.price,
             subscriptionTermId: selectedTerm.subscription_term_id,
             ageGroupId: pendingBaseCard.ageGroupId,
+            billing_period_start: selectedBaseStartDate || undefined,
+            billing_period_end: endDateStr || undefined,
             metadata: {
                 subscription_term_id: selectedTerm.subscription_term_id,
                 role: pendingBaseCard.role,
+                billing_period_start: selectedBaseStartDate || undefined,
+                billing_period_end: endDateStr || undefined,
             },
         };
 
         setTermDialogOpen(false);
         setPendingBaseCard(null);
         setSelectedTermId('');
+        setSelectedBaseStartDate('');
         openCoverageDialogForItem(baseItem);
     };
 
@@ -1731,7 +1759,7 @@ export const Marketplace = () => {
 
                                                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
                                                                 {pack.classes && <Chip label={`${pack.classes} CLASSES`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
-                                                                {pack.students_allowed && <Chip label={`${pack.students_allowed} STUDENTS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />}
+                                                                {/* Removed: pack.students_allowed chip */}
                                                                 {pack.duration_months ? (
                                                                     <Chip label={`${pack.duration_months} MONTHS`} size="small" sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} />
                                                                 ) : pack.duration_days ? (
@@ -1762,16 +1790,24 @@ export const Marketplace = () => {
 
                                                             {/* Price Breakdown by Age Group */}
                                                             {(pack.prices || []).length > 0 && (
-                                                                <Box sx={{ mb: 2, bgcolor: '#f1f5f9', p: 1, borderRadius: 1 }}>
+                                                                <Box sx={{ mb: 2, bgcolor: '#f8fafc', p: 1.5, borderRadius: 1.5, border: '1px solid #e2e8f0' }}>
                                                                      {(pack.prices || []).map((priceItem, idx) => {
                                                                          const priceAgeGroupId = (priceItem as any).age_group_id;
                                                                          const ageGroupName = ageGroups.find(ag => ag.age_group_id === priceAgeGroupId)?.name || 'Standard';
+                                                                         const students = (priceItem as any).num_students || 1;
+                                                                         const instructors = (priceItem as any).num_instructors || 1;
+                                                                         
                                                                          return (
-                                                                             <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5, '&:last-child': { mb: 0 } }}>
-                                                                                 <Typography variant="caption" color="text.secondary" fontWeight="500">
-                                                                                     {ageGroupName}
-                                                                                 </Typography>
-                                                                                 <Typography variant="caption" fontWeight="700" color="text.primary">
+                                                                             <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, '&:last-child': { mb: 0 } }}>
+                                                                                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                                                                                     <Typography variant="caption" color="text.primary" fontWeight="700" sx={{ fontSize: '0.7rem' }}>
+                                                                                         {ageGroupName}
+                                                                                     </Typography>
+                                                                                     <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 500 }}>
+                                                                                         {students} Student{students !== 1 ? 's' : ''} • {instructors} Instr.
+                                                                                     </Typography>
+                                                                                 </Box>
+                                                                                 <Typography variant="caption" fontWeight="800" color="primary.main" sx={{ fontSize: '0.75rem' }}>
                                                                                      {formatCurrency(parseNumericPrice(priceItem.price))}
                                                                                  </Typography>
                                                                              </Box>
@@ -1956,6 +1992,12 @@ export const Marketplace = () => {
                                                 )}
                                             </Box>
 
+                                            {item.billing_period_start && item.billing_period_end && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                                    Period: {new Date(item.billing_period_start).toLocaleDateString()} - {new Date(item.billing_period_end).toLocaleDateString()}
+                                                </Typography>
+                                            )}
+
                                             {/* Coverage chips */}
                                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1.5 }}>
                                                 {item.coverage?.map((covered) => (
@@ -2123,8 +2165,21 @@ export const Marketplace = () => {
                 <DialogTitle>Select Subscription Term</DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Select a term for {pendingBaseCard?.name} ({pendingBaseCard?.ageGroupName}).
+                        Select a term and start date for {pendingBaseCard?.name} ({pendingBaseCard?.ageGroupName}).
                     </Typography>
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                        <Grid size={{ xs: 12, md: 6 }}>
+                            <TextField
+                                label="Start Date"
+                                type="date"
+                                value={selectedBaseStartDate}
+                                onChange={(e) => setSelectedBaseStartDate(e.target.value)}
+                                fullWidth
+                                size="small"
+                                InputLabelProps={{ shrink: true }}
+                            />
+                        </Grid>
+                    </Grid>
                     <FormControl fullWidth>
                         <RadioGroup value={selectedTermId} onChange={(event) => setSelectedTermId(event.target.value)}>
                             {(pendingBaseCard?.terms || []).map((term) => {

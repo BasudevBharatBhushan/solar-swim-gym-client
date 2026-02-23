@@ -247,6 +247,8 @@ Pricing for service packs.
 | `age_group_id` | `UUID` | Age group modifier. | **FK** -> `age_group`, `NOT NULL` |
 | `subscription_term_id`| `UUID` | Billing term modifier (Optional). | **FK** -> `subscription_term` |
 | `price` | `DECIMAL` | The cost amount. | `NOT NULL`, Default: `0.00` |
+| `num_students` | `INT` | Number of students for this price. | Default: `1` |
+| `num_instructors` | `INT` | Number of instructors for this price. | Default: `1` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 
 **RLS Policy**: Filter by `location_id`.
@@ -404,6 +406,7 @@ Active recurring contract for a service/membership.
 | `billing_period_start` | `DATE` | Start of coverage. | |
 | `billing_period_end` | `DATE` | End of coverage. | |
 | `status` | `ENUM` | `ACTIVE`, `PAID`, `CANCELLED` | Default: `ACTIVE`, `NOT NULL` |
+| `role` | `ENUM` | `PRIMARY`, `ADD_ON` | Default: `PRIMARY` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
 **RLS Policy**: Filter by `location_id`.
@@ -448,6 +451,7 @@ Temporary storage for subscriptions before finalizing. Copy of `subscription` ta
 | `billing_period_end` | `DATE` | End of coverage. | |
 | `status` | `TEXT` | `ACTIVE`, etc. | |
 | `metadata` | `JSONB` | Arbitrary JSON data. | Default: `{}` |
+| `role` | `ENUM` | `PRIMARY`, `ADD_ON` | Default: `PRIMARY` |
 | `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
 | `updated_at` | `TIMESTAMP` | Record update. | Default: `NOW()` |
 
