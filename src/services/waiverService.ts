@@ -46,11 +46,65 @@ export interface GetSignedWaiversResponse {
     data: SignedWaiver[];
 }
 
+export interface CreateWaiverRequestPayload {
+  account_id: string;
+  profile_id: string;
+  waiver_template_id: string;
+  waiver_type: string;
+  expires_in_days?: number;
+  variables: Record<string, any>;
+}
+
+export interface WaiverRequestResponse {
+  success: boolean;
+  data: {
+    request_id: string;
+    account_id: string;
+    token: string;
+    public_signing_url: string;
+    expires_at: string;
+  }
+}
+
+export interface PublicWaiverDetailsResponse {
+  success: boolean;
+  data: {
+    account_id: string;
+    profile_id: string;
+    waiver_type: string;
+    location_name: string;
+    template_content: string;
+    resolved_variables: Record<string, string>;
+  }
+}
+
+export interface SubmitPublicWaiverPayload {
+  signature_base64: string;
+  final_content: string;
+  agreed: boolean;
+}
+
 export const waiverService = {
   // Fetch all waiver templates
   getWaiverTemplates: async (locationId?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.get('/waiver-templates', {}, options);
+  },
+
+  // Create public waiver signing request link
+  createWaiverRequest: async (payload: CreateWaiverRequestPayload, locationId?: string): Promise<WaiverRequestResponse> => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/waiver-requests', payload, options);
+  },
+
+  // Fetch a waiver request via public token
+  getPublicWaiverRequest: async (token: string): Promise<PublicWaiverDetailsResponse> => {
+    return apiClient.get(`/public/waiver-request/${token}`);
+  },
+
+  // Submit a public waiver signature
+  submitPublicWaiver: async (token: string, payload: SubmitPublicWaiverPayload) => {
+    return apiClient.post(`/public/waiver-request/${token}/submit`, payload);
   },
 
   // Upload signature image

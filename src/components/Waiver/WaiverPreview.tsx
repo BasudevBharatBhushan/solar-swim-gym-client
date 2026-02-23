@@ -35,7 +35,23 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
 
     if (parts.length > 1 && signatureComponent) {
         return (
-            <div style={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6' }}>
+            <div className="ql-editor" style={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', padding: 0 }}>
+                <style>
+                    {`
+                    .ql-editor .ql-align-center { text-align: center; }
+                    .ql-editor .ql-align-right { text-align: right; }
+                    .ql-editor .ql-align-justify { text-align: justify; }
+                    .ql-editor ul, .ql-editor ol { padding-left: 1.5em; margin-bottom: 1em; }
+                    .ql-editor li { margin-bottom: 0.5em; }
+                    .ql-editor img { max-width: 100%; height: auto; }
+                    .ql-editor .ql-indent-1:not(.ql-direction-rtl) { padding-left: 3em; }
+                    .ql-editor li.ql-indent-1:not(.ql-direction-rtl) { padding-left: 4.5em; }
+                    .ql-editor .ql-indent-2:not(.ql-direction-rtl) { padding-left: 6em; }
+                    .ql-editor li.ql-indent-2:not(.ql-direction-rtl) { padding-left: 7.5em; }
+                    .ql-editor .ql-indent-3:not(.ql-direction-rtl) { padding-left: 9em; }
+                    .ql-editor li.ql-indent-3:not(.ql-direction-rtl) { padding-left: 10.5em; }
+                    `}
+                </style>
                 <div dangerouslySetInnerHTML={{ __html: parts[0] }} />
                 <Box sx={{ my: 3, p: 2, border: '1px dashed #ccc', borderRadius: 1, bgcolor: '#fff' }}>
                     <Typography variant="subtitle2" gutterBottom color="text.secondary">
@@ -49,7 +65,23 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
     }
 
     return (
-        <div style={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6' }}>
+        <div className="ql-editor" style={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: '1.6', padding: 0 }}>
+            <style>
+                {`
+                .ql-editor .ql-align-center { text-align: center; }
+                .ql-editor .ql-align-right { text-align: right; }
+                .ql-editor .ql-align-justify { text-align: justify; }
+                .ql-editor ul, .ql-editor ol { padding-left: 1.5em; margin-bottom: 1em; }
+                .ql-editor li { margin-bottom: 0.5em; }
+                .ql-editor img { max-width: 100%; height: auto; }
+                .ql-editor .ql-indent-1:not(.ql-direction-rtl) { padding-left: 3em; }
+                .ql-editor li.ql-indent-1:not(.ql-direction-rtl) { padding-left: 4.5em; }
+                .ql-editor .ql-indent-2:not(.ql-direction-rtl) { padding-left: 6em; }
+                .ql-editor li.ql-indent-2:not(.ql-direction-rtl) { padding-left: 7.5em; }
+                .ql-editor .ql-indent-3:not(.ql-direction-rtl) { padding-left: 9em; }
+                .ql-editor li.ql-indent-3:not(.ql-direction-rtl) { padding-left: 10.5em; }
+                `}
+            </style>
             <div dangerouslySetInnerHTML={{ __html: html }} />
              {signatureComponent && (
                 <Box sx={{ mt: 3, p: 2, border: '1px dashed #ccc', borderRadius: 1, bgcolor: '#fff' }}>

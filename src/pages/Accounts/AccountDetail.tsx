@@ -232,61 +232,97 @@ export const AccountDetail = () => {
               return;
           }
 
-          if (account.status === 'PENDING') {
-              // Account is pending - send activation link with waiver_sign=true
-              await authService.sendResetPasswordLink(account.account_id, { waiver_sign: true });
-              showToast("Activation link with waiver signing sent successfully!", "success");
-          } else {
-              // Account is active - send contract signing email using template
-              const companyName = (account.location?.name || account.location_name || 'Solar Swim Gym');
-              // Default subject with company name already resolved
-              let subject = `Complete Your Registration – Waiver Signing for ${companyName}`;
-              let body = `Your contract is ready for signing. Please click the link below to sign your waiver.`;
-              let templateId: string | undefined = undefined;
+          // Unauthenticated signing handles pending vs active cleanly by not requiring login
+          const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
+            waiverService.getWaiverTemplates(),
+            configService.getAgeGroups(currentLocationId)
+          ]);
+          const templates = (waiverTemplatesRes as any).data || [];
+          const ageGroups = (ageGroupsRes as any) || [];
 
-              try {
-                  const templates = await emailService.getTemplates(currentLocationId);
-                  const template = templates.find((t: any) =>
-                      t.subject?.includes('Complete Your Registration') ||
-                      t.subject?.includes('Waiver Signing') ||
-                      t.subject?.includes('Contract')
-                  );
-                  if (template) {
-                      // Replace {{company}} or {{company} (handles missing closing brace in DB)
-                      subject = template.subject.replace(/\{\{company\}?\}?/g, companyName);
-                      body = template.body_content;
-                      templateId = template.email_template_id;
-                  }
-              } catch (e) {
-                  console.warn("Could not fetch templates, using default");
-              }
+          let linksText = '';
+          for (const profile of profiles) {
+             const age = calculateAge(profile.date_of_birth);
+             const group = ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+             const matchedTemplate = templates.find((t: any) => 
+               t.is_active && (t.ageprofile_id === group?.age_group_id || !t.ageprofile_id)
+             );
 
-              // Build the contract signing link — points to the member portal waiver tab
-              const contractLink = `${window.location.origin}/portal?tab=waivers`;
-              const currentYear = new Date().getFullYear().toString();
-
-              // Replace all template variables
-              body = body
-                .replace(/\{\{contract_link\}\}/g, contractLink)
-                .replace(/\{\{company\}\}/g, companyName)
-                .replace(/\{\{year\}\}/g, currentYear);
-
-              // Fallback: if no {{contract_link}} placeholder was found, append the link
-              if (!body.includes(contractLink)) {
-                  body = `${body}\n\nSign your waiver here: ${contractLink}`;
-              }
-
-              setComposeDraft({
-                  to: recipientEmail,
-                  subject,
-                  body,
-                  templateId,
-                  attachments: [],
-                  accountId: account.account_id
-              });
-              setOpenCompose(true);
-              showToast("Email draft prepared. Review details and send.", "info");
+             if (matchedTemplate) {
+               const signedRes = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
+               const signed = signedRes.data || [];
+               const hasRegistration = signed.some((w: any) => w.waiver_type === 'REGISTRATION');
+               
+               if (!hasRegistration) {
+                  const payload = {
+                     account_id: account.account_id,
+                     profile_id: profile.profile_id,
+                     waiver_template_id: matchedTemplate.waiver_template_id,
+                     waiver_type: 'REGISTRATION',
+                     variables: {
+                        FullName: `${profile.first_name} ${profile.last_name}`,
+                        GuardianName: profile.guardian_name || 'N/A',
+                        CurrentDate: new Date().toLocaleDateString()
+                     }
+                  };
+                  const reqRes = await waiverService.createWaiverRequest(payload, currentLocationId);
+                  linksText += `\n- Sign for ${profile.first_name}: ${reqRes.data.public_signing_url}`;
+               }
+             }
           }
+
+          if (!linksText.trim()) {
+             showToast("No unsigned registration waivers found.", "info");
+             setActionLoading(false);
+             return;
+          }
+
+          const companyName = (account.location?.name || account.location_name || 'Solar Swim Gym');
+          let subject = `Complete Your Registration – Waiver Signing for ${companyName}`;
+          let body = `Your contracts are ready for signing. Please click the secure links below to sign your waivers:\n${linksText}`;
+          let templateId: string | undefined = undefined;
+
+          try {
+              const emailTemplates = await emailService.getTemplates(currentLocationId);
+              const template = emailTemplates.find((t: any) =>
+                  t.subject?.includes('Complete Your Registration') ||
+                  t.subject?.includes('Waiver Signing') ||
+                  t.subject?.includes('Contract')
+              );
+              if (template) {
+                  subject = template.subject.replace(/\{\{company\}?\}?/g, companyName);
+                  body = template.body_content;
+                  templateId = template.email_template_id;
+              }
+          } catch (e) {
+              console.warn("Could not fetch templates, using default");
+          }
+
+          const currentYear = new Date().getFullYear().toString();
+          
+          body = body
+            .replace(/\{\{contract_link\}\}/g, linksText)
+            .replace(/\{\{company\}\}/g, companyName)
+            .replace(/\{\{year\}\}/g, currentYear);
+
+          if (!body.includes(linksText.trim())) {
+              body = `${body}\n\nSign your waivers here:\n${linksText}`;
+          }
+
+          if (account.status === 'PENDING') {
+              body = `Note: Your account is currently pending. You can sign your waivers below. We will send you an activation link separately.\n\n${body}`;
+          }
+
+          setComposeDraft({
+              to: recipientEmail,
+              subject,
+              body,
+              templateId,
+              attachments: [],
+              accountId: account.account_id
+          });
+          setOpenCompose(true);
+          showToast("Email draft prepared. Review details and send.", "info");
       } catch (error: any) {
           console.error("Failed to send waiver for signing", error);
           showToast(error.message || "Failed to send waiver for signing.", "error");
@@ -439,38 +475,7 @@ export const AccountDetail = () => {
         ]}
         action={
             <Stack direction="row" spacing={1} alignItems="center">
-                <Tooltip title={hasUnsignedWaivers ? 'Send waiver link for signing to member email' : 'Email signed waiver PDF to member'} arrow>
-                    <span>
-                        <Button
-                            startIcon={hasUnsignedWaivers ? <DrawIcon sx={{ fontSize: '0.95rem !important' }} /> : <EmailIcon sx={{ fontSize: '0.95rem !important' }} />}
-                            endIcon={<LaunchIcon sx={{ fontSize: '0.75rem !important', opacity: 0.6 }} />}
-                            onClick={handleWaiverButtonClick}
-                            disabled={actionLoading}
-                            size="small"
-                            sx={{
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                fontSize: '0.8rem',
-                                px: 1.75,
-                                py: 0.75,
-                                borderRadius: '6px',
-                                border: '1.5px solid',
-                                borderColor: hasUnsignedWaivers ? '#f59e0b' : '#334155',
-                                color: hasUnsignedWaivers ? '#b45309' : '#334155',
-                                bgcolor: hasUnsignedWaivers ? '#fffbeb' : '#f8fafc',
-                                '&:hover': {
-                                    bgcolor: hasUnsignedWaivers ? '#fef3c7' : '#f1f5f9',
-                                    borderColor: hasUnsignedWaivers ? '#d97706' : '#1e293b',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                                },
-                                transition: 'all 0.2s ease',
-                                '&.Mui-disabled': { opacity: 0.5 },
-                            }}
-                        >
-                            {hasUnsignedWaivers ? 'Send Waiver for Signing' : 'Email Signed Waiver'}
-                        </Button>
-                    </span>
-                </Tooltip>
+
 
                 <Tooltip title="Send account activation link via email" arrow>
                     <span>
@@ -510,7 +515,7 @@ export const AccountDetail = () => {
                             startIcon={<PaymentsIcon sx={{ fontSize: '0.95rem !important' }} />}
                             endIcon={<LaunchIcon sx={{ fontSize: '0.75rem !important', opacity: 0.6 }} />}
                             onClick={handleSendPaymentLink}
-                            disabled={actionLoading}
+                            disabled={true}
                             size="small"
                             sx={{
                                 textTransform: 'none',

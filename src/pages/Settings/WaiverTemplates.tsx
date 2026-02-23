@@ -19,7 +19,6 @@ import {
 import { 
     Save, 
     Assignment, 
-    Edit, 
     ExpandLess, 
     ExpandMore,
     Pool, 
@@ -513,10 +512,14 @@ export const WaiverTemplates = () => {
                                         onChange={setEditorContent}
                                         modules={{
                                             toolbar: [
-                                                [{ 'header': [1, 2, 3, false] }],
-                                                ['bold', 'italic', 'underline', 'strike'],
+                                                [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                                                ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+                                                [{ 'color': [] }, { 'background': [] }],
                                                 [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                                                ['link', 'clean']
+                                                [{ 'script': 'sub'}, { 'script': 'super' }],
+                                                [{ 'indent': '-1'}, { 'indent': '+1' }],
+                                                [{ 'direction': 'rtl' }, { 'align': [] }],
+                                                ['link', 'image', 'clean']
                                             ]
                                         }}
                                     />

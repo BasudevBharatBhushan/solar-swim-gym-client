@@ -35,6 +35,7 @@ import { Profiles } from './pages/Profiles/Profiles';
 import { ComingSoon } from './components/Common/ComingSoon';
 import { CreditCard, Subscriptions } from '@mui/icons-material';
 import { getLocationConfig } from './utils/locationConfig';
+import { PublicWaiverSigning } from './pages/PublicWaiverSigning';
 
 const LoginRedirect = () => {
   const { isAuthenticated, role } = useAuth();
@@ -77,6 +78,9 @@ const AppRoutes = () => {
 
       <Route path="/activate" element={<ActivateAccount />} />
       <Route path="/admin/activate" element={<AdminActivation />} />
+
+      {/* Public Pages */}
+      <Route path="/public/sign-waiver" element={<PublicWaiverSigning />} />
 
       {/* User Portal Routes */}
       <Route path="/portal" element={isAuthenticated ? <UserPortalLayout /> : <Navigate to="/login" replace />}>

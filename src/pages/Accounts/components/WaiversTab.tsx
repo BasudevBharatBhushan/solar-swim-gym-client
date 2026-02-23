@@ -320,6 +320,77 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
   };
 
   // --- Email Draft Logic ---
+  const preparePublicWaiverEmailDraft = async (pw: PendingWaiver) => {
+    if (!currentLocationId) return;
+
+    if (!pw.profile.email && !accountId) {
+      showToast(`No email found for ${pw.profile.first_name} ${pw.profile.last_name}.`, 'warning');
+      return;
+    }
+
+    setSendingWaiverId(pw.profile.profile_id); // using this just for loading state identifier
+    try {
+      const payload = {
+         account_id: accountId || (pw.profile as any).account_id || '', // Note: pw.profile might not have account_id typed or present directly
+         profile_id: pw.profile.profile_id,
+         waiver_template_id: pw.waiverTemplate.waiver_template_id,
+         waiver_type: 'REGISTRATION',
+         variables: {
+            FullName: `${pw.profile.first_name} ${pw.profile.last_name}`,
+            GuardianName: (pw.profile as any).guardian_name || 'N/A',
+            CurrentDate: new Date().toLocaleDateString(),
+         }
+      };
+      
+      const res = await waiverService.createWaiverRequest(payload, currentLocationId);
+      const publicUrl = res.data.public_signing_url;
+
+      const templateName = 'Complete Your Registration – Waiver Signing';
+      let subject = templateName;
+      let body = `Your contract is ready for signing. Please click the link below to sign your waiver for ${pw.profile.first_name}.`;
+      let templateId: string | undefined;
+
+      try {
+        const templates = await emailService.getTemplates(currentLocationId);
+        const template = templates.find(t => 
+           t.subject?.includes('Complete Your Registration') || 
+           t.subject?.includes('Waiver Signing')
+        );
+        if (template) {
+          subject = template.subject.replace(/\{\{company\}?\}?/g, 'Solar Swim Gym');
+          body = template.body_content;
+          templateId = template.email_template_id;
+        }
+      } catch (templateError) {
+        console.warn('Could not fetch templates', templateError);
+      }
+
+      body = body
+        .replace(/\{\{contract_link\}\}/g, publicUrl)
+        .replace(/\{\{company\}\}/g, 'Solar Swim Gym')
+        .replace(/\{\{year\}\}/g, new Date().getFullYear().toString());
+
+      if (!body.includes(publicUrl)) {
+        body = `${body}\n\nSign your waiver here: ${publicUrl}`;
+      }
+
+      setComposeDraft({
+        to: pw.profile.email || '', // fallback to maybe account email inside composer if blank
+        subject,
+        body,
+        templateId,
+        attachments: [],
+        accountId: accountId
+      });
+      setOpenCompose(true);
+    } catch (err: any) {
+      console.error('Failed to prepare public waiver link email', err);
+      showToast(err.message || 'Failed to generate sign link.', 'error');
+    } finally {
+      setSendingWaiverId(null);
+    }
+  };
+
   const prepareWaiverEmailDraft = async (waiver: SignedWaiver) => {
     if (!currentLocationId) return;
 
@@ -480,6 +551,20 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
                         />
                       </TableCell>
                       <TableCell align="right">
+                        <Button
+                          startIcon={<EmailIcon />}
+                          size="small"
+                          variant="outlined"
+                          onClick={() => preparePublicWaiverEmailDraft(pw)}
+                          disabled={sendingWaiverId === pw.profile.profile_id}
+                          sx={{ 
+                            textTransform: 'none', 
+                            fontWeight: 600,
+                            mr: 1
+                          }}
+                        >
+                          {sendingWaiverId === pw.profile.profile_id ? 'Wait...' : 'Email Link'}
+                        </Button>
                         <Button
                           startIcon={<DrawIcon />}
                           size="small"

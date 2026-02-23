@@ -363,9 +363,9 @@ export const Memberships = () => {
           let targetCategoryId = draftCategory.category_id;
 
           // Sanitize fees (convert empty string to 0)
-          const sanitizedCategory = {
+          const sanitizedCategory: MembershipCategory = {
               ...draftCategory,
-              fees: draftCategory.fees.map(f => ({
+              fees: draftCategory.fees.map((f: any) => ({
                   ...f,
                   amount: f.amount === '' ? 0 : Number(f.amount)
               }))
@@ -442,7 +442,7 @@ export const Memberships = () => {
       const newFees = draftCategory.fees.map(f => 
           f.fee_type === type ? { ...f, amount: amount === '' ? '' : Number(amount) } : f
       );
-      setDraftCategory({ ...draftCategory, fees: newFees });
+      setDraftCategory({ ...draftCategory, fees: newFees as any });
   };
   
   const updateDraftRule = (ruleIndex: number, field: string, value: any) => {
