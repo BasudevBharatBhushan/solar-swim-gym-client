@@ -7,3 +7,4 @@ export * from './crmService';
 export * from './billingService';
 export * from './discountService';
 export * from './pricingService';
+export * from './paymentService';

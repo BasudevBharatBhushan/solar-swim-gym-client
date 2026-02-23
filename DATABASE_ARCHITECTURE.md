@@ -384,6 +384,42 @@ Money received against an invoice.
 
 **RLS Policy**: Filter by `location_id` (via Invoice).
 
+### **Table: `saved_payment_methods`**
+Secure storage of tokenized credit cards via Cayan Vault.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
+| `account_id` | `UUID` | Account owner. | **FK** -> `account`, `NOT NULL` |
+| `vault_token` | `TEXT` | The Cayan Vault Token. | `UNIQUE`, `NOT NULL` |
+| `card_brand` | `TEXT` | e.g. Visa, MasterCard | Nullable |
+| `last4_digits` | `VARCHAR(4)` | Last 4 digits | Nullable |
+| `expiry_mm_yy` | `TEXT` | Expiration (MMYY) | Nullable |
+| `is_default` | `BOOLEAN` | Default payment method. | Default: `FALSE` |
+| `status` | `ENUM` | `ACTIVE`, `DISABLED` | Default: `ACTIVE` |
+| `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
+| `updated_at` | `TIMESTAMP` | Record update. | Default: `NOW()` |
+
+**Constraints**:
+* `UNIQUE (account_id, vault_token)`
+* Trigger `trg_ensure_single_default_payment_method` ensures max 1 default card per account.
+
+### **Table: `payment_transactions`**
+Logs of all transaction attempts and results against the payment gateway.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | Unique transaction ID. | **PK**, Default: `gen_random_uuid()` |
+| `invoice_id` | `UUID` | Related invoice. | **FK** -> `invoice`, `NOT NULL` |
+| `account_id` | `UUID` | Related account. | **FK** -> `account`, `NOT NULL` |
+| `amount` | `DECIMAL` | Transaction amount. | `NOT NULL` |
+| `gateway` | `TEXT` | Gateway used. | Default: `'CAYAN'` |
+| `gateway_transaction_token`| `TEXT` | Gateway response identifier. | |
+| `approval_code` | `TEXT` | Gateway approval code. | |
+| `status` | `ENUM` | `APPROVED`, `DECLINED`, `FAILED`| `NOT NULL` |
+| `raw_response` | `JSONB` | Full JSON response from Gateway.| |
+| `created_at` | `TIMESTAMP` | Transaction time. | Default: `NOW()` |
+
 ### **Table: `subscription`**
 Active recurring contract for a service/membership.
 
