@@ -81,17 +81,44 @@ const tryFetchAsDataUrl = async (url: string): Promise<string | null> => {
   }
 };
 
+// Quill alignment + formatting CSS — injected into document.head before html2canvas
+// so that class-based text-align (e.g. .ql-align-center) is correctly captured in the PDF.
+const QUILL_PDF_STYLES = `
+  .ql-pdf-scope .ql-align-center { text-align: center !important; }
+  .ql-pdf-scope .ql-align-right  { text-align: right  !important; }
+  .ql-pdf-scope .ql-align-justify { text-align: justify !important; }
+  .ql-pdf-scope ul, .ql-pdf-scope ol { padding-left: 1.5em; margin-bottom: 1em; }
+  .ql-pdf-scope li { margin-bottom: 0.5em; }
+  .ql-pdf-scope img { max-width: 100%; height: auto; }
+  .ql-pdf-scope .ql-indent-1:not(.ql-direction-rtl) { padding-left: 3em; }
+  .ql-pdf-scope li.ql-indent-1:not(.ql-direction-rtl) { padding-left: 4.5em; }
+  .ql-pdf-scope .ql-indent-2:not(.ql-direction-rtl) { padding-left: 6em; }
+  .ql-pdf-scope li.ql-indent-2:not(.ql-direction-rtl) { padding-left: 7.5em; }
+  .ql-pdf-scope .ql-indent-3:not(.ql-direction-rtl) { padding-left: 9em; }
+  .ql-pdf-scope li.ql-indent-3:not(.ql-direction-rtl) { padding-left: 10.5em; }
+`;
+
+const QUILL_STYLE_ID = 'waiver-pdf-quill-styles';
+
+const injectQuillStyles = (): void => {
+  if (document.getElementById(QUILL_STYLE_ID)) return;
+  const styleEl = document.createElement('style');
+  styleEl.id = QUILL_STYLE_ID;
+  styleEl.textContent = QUILL_PDF_STYLES;
+  document.head.appendChild(styleEl);
+};
+
+const removeQuillStyles = (): void => {
+  const styleEl = document.getElementById(QUILL_STYLE_ID);
+  if (styleEl) styleEl.remove();
+};
+
 const buildWaiverHtml = (waiver: SignedWaiver, signatureDataUrl: string | null): string => {
   const signedAt = waiver.signed_at ? new Date(waiver.signed_at).toLocaleString() : 'Not available';
 
   return `
     <div style="font-family: Arial, sans-serif; color: #0f172a; background: #ffffff; line-height: 1.45; font-size: 14px;">
-      <style>
-        * { box-sizing: border-box; }
-        img { max-width: 100%; height: auto; }
-        p, span, div, li, h1, h2, h3, h4, h5, h6, td, th { color: #0f172a !important; }
-      </style>
-      <div>${waiver.content}</div>
+      <div class="ql-pdf-scope" style="padding: 0;">${waiver.content}</div>
       ${
         signatureDataUrl
           ? `
@@ -264,6 +291,9 @@ export const createWaiverPdfAttachment = async (
   const signatureDataUrl = waiver.signature_url ? await tryFetchAsDataUrl(waiver.signature_url) : null;
   const container = createRenderContainer(buildWaiverHtml(waiver, signatureDataUrl));
 
+  // Inject Quill CSS into <head> so html2canvas can read it via document.styleSheets.
+  // html2canvas does NOT reliably process <style> tags inside the captured element.
+  injectQuillStyles();
   document.body.appendChild(container);
 
   try {
@@ -285,5 +315,6 @@ export const createWaiverPdfAttachment = async (
     return new File([pdfBlob], fileName, { type: 'application/pdf' });
   } finally {
     document.body.removeChild(container);
+    removeQuillStyles();
   }
 };

@@ -195,9 +195,9 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             </Typography>
         </Grid>
 
-        <Grid size={{ xs: 12 }}>
-            <FormControl fullWidth size="small">
-                <InputLabel id="waiver-program-label" shrink>State Waiver Program (Optional)</InputLabel>
+        <Grid size={{ xs: 12, sm: 6 }}>
+             <FormControl fullWidth size="small">
+                <InputLabel shrink>State Waiver Program (Optional)</InputLabel>
                 <Select
                     labelId="waiver-program-label"
                     value={selectValue}
@@ -219,25 +219,6 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             </FormControl>
         </Grid>
 
-        <Grid size={{ xs: 12, sm: 6 }}>
-            <FormControl fullWidth size="small">
-                <InputLabel shrink>Primary Member Notifications</InputLabel>
-                <Select value={data.notify_primary_member !== false ? 'true' : 'false'} onChange={e => updateData('notify_primary_member', e.target.value === 'true')} label="Primary Member Notifications">
-                    <MenuItem value="true">Enable Notifications</MenuItem>
-                    <MenuItem value="false">Disable Notifications</MenuItem>
-                </Select>
-            </FormControl>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6 }}>
-            <FormControl fullWidth size="small">
-                <InputLabel shrink>Guardian Notifications</InputLabel>
-                <Select value={data.notify_guardian !== false ? 'true' : 'false'} onChange={e => updateData('notify_guardian', e.target.value === 'true')} label="Guardian Notifications">
-                    <MenuItem value="true">Enable Notifications</MenuItem>
-                    <MenuItem value="false">Disable Notifications</MenuItem>
-                </Select>
-            </FormControl>
-        </Grid>
-
         {data.waiver_program_id && (
             <>
                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -248,7 +229,7 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
                         value={data.case_manager_name || ''}
                         onChange={(e) => updateData('case_manager_name', e.target.value)}
                         required
-                        error={!!errors.case_manager_name} // Handler in parent needs to validate this
+                        error={!!errors.case_manager_name}
                         helperText={errors.case_manager_name}
                         slotProps={{ inputLabel: { shrink: true } }}
                     />
@@ -268,6 +249,25 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
                 </Grid>
             </>
         )}
+
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControl fullWidth size="small">
+                <InputLabel shrink>Primary Member Notifications</InputLabel>
+                <Select value={data.notify_primary_member !== false ? 'true' : 'false'} onChange={e => updateData('notify_primary_member', e.target.value === 'true')} label="Primary Member Notifications">
+                    <MenuItem value="true">Enable Notifications</MenuItem>
+                    <MenuItem value="false">Disable Notifications</MenuItem>
+                </Select>
+            </FormControl>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControl fullWidth size="small">
+                <InputLabel shrink>Guardian Notifications</InputLabel>
+                <Select value={data.notify_guardian !== false ? 'true' : 'false'} onChange={e => updateData('notify_guardian', e.target.value === 'true')} label="Guardian Notifications">
+                    <MenuItem value="true">Enable Notifications</MenuItem>
+                    <MenuItem value="false">Disable Notifications</MenuItem>
+                </Select>
+            </FormControl>
+        </Grid>
 
         <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: '#334155' }}>

@@ -12,27 +12,18 @@ import {
   Typography,
   Snackbar,
   Alert,
-  Stack,
-  Divider,
   useTheme,
   useMediaQuery
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import EmailIcon from '@mui/icons-material/Email';
-import LinkIcon from '@mui/icons-material/Link';
-import LaunchIcon from '@mui/icons-material/Launch';
-import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { ProfileStep } from './Steps/ProfileStep';
 import { FamilyStep } from './Steps/FamilyStep';
 import { ReviewStep } from './Steps/ReviewStep';
 import { WaiverSigningStep } from './Steps/WaiverSigningStep';
 import { authService } from '../../../services/authService';
 import { useAuth } from '../../../context/AuthContext';
-import { waiverService } from '../../../services/waiverService';
-import { emailService } from '../../../services/emailService';
-import { crmService } from '../../../services/crmService';
-import { createWaiverPdfAttachment } from '../../../utils/waiverPdf';
-import { EmailComposer } from '../../../components/Email/EmailComposer';
+import { useNavigate } from 'react-router-dom';
 import { useConfig } from '../../../context/ConfigContext';
 
 
@@ -46,18 +37,12 @@ interface ClientOnboardingModalProps {
 
 const steps = ['Account & Profiles', 'Waiver Signing', 'Review'];
 
-interface WaiverComposeDraft {
-  to: string;
-  subject: string;
-  body: string;
-  templateId?: string;
-  attachments: File[];
-  accountId?: string;
-}
+
 
 export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, mode = 'staff', locationNameProp }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const navigate = useNavigate();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
   const [activeStep, setActiveStep] = useState(0);
@@ -106,8 +91,6 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const [errors, setErrors] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [openCompose, setOpenCompose] = useState(false);
-  const [composeDraft, setComposeDraft] = useState<WaiverComposeDraft | null>(null);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'error' | 'success' | 'warning' | 'info' }>({
     open: false,
     message: '',
@@ -122,14 +105,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     setToast(prev => ({ ...prev, open: false }));
   };
 
-  const handleCloseCompose = () => {
-    setOpenCompose(false);
-    setComposeDraft(null);
-  };
 
-  const handleComposerSuccess = () => {
-    showToast('Waiver email sent successfully!', 'success');
-  };
 
   // Debugging state sync
   React.useEffect(() => {
@@ -201,16 +177,21 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 date_of_birth: profileData.date_of_birth,
                 mobile: profileData.mobile,
                 gender: (profileData as any).gender,
+                is_primary: true,
                 address_line1: (profileData as any).address_line1,
                 address_line2: (profileData as any).address_line2,
                 city: (profileData as any).city,
                 state: (profileData as any).state,
                 zip_code: (profileData as any).zip_code,
                 country: (profileData as any).country || 'USA',
-                waiver_program_id: (profileData as any).waiver_program_id,
-                case_manager_name: (profileData as any).case_manager_name,
-                case_manager_email: (profileData as any).case_manager_email,
-                signed_waiver_id: signedWaivers['primary']
+                guardian_name: (profileData as any).guardian_name || null,
+                guardian_mobile: (profileData as any).guardian_mobile || null,
+                emergency_contact_name: (profileData as any).emergency_contact_name || null,
+                emergency_contact_phone: (profileData as any).emergency_contact_phone || null,
+                waiver_program_id: (profileData as any).waiver_program_id || null,
+                case_manager_name: (profileData as any).case_manager_name || null,
+                case_manager_email: (profileData as any).case_manager_email || null,
+                signed_waiver_id: signedWaivers['primary'] || null
               },
               family_members: validFamilyMembers.map((m, idx) => ({
                   first_name: m.first_name,
@@ -236,8 +217,6 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           
           onSuccess();
           setIsSuccess(true);
-          
-          // State will be reset when closed
       } catch (error: any) {
           console.error("Registration failed", error);
           showToast(error.message || "Failed to create account. Please try again.", "error");
@@ -246,151 +225,43 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       }
   };
 
-  const handleSendWaiverEmail = async () => {
-      if (!createdAccount || !currentLocationId) return;
-
-      setLoading(true);
-      try {
-          // 1. Ensure we have full account details including profiles
-          let account = createdAccount;
-          if (!account.profiles && account.account_id) {
-               const res = await crmService.getAccountDetails(account.account_id, currentLocationId);
-               account = res.data || res;
-          }
-          const profiles = account.profiles || account.profile || [];
-          if (profiles.length === 0) {
-              showToast("No profiles found for this account.", "warning");
-              setLoading(false);
-              return;
-          }
-          const recipientEmail = account.email || profiles[0]?.email;
-          if (!recipientEmail) {
-              showToast("No recipient email found for this account.", "warning");
-              setLoading(false);
-              return;
-          }
-
-          // 2. Fetch signed waivers for all profiles
-          const attachments: File[] = [];
-          const missingWaiverProfiles: string[] = [];
-          const failedPdfProfiles: string[] = [];
-          for (const profile of profiles) {
-              const waivers = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
-              if (waivers.data && waivers.data.length > 0) {
-                  const latestWaiver = waivers.data[0];
-                  try {
-                    const pdfFile = await createWaiverPdfAttachment(
-                      { first_name: profile.first_name, last_name: profile.last_name },
-                      latestWaiver
-                    );
-                    attachments.push(pdfFile);
-                  } catch (pdfError) {
-                    console.error(`Failed to create waiver PDF for ${profile.first_name} ${profile.last_name}`, pdfError);
-                    failedPdfProfiles.push(`${profile.first_name} ${profile.last_name}`);
-                  }
-              } else {
-                  missingWaiverProfiles.push(`${profile.first_name} ${profile.last_name}`);
-              }
-          }
-
-          if (missingWaiverProfiles.length > 0) {
-              showToast(`Missing signed waiver for: ${missingWaiverProfiles.join(', ')}`, "error");
-              setLoading(false);
-              return;
-          }
-
-          if (failedPdfProfiles.length > 0) {
-              showToast(`Failed to generate waiver PDF for: ${failedPdfProfiles.join(', ')}`, "error");
-              setLoading(false);
-              return;
-          }
-
-          if (attachments.length === 0) {
-              showToast("No signed waivers could be converted to PDF.", "warning");
-              setLoading(false);
-              return;
-          }
-
-          // 3. Prepare Email
-          const profileNames = profiles.map((p: any) => `${p.first_name} ${p.last_name}`).join(', ');
-          const templateName = 'Waiver to Join Solar Swim Gym Membership';
-          
-          let subject = templateName;
-          let body = `Please find attached the signed waivers for: ${profileNames}.`;
-          let templateId: string | undefined = undefined;
-
-          // Try to find the template
-          try {
-              const templates = await emailService.getTemplates(currentLocationId);
-              const template = templates.find(t => t.subject === templateName || t.subject.includes('Waiver'));
-              if (template) {
-                  subject = template.subject;
-                  body = template.body_content;
-                  templateId = template.email_template_id;
-              }
-          } catch (e) {
-              console.warn("Could not fetch templates, using default subject");
-          }
-
-          // 4. Open composer with preloaded draft
-          setComposeDraft({
-             to: recipientEmail,
-             subject,
-             body,
-             templateId,
-             attachments,
-             accountId: account.account_id
-          });
-          setOpenCompose(true);
-          showToast("Email draft prepared. Review details and send.", "info");
-
-      } catch (error: any) {
-          console.error("Failed to prepare waiver email", error);
-          showToast("Failed to prepare waiver email. " + error.message, "error");
-      } finally {
-          setLoading(false);
-      }
+  // Helper to reset state and close modal
+  const handleReset = () => {
+    setIsSuccess(false);
+    setActiveStep(0);
+    setProfileData({
+      first_name: '',
+      last_name: '',
+      email: '',
+      mobile: '',
+      date_of_birth: null,
+      family_count: 1,
+      waiver_program_id: '',
+      gender: '',
+      address_line1: '',
+      address_line2: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      country: 'USA',
+      heard_about_us: '',
+      notify_primary_member: true,
+      notify_guardian: true,
+    });
+    setFamilyMembers([]);
+    setSignedWaivers({});
+    setCreatedAccount(null);
+    onClose();
   };
 
-  const handleSendActivationLink = async () => {
-      if (!createdAccount?.account_id) {
-          showToast("Account details not found.", "error");
-          return;
-      }
-
-      setLoading(true);
-      try {
-          await authService.sendResetPasswordLink(createdAccount.account_id);
-          showToast("Activation link sent successfully!", "success");
-      } catch (error: any) {
-          console.error("Failed to send activation link", error);
-          showToast(error.message || "Failed to send activation link. Please try again.", "error");
-      } finally {
-          setLoading(false);
-      }
+  const handleViewAccount = () => {
+    if (createdAccount?.account_id) {
+      navigate(`/admin/accounts/${createdAccount.account_id}`);
+    }
+    handleReset();
   };
 
-  const handleSendWaiverForSigning = async () => {
-      if (!createdAccount?.account_id) {
-          showToast("Account details not found.", "error");
-          return;
-      }
 
-      setLoading(true);
-      try {
-          // Send activation link with waiver_sign=true
-          await authService.sendResetPasswordLink(createdAccount.account_id, { waiver_sign: true });
-          showToast("Activation link with waiver signing sent successfully!", "success");
-      } catch (error: any) {
-          console.error("Failed to send waiver for signing", error);
-          showToast(error.message || "Failed to send waiver for signing. Please try again.", "error");
-      } finally {
-          setLoading(false);
-      }
-  };
-
-  // Determine if waivers were signed during onboarding
-  const waiversWereSigned = Object.keys(signedWaivers).length > 0;
 
   const renderStepContent = (step: number) => {
     switch (step) {
@@ -500,126 +371,38 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
         ) : (
           <Box sx={{ py: 4 }}>
             {mode === 'staff' ? (
-                <>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 3, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>
-                        Next Actions
-                    </Typography>
-                    
-                    <Stack spacing={2}>
-                        <Button 
-                            variant="outlined" 
-                            fullWidth 
-                            onClick={waiversWereSigned ? handleSendWaiverEmail : handleSendWaiverForSigning}
-                            startIcon={<EmailIcon />}
-                            endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                            disabled={loading}
-                            sx={{ 
-                                justifyContent: 'space-between', 
-                                py: 2, 
-                                px: 3, 
-                                borderRadius: 2, 
-                                borderColor: waiversWereSigned ? '#e2e8f0' : '#f59e0b', 
-                                color: waiversWereSigned ? '#1e293b' : '#b45309',
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                '&:hover': { bgcolor: '#f8fafc', borderColor: waiversWereSigned ? '#cbd5e1' : '#d97706' }
-                            }}
-                        >
-                            {waiversWereSigned ? 'Send Signed Waiver via Email' : 'Send Waiver for Signing'}
-                        </Button>
-
-                        <Button 
-                            variant="outlined" 
-                            fullWidth 
-                            onClick={handleSendActivationLink}
-                            disabled={loading}
-                            startIcon={<LinkIcon />}
-                            endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                            sx={{ 
-                                justifyContent: 'space-between', 
-                                py: 2, 
-                                px: 3, 
-                                borderRadius: 2, 
-                                borderColor: '#e2e8f0', 
-                                color: '#1e293b',
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' }
-                            }}
-                        >
-                            Send Account Activation Link
-                        </Button>
-
-                        <Button 
-                            variant="outlined" 
-                            fullWidth 
-                            startIcon={<PersonAddIcon />}
-                            endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                            sx={{ 
-                                justifyContent: 'space-between', 
-                                py: 2, 
-                                px: 3, 
-                                borderRadius: 2, 
-                                borderColor: '#e2e8f0', 
-                                color: '#1e293b',
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                '&:hover': { bgcolor: '#f8fafc', borderColor: '#cbd5e1' }
-                            }}
-                        >
-                            View Client Profile
-                        </Button>
-
-                        <Divider sx={{ my: 1 }} />
-
-                        <Box sx={{ textAlign: 'center' }}>
-                            <Button 
-                                variant="contained" 
-                                onClick={() => {
-                                    setIsSuccess(false);
-                                    setActiveStep(0);
-                                    setProfileData({
-                                        first_name: '',
-                                        last_name: '',
-                                        email: '',
-                                        mobile: '',
-                                        date_of_birth: null,
-                                        family_count: 1,
-                                        waiver_program_id: '',
-                                        gender: '',
-                                        address_line1: '',
-                                        address_line2: '',
-                                        city: '',
-                                        state: '',
-                                        zip_code: '',
-                                        country: 'USA',
-                                        heard_about_us: '',
-                                        notify_primary_member: true,
-                                        notify_guardian: true
-                                    });
-                                    setFamilyMembers([]);
-                                    setSignedWaivers({});
-                                    setCreatedAccount(null);
-                                    setComposeDraft(null);
-                                    setOpenCompose(false);
-                                    onClose();
-                                }}
-                                sx={{ 
-                                    bgcolor: '#0f172a', 
-                                    '&:hover': { bgcolor: '#334155' },
-                                    px: 8,
-                                    py: 1.5,
-                                    borderRadius: 2,
-                                    textTransform: 'none',
-                                    fontWeight: 700,
-                                    width: isMobile ? '100%' : 'auto'
-                                }}
-                            >
-                                Return to Accounts
-                            </Button>
-                        </Box>
-                    </Stack>
-                </>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <Button
+                        variant="contained"
+                        fullWidth={isMobile}
+                        onClick={handleViewAccount}
+                        endIcon={<ArrowForwardIcon />}
+                        sx={{
+                            bgcolor: '#0f172a',
+                            '&:hover': { bgcolor: '#334155' },
+                            px: 6,
+                            py: 1.5,
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '1rem',
+                            width: isMobile ? '100%' : 'auto',
+                        }}
+                    >
+                        View Account
+                    </Button>
+                    <Button
+                        variant="text"
+                        onClick={handleReset}
+                        sx={{
+                            color: 'text.secondary',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                        }}
+                    >
+                        Cancel
+                    </Button>
+                </Box>
             ) : (
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                     <Typography variant="body1" sx={{ color: '#475569', mb: 4, lineHeight: 1.6 }}>
@@ -628,35 +411,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                     </Typography>
                     <Button 
                         variant="contained" 
-                        onClick={() => {
-                            setIsSuccess(false);
-                            setActiveStep(0);
-                            setProfileData({
-                                first_name: '',
-                                last_name: '',
-                                email: '',
-                                mobile: '',
-                                date_of_birth: null,
-                                family_count: 1,
-                                waiver_program_id: '',
-                                gender: '',
-                                address_line1: '',
-                                address_line2: '',
-                                city: '',
-                                state: '',
-                                zip_code: '',
-                                country: 'USA',
-                                heard_about_us: '',
-                                notify_primary_member: true,
-                                notify_guardian: true
-                            });
-                            setFamilyMembers([]);
-                            setSignedWaivers({});
-                            setCreatedAccount(null);
-                            setComposeDraft(null);
-                            setOpenCompose(false);
-                            onClose();
-                        }}
+                        onClick={handleReset}
                         sx={{ 
                             bgcolor: '#2563eb', 
                             '&:hover': { bgcolor: '#1d4ed8' },
@@ -687,22 +442,6 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
             </Alert>
         </Snackbar>
 
-        <Dialog open={openCompose} onClose={handleCloseCompose} maxWidth="md" fullWidth fullScreen={isMobile}>
-            <DialogContent>
-                {composeDraft && (
-                    <EmailComposer
-                        onClose={handleCloseCompose}
-                        onSuccess={handleComposerSuccess}
-                        initialTo={composeDraft.to}
-                        initialSubject={composeDraft.subject}
-                        initialBody={composeDraft.body}
-                        initialTemplateId={composeDraft.templateId}
-                        initialAttachments={composeDraft.attachments}
-                        initialAccountId={composeDraft.accountId}
-                    />
-                )}
-            </DialogContent>
-        </Dialog>
       </DialogContent>
 
       {!isSuccess && (

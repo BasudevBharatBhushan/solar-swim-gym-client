@@ -668,7 +668,27 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
         </DialogTitle>
         <DialogContent dividers>
             {selectedWaiver && (
-                <Box dangerouslySetInnerHTML={{ __html: selectedWaiver.content }} />
+                <>
+                  <style>{`
+                    .ql-waiver-view .ql-align-center { text-align: center; }
+                    .ql-waiver-view .ql-align-right  { text-align: right; }
+                    .ql-waiver-view .ql-align-justify { text-align: justify; }
+                    .ql-waiver-view ul, .ql-waiver-view ol { padding-left: 1.5em; margin-bottom: 1em; }
+                    .ql-waiver-view li { margin-bottom: 0.5em; }
+                    .ql-waiver-view img { max-width: 100%; height: auto; }
+                    .ql-waiver-view .ql-indent-1:not(.ql-direction-rtl) { padding-left: 3em; }
+                    .ql-waiver-view li.ql-indent-1:not(.ql-direction-rtl) { padding-left: 4.5em; }
+                    .ql-waiver-view .ql-indent-2:not(.ql-direction-rtl) { padding-left: 6em; }
+                    .ql-waiver-view li.ql-indent-2:not(.ql-direction-rtl) { padding-left: 7.5em; }
+                    .ql-waiver-view .ql-indent-3:not(.ql-direction-rtl) { padding-left: 9em; }
+                    .ql-waiver-view li.ql-indent-3:not(.ql-direction-rtl) { padding-left: 10.5em; }
+                  `}</style>
+                  <Box
+                    className="ql-waiver-view"
+                    sx={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: 1.6 }}
+                    dangerouslySetInnerHTML={{ __html: selectedWaiver.content }}
+                  />
+                </>
             )}
              {selectedWaiver?.signature_url && (
                 <Box sx={{ mt: 4, borderTop: '1px solid #eee', pt: 2 }}>

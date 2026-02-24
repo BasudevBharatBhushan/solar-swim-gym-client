@@ -1,19 +1,33 @@
-import { Box, Paper, Typography, Chip, Grid, Stack, Button, Tooltip } from '@mui/material';
+import { Box, Paper, Typography, Chip, Grid, Stack, Button, Tooltip, CircularProgress } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon from '@mui/icons-material/People';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import CampaignIcon from '@mui/icons-material/Campaign';
-import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
+import { useState } from 'react';
 
 interface AccountSummaryProps {
   account: any;
   onStoreClick?: () => void;
   selectedProfileId?: string | null;
+  onToggleNotification?: (field: 'notify_primary_member' | 'notify_guardian', value: boolean) => Promise<void>;
 }
 
-export const AccountSummary = ({ account, onStoreClick, selectedProfileId }: AccountSummaryProps) => {
+export const AccountSummary = ({ account, onStoreClick, selectedProfileId, onToggleNotification }: AccountSummaryProps) => {
+  const [togglingField, setTogglingField] = useState<string | null>(null);
+
+  const handleNotificationToggle = async (field: 'notify_primary_member' | 'notify_guardian', currentValue: boolean) => {
+    if (!onToggleNotification || togglingField) return;
+    setTogglingField(field);
+    try {
+      await onToggleNotification(field, !currentValue);
+    } finally {
+      setTogglingField(null);
+    }
+  };
+
   if (!account) return null;
 
   const primaryProfile = account.primary_profile || (account.profiles && account.profiles.find((p: any) => p.is_primary));
@@ -111,18 +125,73 @@ export const AccountSummary = ({ account, onStoreClick, selectedProfileId }: Acc
                   </Typography>
                 </Box>
             )}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {account.notify_primary_member !== false ? <NotificationsIcon sx={{ fontSize: '1rem', color: '#64748b' }} /> : <NotificationsOffIcon sx={{ fontSize: '1rem', color: '#64748b' }} />}
-              <Typography variant="body2" color="#64748b" fontWeight={500}>
-                Primary Notifications: {account.notify_primary_member !== false ? 'Enabled' : 'Disabled'}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {account.notify_guardian !== false ? <NotificationsIcon sx={{ fontSize: '1rem', color: '#64748b' }} /> : <NotificationsOffIcon sx={{ fontSize: '1rem', color: '#64748b' }} />}
-              <Typography variant="body2" color="#64748b" fontWeight={500}>
-                Guardian Notifications: {account.notify_guardian !== false ? 'Enabled' : 'Disabled'}
-              </Typography>
-            </Box>
+            {/* Notify Primary Member Toggle */}
+            <Tooltip title={account.notify_primary_member !== false ? 'Click to disable primary member notifications' : 'Click to enable primary member notifications'} arrow>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  px: 1.25,
+                  py: 0.5,
+                  borderRadius: '20px',
+                  bgcolor: account.notify_primary_member !== false ? '#f0fdf4' : '#fef2f2',
+                  border: `1.5px solid ${account.notify_primary_member !== false ? '#86efac' : '#fca5a5'}`,
+                  cursor: onToggleNotification ? 'pointer' : 'default',
+                  transition: 'all 0.2s ease',
+                  '&:hover': onToggleNotification ? {
+                    opacity: 0.8,
+                    transform: 'scale(1.02)',
+                  } : {},
+                }}
+                onClick={() => handleNotificationToggle('notify_primary_member', account.notify_primary_member !== false)}
+              >
+                {togglingField === 'notify_primary_member' ? (
+                  <CircularProgress size={12} sx={{ color: '#64748b' }} />
+                ) : account.notify_primary_member !== false ? (
+                  <NotificationsActiveIcon sx={{ fontSize: '0.85rem', color: '#16a34a' }} />
+                ) : (
+                  <NotificationsOffIcon sx={{ fontSize: '0.85rem', color: '#dc2626' }} />
+                )}
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: account.notify_primary_member !== false ? '#15803d' : '#b91c1c', whiteSpace: 'nowrap' }}>
+                  Primary: {account.notify_primary_member !== false ? 'On' : 'Off'}
+                </Typography>
+              </Box>
+            </Tooltip>
+
+            {/* Notify Guardian Toggle */}
+            <Tooltip title={account.notify_guardian !== false ? 'Click to disable guardian notifications' : 'Click to enable guardian notifications'} arrow>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  px: 1.25,
+                  py: 0.5,
+                  borderRadius: '20px',
+                  bgcolor: account.notify_guardian !== false ? '#f0fdf4' : '#fef2f2',
+                  border: `1.5px solid ${account.notify_guardian !== false ? '#86efac' : '#fca5a5'}`,
+                  cursor: onToggleNotification ? 'pointer' : 'default',
+                  transition: 'all 0.2s ease',
+                  '&:hover': onToggleNotification ? {
+                    opacity: 0.8,
+                    transform: 'scale(1.02)',
+                  } : {},
+                }}
+                onClick={() => handleNotificationToggle('notify_guardian', account.notify_guardian !== false)}
+              >
+                {togglingField === 'notify_guardian' ? (
+                  <CircularProgress size={12} sx={{ color: '#64748b' }} />
+                ) : account.notify_guardian !== false ? (
+                  <NotificationsActiveIcon sx={{ fontSize: '0.85rem', color: '#16a34a' }} />
+                ) : (
+                  <NotificationsOffIcon sx={{ fontSize: '0.85rem', color: '#dc2626' }} />
+                )}
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: account.notify_guardian !== false ? '#15803d' : '#b91c1c', whiteSpace: 'nowrap' }}>
+                  Guardian: {account.notify_guardian !== false ? 'On' : 'Off'}
+                </Typography>
+              </Box>
+            </Tooltip>
           </Stack>
         </Grid>
         

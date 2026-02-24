@@ -36,6 +36,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
     emergency_contact_name: '',
     emergency_contact_phone: '',
     waiver_program_id: '',
+    case_manager_name: '',
+    case_manager_email: '',
     gender: '',
     address_line1: '',
     address_line2: '',
@@ -75,6 +77,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         emergency_contact_name: profile.emergency_contact_name || '',
         emergency_contact_phone: profile.emergency_contact_phone || '',
         waiver_program_id: profile.waiver_program_id || '',
+        case_manager_name: profile.case_manager_name || '',
+        case_manager_email: profile.case_manager_email || '',
         gender: profile.gender || '',
         address_line1: profile.address_line1 || '',
         address_line2: profile.address_line2 || '',
@@ -96,6 +100,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         emergency_contact_name: '',
         emergency_contact_phone: '',
         waiver_program_id: '',
+        case_manager_name: '',
+        case_manager_email: '',
         gender: '',
         address_line1: '',
         address_line2: '',
@@ -248,6 +254,38 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
               ))}
             </TextField>
           </Grid>
+
+          {formData.waiver_program_id && (
+            <>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="overline" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
+                  Case Manager Information
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  name="case_manager_name"
+                  label="Case Manager Name"
+                  fullWidth
+                  required
+                  value={formData.case_manager_name}
+                  onChange={handleChange}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  name="case_manager_email"
+                  label="Case Manager Email"
+                  fullWidth
+                  required
+                  value={formData.case_manager_email}
+                  onChange={handleChange}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+            </>
+          )}
           
           <Grid size={12}>
             <Box sx={{ mt: 1, mb: 0 }}>

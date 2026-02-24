@@ -46,7 +46,7 @@ export const AccountDetail = () => {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   
   // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers, 3=Invoices
-  const [tabValue, setTabValue] = useState(3);
+  const [tabValue, setTabValue] = useState(0);
   const [searchParams] = useSearchParams();
 
   // Auto-switch tabs / pre-select profile based on URL params
@@ -435,6 +435,26 @@ export const AccountDetail = () => {
       showToast("Profile updated successfully!", "success");
   };
 
+  const handleToggleNotification = async (field: 'notify_primary_member' | 'notify_guardian', value: boolean) => {
+    if (!account?.account_id || !currentLocationId) return;
+    // Optimistically update local state
+    setAccount((prev: any) => prev ? { ...prev, [field]: value } : prev);
+    try {
+      await crmService.upsertAccountProfiles(
+        { account_id: account.account_id, [field]: value },
+        currentLocationId
+      );
+      showToast(
+        `${field === 'notify_primary_member' ? 'Primary member' : 'Guardian'} notifications ${value ? 'enabled' : 'disabled'}.`,
+        'success'
+      );
+    } catch (err: any) {
+      // Revert optimistic update on failure
+      setAccount((prev: any) => prev ? { ...prev, [field]: !value } : prev);
+      showToast(err.message || 'Failed to update notification setting.', 'error');
+    }
+  };
+
   if (loading) {
     return (
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -563,7 +583,7 @@ export const AccountDetail = () => {
         }
       />
 
-      <AccountSummary account={account} onStoreClick={handleAddSubscription} selectedProfileId={selectedProfileId} />
+      <AccountSummary account={account} onStoreClick={handleAddSubscription} selectedProfileId={selectedProfileId} onToggleNotification={handleToggleNotification} />
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Left Panel: Profile List */}

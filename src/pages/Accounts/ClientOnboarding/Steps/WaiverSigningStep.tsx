@@ -6,6 +6,7 @@ import { useConfig } from '../../../../context/ConfigContext';
 import { WaiverPreview } from '../../../../components/Waiver/WaiverPreview';
 import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../../../../components/Waiver/SignaturePad';
 import { waiverService, WaiverTemplate } from '../../../../services/waiverService';
+import { getAgeGroup } from '../../../../lib/ageUtils';
 
 interface WaiverSigningStepProps {
   primaryProfile: any;
@@ -39,39 +40,26 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-    // Helper to calculate age
-    const calculateAge = (dob: string | null) => {
-        if (!dob) return 0;
-        const birthDate = new Date(dob);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        return age;
-    };
-
     // Initial Setup
     useEffect(() => {
         const init = () => {
              const templates = waiverTemplates || [];
             
-            const findGroup = (age: number) => {
-                return ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+            const findGroup = (dob: string | null) => {
+                return getAgeGroup(dob || '', ageGroups, 'Membership');
             };
 
             const membersData = [
                 { 
                     id: 'primary', 
                     name: `${primaryProfile.first_name} ${primaryProfile.last_name}`, 
-                    age: calculateAge(primaryProfile.date_of_birth),
+                    dob: primaryProfile.date_of_birth,
                     guardianName: primaryProfile.guardian_name || ''
                 },
                 ...familyMembers.map((m, idx) => ({ 
                     id: `family_${idx}`, 
                     name: `${m.first_name} ${m.last_name}`, 
-                    age: calculateAge(m.date_of_birth),
+                    dob: m.date_of_birth,
                     guardianName: m.guardian_name || ''
                 }))
             ];
@@ -79,7 +67,7 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
             setMemberStates(prev => {
                 // Preserve signed status for existing members if their data hasn't changed meaningfully
                 return membersData.map((m) => {
-                    const group = findGroup(m.age);
+                    const group = findGroup(m.dob);
                     const existing = prev.find(p => p.id === m.id);
                     
                     // Determine template
@@ -91,7 +79,7 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                         matchedTemplate = templates.find((t: any) => t.is_active && !t.ageprofile_id);
                     }
 
-                    // If member already exists and has the same name/age, preserve their signed status
+                    // If member already exists and has the same name/dob, preserve their signed status
                     if (existing && existing.name === m.name && existing.ageProfileId === (group?.age_group_id || '')) {
                         return {
                             ...existing,
