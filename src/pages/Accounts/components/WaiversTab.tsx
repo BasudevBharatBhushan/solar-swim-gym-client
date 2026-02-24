@@ -45,6 +45,14 @@ interface WaiversTabProps {
   profiles: Profile[];
   selectedProfileId: string | null;
   accountId?: string;
+  /** Full account object – used to read notification prefs after signing */
+  account?: {
+    account_id?: string;
+    email?: string;
+    notify_primary_member?: boolean;
+    notify_guardian?: boolean;
+    profiles?: any[];
+  };
 }
 
 interface WaiverEmailDraft {
@@ -62,7 +70,7 @@ interface PendingWaiver {
   ageGroupName: string;
 }
 
-export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTabProps) => {
+export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: WaiversTabProps) => {
   const { currentLocationId } = useAuth();
   const [signedWaivers, setSignedWaivers] = useState<SignedWaiver[]>([]);
   const [pendingWaivers, setPendingWaivers] = useState<PendingWaiver[]>([]);
@@ -247,6 +255,101 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
     setAgreed(false);
   };
 
+  /**
+   * Automatically sends the signed waiver PDF to the correct recipients
+   * based on account-level notification preferences.
+   */
+  const sendSignedWaiverAutomatically = async (
+    profile: Profile,
+    signedWaiver: any
+  ) => {
+    if (!currentLocationId) return;
+
+    try {
+      // Resolve recipient emails based on notification preferences
+      const recipients: string[] = [];
+
+      const notifyPrimary = account?.notify_primary_member !== false; // default true if unset
+      const notifyGuardian = account?.notify_guardian === true;
+
+      if (notifyPrimary) {
+        // Primary member email: the profile itself, or the primary profile of the account
+        const primaryEmail =
+          profile.email ||
+          account?.profiles?.find((p: any) => p.is_primary)?.email ||
+          account?.email ||
+          null;
+        if (primaryEmail) recipients.push(primaryEmail);
+      }
+
+      if (notifyGuardian) {
+        // Guardian email: look for guardian_email on the profile or account email as fallback
+        const guardianEmail =
+          (profile as any).guardian_email ||
+          (account?.profiles?.find((p: any) => p.is_primary) as any)?.guardian_email ||
+          null;
+        if (guardianEmail && !recipients.includes(guardianEmail)) {
+          recipients.push(guardianEmail);
+        }
+      }
+
+      if (recipients.length === 0) {
+        console.warn('No notification recipients resolved; skipping auto-email after signing.');
+        return;
+      }
+
+      // Generate PDF attachment
+      const pdfFile = await createWaiverPdfAttachment(
+        { first_name: profile.first_name, last_name: profile.last_name },
+        signedWaiver
+      );
+
+      // Fetch waiver email template
+      const templateName = 'Waiver to Join Solar Swim Gym Membership';
+      let subject = `Signed Waiver – ${profile.first_name} ${profile.last_name}`;
+      let body = `Please find attached the signed registration waiver for ${profile.first_name} ${profile.last_name}.`;
+      let templateId: string | undefined;
+
+      try {
+        const templates = await emailService.getTemplates(currentLocationId);
+        const template = templates.find(
+          (t) => t.subject === templateName || t.subject.includes('Waiver')
+        );
+        if (template) {
+          subject = template.subject;
+          body = template.body_content;
+          templateId = template.email_template_id;
+        }
+      } catch {
+        console.warn('Could not fetch waiver email template; using defaults.');
+      }
+
+      // Send to all resolved recipients
+      await emailService.sendEmail({
+        to: recipients.join(', '),
+        subject,
+        body,
+        isHtml: true,
+        location_id: currentLocationId,
+        account_id: accountId,
+        email_template_id: templateId,
+        attachments: [pdfFile],
+      });
+
+      showToast(
+        `Signed waiver copy sent to ${recipients.join(', ')}.`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Failed to auto-send signed waiver email', err);
+      // Non-fatal: show a warning but don't block the UI
+      showToast(
+        `Waiver signed, but failed to send email copy: ${err.message || 'unknown error'}`,
+        'warning'
+      );
+    }
+  };
+
   const handleSignWaiver = async () => {
     if (!signingProfile || !signaturePadRef.current || !currentLocationId) return;
 
@@ -286,15 +389,19 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
           showToast(`Waiver signed successfully for ${fullName}!`, 'success');
           handleCloseSignDialog();
 
-          // Refresh waiver data by re-triggering the effect
-          // Simple approach: update profiles reference to trigger refetch
-          // But we can just refetch manually
+          // Remove from pending list
           setPendingWaivers(prev => prev.filter(pw => pw.profile.profile_id !== signingProfile.profile.profile_id));
           
-          // Fetch the newly signed waivers for this profile
+          // Fetch the newly signed waiver record and update state
           const newSigned = await waiverService.getSignedWaivers(signingProfile.profile.profile_id, currentLocationId);
+          const latestWaiver = newSigned.data?.[0] ?? null;
           if (newSigned.data) {
             setSignedWaivers(prev => [...newSigned.data, ...prev]);
+          }
+
+          // === AUTO-SEND SIGNED WAIVER COPY BASED ON NOTIFICATION PREFS ===
+          if (latestWaiver) {
+            await sendSignedWaiverAutomatically(signingProfile.profile, latestWaiver);
           }
         } catch (err: any) {
           console.error('Signing failed', err);

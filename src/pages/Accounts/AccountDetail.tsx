@@ -655,6 +655,13 @@ export const AccountDetail = () => {
                           profiles={account.profiles || []}
                           selectedProfileId={selectedProfileId}
                           accountId={account.account_id}
+                          account={{
+                            account_id: account.account_id,
+                            email: account.email,
+                            notify_primary_member: account.notify_primary_member,
+                            notify_guardian: account.notify_guardian,
+                            profiles: account.profiles || [],
+                          }}
                         />
                     )}
                     {tabValue === 3 && (
