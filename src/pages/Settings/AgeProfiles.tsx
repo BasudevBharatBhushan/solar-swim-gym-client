@@ -21,7 +21,9 @@ import {
   Stack,
   FormControlLabel,
   Checkbox,
-  Chip
+  Chip,
+  Tabs,
+  Tab
 } from '@mui/material';
 import { EditOutlined, DeleteOutline, Add, InfoOutlined } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
@@ -37,6 +39,9 @@ export const AgeProfiles = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [currentProfile, setCurrentProfile] = useState<any>({});
   
+  // Tab state: 0 for Membership, 1 for Service
+  const [activeTab, setActiveTab] = useState(0);
+
   const { currentLocationId } = useAuth();
   const { refreshAgeGroups } = useConfig();
 
@@ -60,7 +65,8 @@ export const AgeProfiles = () => {
       name: '', 
       min_age: '', 
       max_age: '',
-      accept_guardian_information: false
+      accept_guardian_information: false,
+      age_group_category: activeTab === 0 ? 'Membership' : 'Service'
     });
     setOpenDialog(true);
   };
@@ -76,11 +82,16 @@ export const AgeProfiles = () => {
         name: currentProfile.name,
         min_age: parseFloat(currentProfile.min_age),
         max_age: parseFloat(currentProfile.max_age),
-        accept_guardian_information: currentProfile.accept_guardian_information || false
+        accept_guardian_information: currentProfile.accept_guardian_information || false,
+        age_group_category: currentProfile.age_group_category || (activeTab === 0 ? 'Membership' : 'Service')
       };
 
       if (currentProfile.age_group_id) {
         payload.age_group_id = currentProfile.age_group_id;
+      }
+
+      if (currentLocationId) {
+        payload.location_id = currentLocationId;
       }
 
       await configService.upsertAgeGroup(payload, currentLocationId || undefined);
@@ -142,8 +153,15 @@ export const AgeProfiles = () => {
             >
                 Add New Age Profile
             </Button>
-        }
-      />
+            }
+        />
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} aria-label="age profiles tabs">
+          <Tab label="Membership Profiles" sx={{ textTransform: 'none', fontWeight: 600 }} />
+          <Tab label="Service Profiles" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        </Tabs>
+      </Box>
 
       <TableContainer component={Paper} elevation={0} sx={{ mb: 4, borderRadius: 1, border: '1px solid', borderColor: '#e2e8f0' }}>
         <Table sx={{ minWidth: 650 }} aria-label="age profiles table">
@@ -157,7 +175,10 @@ export const AgeProfiles = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {data.map((row) => (
+            {data.filter(row => {
+                const isService = row.age_group_category === 'Service';
+                return activeTab === 0 ? !isService : isService;
+            }).map((row) => (
               <TableRow key={row.age_group_id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                 <TableCell component="th" scope="row" sx={{ fontWeight: 600 }}>
                   {row.name}
@@ -182,10 +203,13 @@ export const AgeProfiles = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {data.length === 0 && (
+            {data.filter(row => {
+                const isService = row.age_group_category === 'Service';
+                return activeTab === 0 ? !isService : isService;
+            }).length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                  No age profiles found.
+                  No age profiles found for this category.
                 </TableCell>
               </TableRow>
             )}

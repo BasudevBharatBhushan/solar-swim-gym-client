@@ -74,7 +74,7 @@ const menuItems: MenuItem[] = [
       },
       { text: 'Waiver Programs', icon: <Description />, path: '/admin/settings/waiver-programs' },
       { text: 'Discount Codes', icon: <LocalOffer />, path: '/admin/discounts' },
-      { text: 'Waiver & Contract Templates', icon: <Assignment />, path: '/admin/settings/waiver-templates' },
+      { text: 'Waiver & Contract', icon: <Assignment />, path: '/admin/settings/waiver-templates' },
       { text: 'Email Settings', icon: <Email />, path: '/admin/email-settings' },
       { text: 'Dropdown Values', icon: <Assignment />, path: '/admin/settings/dropdown-values' },
       { text: 'Billing', icon: <CreditCard />, path: '/admin/billing' },

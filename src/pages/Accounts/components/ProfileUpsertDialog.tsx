@@ -32,7 +32,14 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
     guardian_mobile: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
-    waiver_program_id: ''
+    waiver_program_id: '',
+    gender: '',
+    address_line1: '',
+    address_line2: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    country: 'USA'
   });
 
   useEffect(() => {
@@ -60,7 +67,14 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         guardian_mobile: profile.guardian_mobile || '',
         emergency_contact_name: profile.emergency_contact_name || '',
         emergency_contact_phone: profile.emergency_contact_phone || '',
-        waiver_program_id: profile.waiver_program_id || ''
+        waiver_program_id: profile.waiver_program_id || '',
+        gender: profile.gender || '',
+        address_line1: profile.address_line1 || '',
+        address_line2: profile.address_line2 || '',
+        city: profile.city || '',
+        state: profile.state || '',
+        zip_code: profile.zip_code || '',
+        country: profile.country || 'USA'
       });
     } else {
       setFormData({
@@ -74,7 +88,14 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         guardian_mobile: '',
         emergency_contact_name: '',
         emergency_contact_phone: '',
-        waiver_program_id: ''
+        waiver_program_id: '',
+        gender: '',
+        address_line1: '',
+        address_line2: '',
+        city: '',
+        state: '',
+        zip_code: '',
+        country: 'USA'
       });
     }
   }, [profile, open]);
@@ -169,6 +190,22 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
+              name="gender"
+              select
+              label="Gender"
+              fullWidth
+              value={formData.gender}
+              onChange={handleChange}
+              slotProps={{ inputLabel: { shrink: true } }}
+            >
+              <MenuItem value=""><em>None</em></MenuItem>
+              <MenuItem value="Male">Male</MenuItem>
+              <MenuItem value="Female">Female</MenuItem>
+              <MenuItem value="Other">Other</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
               name="waiver_program_id"
               select
               label="Waiver Program"
@@ -184,6 +221,32 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
                 </MenuItem>
               ))}
             </TextField>
+          </Grid>
+          
+          <Grid size={12}>
+            <Box sx={{ mt: 1, mb: 0 }}>
+              <Typography variant="overline" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
+                Address Information
+              </Typography>
+            </Box>
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField name="address_line1" label="Address Line 1" fullWidth value={formData.address_line1} onChange={handleChange} slotProps={{ inputLabel: { shrink: true } }} />
+          </Grid>
+          <Grid size={{ xs: 12 }}>
+            <TextField name="address_line2" label="Address Line 2" fullWidth value={formData.address_line2} onChange={handleChange} slotProps={{ inputLabel: { shrink: true } }} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField name="city" label="City" fullWidth value={formData.city} onChange={handleChange} slotProps={{ inputLabel: { shrink: true } }} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField name="state" label="State/Province" fullWidth value={formData.state} onChange={handleChange} slotProps={{ inputLabel: { shrink: true } }} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField name="zip_code" label="Zip/Postal Code" fullWidth value={formData.zip_code} onChange={handleChange} slotProps={{ inputLabel: { shrink: true } }} />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField name="country" label="Country" fullWidth value={formData.country} onChange={handleChange} slotProps={{ inputLabel: { shrink: true } }} />
           </Grid>
           <Grid size={12}>
             <FormControlLabel

@@ -34,10 +34,8 @@ import {
   Edit, 
   Save, 
   Delete,
-  ChildCare, 
-  Person, 
-  Elderly, 
-  Settings
+  Settings,
+  ContentCopy
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
@@ -52,7 +50,7 @@ import {
 } from '../../services/membershipService';
 
 export const Memberships = () => {
-  const { currentLocationId } = useAuth();
+  const { currentLocationId, locations, role } = useAuth();
   const { waiverPrograms, dropdownValues, ageGroups } = useConfig();
   
   // Data State
@@ -100,6 +98,14 @@ export const Memberships = () => {
   // Service Independent Edit State
   const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
   const [serviceEditState, setServiceEditState] = useState<Partial<IMembershipService>>({});
+
+  // Duplication State
+  const [openDuplicateCategory, setOpenDuplicateCategory] = useState(false);
+  const [duplicateCategoryForm, setDuplicateCategoryForm] = useState<Partial<MembershipCategory>>({});
+  const [duplicateTargetLocationId, setDuplicateTargetLocationId] = useState<string | null>(null);
+  const [duplicateTargetProgramId, setDuplicateTargetProgramId] = useState<string | null>(null);
+  const [targetPrograms, setTargetPrograms] = useState<MembershipProgram[]>([]);
+  const [loadingTargetPrograms, setLoadingTargetPrograms] = useState(false);
 
   // Computed: Active Program
   const activeProgram = programs.find(p => p.membership_program_id === selectedProgramId);
@@ -355,6 +361,45 @@ export const Memberships = () => {
 
   const handleSaveEdit = async () => {
       if (!activeProgram || !draftCategory) return;
+
+      // Validation: Total members allowed must be set
+      const rawAllowed = String(draftCategory.members_allowed ?? '');
+      if (rawAllowed === '' || draftCategory.members_allowed === undefined) {
+          setError("Total members allowed is required.");
+          return;
+      }
+
+      // Validation: sum(min_i) must be <= members_allowed
+      const totalAllowed = Number(draftCategory.members_allowed);
+      const rule = draftCategory.rules[0];
+      let minSum = 0;
+      let hasEmptyRule = false;
+
+      if (rule) {
+          ageGroups
+              .filter(g => !g.age_group_category || g.age_group_category === 'Membership')
+              .forEach(group => {
+                  const min = rule.condition_json[`min_${group.age_group_id}`];
+                  const max = rule.condition_json[`max_${group.age_group_id}`];
+                  
+                  if (String(min ?? '') === '' || String(max ?? '') === '') {
+                      hasEmptyRule = true;
+                  }
+
+                  minSum += Number(min || 0);
+              });
+      }
+
+      if (hasEmptyRule) {
+          setError("All age group rules must have a value (set to 0 if not applicable).");
+          return;
+      }
+
+      if (minSum > totalAllowed) {
+          setError(`Minimum required members (${minSum}) exceed total members allowed (${totalAllowed}) for this plan.`);
+          return;
+      }
+
       setSaving(true);
       
       try {
@@ -365,6 +410,7 @@ export const Memberships = () => {
           // Sanitize fees (convert empty string to 0)
           const sanitizedCategory: MembershipCategory = {
               ...draftCategory,
+              members_allowed: totalAllowed,
               fees: draftCategory.fees.map((f: any) => ({
                   ...f,
                   amount: f.amount === '' ? 0 : Number(f.amount)
@@ -598,78 +644,328 @@ export const Memberships = () => {
   };
 
 
+  const handleStartDuplicateCategory = async () => {
+      if (!activeCategory || !activeProgram) return;
+      
+      setDuplicateCategoryForm({
+          ...activeCategory,
+          category_id: undefined, // Clear ID for new creation
+          name: `${activeCategory.name} (Copy)`
+      });
+      setDuplicateTargetLocationId(currentLocationId);
+      setDuplicateTargetProgramId(selectedProgramId);
+      setOpenDuplicateCategory(true);
+      
+      // Load programs for current location immediately
+      if (currentLocationId) {
+          setLoadingTargetPrograms(true);
+          try {
+              const progs = await membershipService.getMemberships(currentLocationId);
+              setTargetPrograms(progs);
+          } catch (e) {
+              console.error(e);
+          } finally {
+              setLoadingTargetPrograms(false);
+          }
+      }
+  };
+
+  const handleDuplicateLocationChange = async (locId: string) => {
+      setDuplicateTargetLocationId(locId);
+      setDuplicateTargetProgramId(null);
+      setLoadingTargetPrograms(true);
+      try {
+          const progs = await membershipService.getMemberships(locId);
+          setTargetPrograms(progs);
+          // Auto-select first program if available
+          if (progs.length > 0) {
+              setDuplicateTargetProgramId(progs[0].membership_program_id!);
+          }
+      } catch (e) {
+          setError("Failed to load programs for this location.");
+      } finally {
+          setLoadingTargetPrograms(false);
+      }
+  };
+
+  const handleDuplicateCategorySubmit = async () => {
+      if (!duplicateTargetProgramId || !duplicateCategoryForm.name) return;
+      
+      setSaving(true);
+      try {
+          // 1. Get the target program
+          const targetProg = targetPrograms.find(p => p.membership_program_id === duplicateTargetProgramId);
+          if (!targetProg) throw new Error("Target program not found.");
+
+          // 2. Prepare the new category (strip IDs from fees and rules too)
+          const newCategory: MembershipCategory = {
+              ...duplicateCategoryForm as MembershipCategory,
+              category_id: undefined,
+              fees: (duplicateCategoryForm.fees || []).map(f => ({ ...f, membership_fee_id: undefined })),
+              rules: (duplicateCategoryForm.rules || []).map(r => ({ ...r, rule_id: undefined }))
+          };
+
+          // 3. Update program with new category
+          const updatedProgram: MembershipProgram = {
+              ...targetProg,
+              categories: [...targetProg.categories, newCategory]
+          };
+
+          // 4. Save
+          await membershipService.saveMembershipProgram(updatedProgram, duplicateTargetLocationId || undefined);
+          
+          setSuccess(`Category duplicated to ${targetProg.name}`);
+          setOpenDuplicateCategory(false);
+          
+          // If we duplicated to the CURRENT location, refresh the data
+          if (duplicateTargetLocationId === currentLocationId) {
+              await fetchData(true);
+          }
+      } catch (e: any) {
+          setError(e.message || "Failed to duplicate category.");
+      } finally {
+          setSaving(false);
+      }
+  };
+
+
   if (!currentLocationId) {
       return <Alert severity="warning">Please select a location.</Alert>;
   }
 
   // Helper render for Rules
   const renderRuleInputs = (categoryData: MembershipCategory, readOnly: boolean) => {
-      const rule = categoryData.rules[0]; // Assume first rule
+      const rule = categoryData.rules[0];
       if (!rule) return null;
 
-      const renderGroup = (label: string, icon: React.ReactNode, minKey: string, maxKey: string) => (
-          <Box sx={{ mb: 2 }} key={label}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                   <Box sx={{ bgcolor: '#e3f2fd', p: 0.5, borderRadius: '50%', color: '#1976d2' }}>
-                       {icon}
-                   </Box>
-                   <Typography variant="body2" fontWeight={600} color="text.secondary">{label}</Typography>
-              </Box>
-              <Grid container spacing={2}>
-                  <Grid size={{ xs: 6 }}>
-                      {readOnly ? (
-                           <Box sx={{ p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                               <Typography variant="caption" color="text.secondary">Min</Typography>
-                               <Typography variant="body2" fontWeight={700} color="text.primary">
-                                   {rule.condition_json[minKey] ?? '-'}
-                               </Typography>
-                           </Box>
-                      ) : (
-                          <TextField
-                              label="Min" size="small" type="number" fullWidth
-                              value={rule.condition_json[minKey] ?? ''}
-                              onChange={(e) => updateDraftRule(0, minKey, e.target.value)}
-                          />
-                      )}
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                       {readOnly ? (
-                           <Box sx={{ p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                               <Typography variant="caption" color="text.secondary">Max</Typography>
-                               <Typography variant="body2" fontWeight={700} color="text.primary">
-                                   {rule.condition_json[maxKey] ?? 'Unlimited'}
-                               </Typography>
-                           </Box>
-                      ) : (
-                          <TextField
-                              label="Max" size="small" type="number" fullWidth
-                              placeholder="No limit"
-                              value={rule.condition_json[maxKey] ?? ''}
-                              onChange={(e) => updateDraftRule(0, maxKey, e.target.value)}
-                          />
-                       )}
-                  </Grid>
-              </Grid>
-          </Box>
-      );
+      const TOTAL = Number(categoryData.members_allowed || 0);
+      const relevantAgeGroups = ageGroups.filter(g => !g.age_group_category || g.age_group_category === 'Membership');
+      
+      // Calculate used_min
+      const used_min = relevantAgeGroups.reduce((acc, group) => {
+          const val = rule.condition_json[`min_${group.age_group_id}`];
+          return acc + (String(val ?? '') === '' ? 0 : Number(val || 0));
+      }, 0);
+
+      const getGroupIcon = (name: string) => {
+          const n = name.toLowerCase();
+          if (n.includes('infant') || n.includes('baby')) return '🍼';
+          if (n.includes('child') || n.includes('kid')) return '🧒';
+          if (n.includes('junior') || n.includes('teen') || n.includes('youth')) return '🎓';
+          if (n.includes('senior') || n.includes('elder')) return '🧓';
+          return '👤';
+      };
+
+      const getGroupColor = (name: string) => {
+          const n = name.toLowerCase();
+          if (n.includes('infant') || n.includes('baby')) return { bg: '#eff6ff', color: '#3b82f6' };
+          if (n.includes('child') || n.includes('kid')) return { bg: '#f0fdf4', color: '#16a34a' };
+          if (n.includes('junior') || n.includes('teen') || n.includes('youth')) return { bg: '#f0fdf4', color: '#16a34a' };
+          if (n.includes('senior') || n.includes('elder')) return { bg: '#fff7ed', color: '#ea580c' };
+          return { bg: '#eff6ff', color: '#3b82f6' };
+      };
+
+      const renderGroupCard = (group: any) => {
+          const minKey = `min_${group.age_group_id}`;
+          const maxKey = `max_${group.age_group_id}`;
+          const minVal = rule.condition_json[minKey];
+          const maxVal = rule.condition_json[maxKey];
+          const ageRange = `${group.min_age} - ${group.max_age} years`;
+          const { bg, color } = getGroupColor(group.name);
+          const icon = getGroupIcon(group.name);
+
+          return (
+            <Grid size={{ xs: 12, md: 6 }} key={group.age_group_id}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 3,
+                  borderRadius: 3,
+                  border: '1px solid #e2e8f0',
+                  bgcolor: 'white',
+                  height: '100%',
+                  transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                  '&:hover': { borderColor: '#93c5fd', boxShadow: '0 2px 12px rgba(59,130,246,0.08)' }
+                }}
+              >
+                {/* Card Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box sx={{ bgcolor: bg, borderRadius: 2, p: 1, fontSize: '1.2rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38 }}>
+                      {icon}
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+                        {group.name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: color, fontWeight: 600 }}>
+                        {ageRange}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box sx={{ color: '#cbd5e1', fontSize: '1rem' }}>
+                    ℹ️
+                  </Box>
+                </Box>
+
+                {/* Rule Sentence */}
+                {readOnly ? (
+                  <Box>
+                    <Typography variant="body2" sx={{ color: '#475569', lineHeight: 2 }}>
+                      This plan must include at least <Box component="span" sx={{ fontWeight: 800, color: '#0f172a', bgcolor: '#f1f5f9', px: 1, py: 0.25, borderRadius: 1 }}>{minVal || 0}</Box>{' '}
+                      {group.name}(s), and can include up to
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#475569', lineHeight: 2 }}>
+                      <Box component="span" sx={{ fontWeight: 800, color: '#0f172a', bgcolor: '#f1f5f9', px: 1, py: 0.25, borderRadius: 1 }}>{maxVal || 0}</Box>{' '}
+                      {group.name}(s).
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 1, mb: 1 }}>
+                      <Typography variant="body2" sx={{ color: '#475569', fontWeight: 500 }}>This plan must include at least</Typography>
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={minVal ?? ''}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === '') { updateDraftRule(0, minKey, ''); return; }
+                          const val = Number(raw);
+                          if (val < 0) return;
+                          const prevMin = String(minVal ?? '');
+                          const otherMinSum = used_min - (prevMin === '' ? 0 : Number(minVal || 0));
+                          if (val + otherMinSum > TOTAL) {
+                            alert(`Violation: Sum of minimums (${val + otherMinSum}) cannot exceed total allowed (${TOTAL}).`);
+                            return;
+                          }
+                          updateDraftRule(0, minKey, val);
+                        }}
+                        sx={{
+                          width: 70,
+                          '& .MuiOutlinedInput-root': {
+                            bgcolor: '#f8fafc',
+                            borderRadius: 2,
+                            '& fieldset': { borderColor: '#cbd5e1 !important', borderWidth: '1px !important' },
+                            '&:hover fieldset': { borderColor: '#94a3b8 !important' },
+                            '&.Mui-focused fieldset': { borderColor: '#3b82f6 !important' },
+                            '& input': { textAlign: 'center', fontWeight: 800, fontSize: '0.9rem', py: 0.75 }
+                          }
+                        }}
+                      />
+                      <Typography variant="body2" sx={{ color: '#475569', fontWeight: 500 }}>{group.name}(s), and can include up to</Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={maxVal ?? ''}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === '') { updateDraftRule(0, maxKey, ''); return; }
+                          const val = Number(raw);
+                          if (val < 0) return;
+                          if (val > TOTAL) {
+                            alert(`Violation: Max cannot exceed total plan capacity (${TOTAL}).`);
+                            return;
+                          }
+                          const prevMin = String(minVal ?? '');
+                          if (prevMin !== '' && val < Number(minVal)) {
+                            alert(`Violation: Max cannot be less than the minimum required (${minVal}).`);
+                            return;
+                          }
+                          updateDraftRule(0, maxKey, val);
+                        }}
+                        sx={{
+                          width: 70,
+                          '& .MuiOutlinedInput-root': {
+                            bgcolor: '#f8fafc',
+                            borderRadius: 2,
+                            '& fieldset': { borderColor: '#cbd5e1 !important', borderWidth: '1px !important' },
+                            '&:hover fieldset': { borderColor: '#94a3b8 !important' },
+                            '&.Mui-focused fieldset': { borderColor: '#3b82f6 !important' },
+                            '& input': { textAlign: 'center', fontWeight: 800, fontSize: '0.9rem', py: 0.75 }
+                          }
+                        }}
+                      />
+                      <Typography variant="body2" sx={{ color: '#475569', fontWeight: 500 }}>{group.name}(s).</Typography>
+                    </Stack>
+                  </Box>
+                )}
+              </Paper>
+            </Grid>
+          );
+      };
 
       return (
-          <Grid container spacing={3}>
-              {ageGroups.map((group) => (
-                  <Grid size={{ xs: 12, sm: 4 }} key={group.age_group_id}>
-                      {renderGroup(
-                          group.name, 
-                          group.name.toLowerCase().includes('child') ? <ChildCare fontSize="small"/> : 
-                          group.name.toLowerCase().includes('senior') ? <Elderly fontSize="small"/> : 
-                          <Person fontSize="small"/>, 
-                          `min_${group.age_group_id}`, 
-                          `max_${group.age_group_id}`
-                      )}
-                  </Grid>
-              ))}
+        <Box>
+          {/* Rules Configuration Header */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0f172a', mb: 0.5 }}>
+              Rules Configuration
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#64748b' }}>
+              Set the capacity and age-specific requirements for this plan.
+            </Typography>
+          </Box>
+
+          {/* Total Members Allowed */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a', mb: 1.5 }}>
+              Total Members Allowed
+            </Typography>
+            {readOnly ? (
+              <Paper elevation={0} sx={{ px: 2, py: 1.5, borderRadius: 3, border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: 1.5, minWidth: 160 }}>
+                <Typography sx={{ fontSize: '1.1rem' }}>👥</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>{TOTAL}</Typography>
+              </Paper>
+            ) : (
+              <Box sx={{ maxWidth: 280 }}>
+                <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 3, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Typography sx={{ fontSize: '1.1rem' }}>👥</Typography>
+                  <TextField
+                    variant="standard"
+                    type="number"
+                    placeholder="e.g. 4"
+                    value={categoryData.members_allowed ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? '' : Number(e.target.value);
+                      updateDraftField('members_allowed', val);
+                    }}
+                    InputProps={{ disableUnderline: true }}
+                    sx={{ flex: 1, '& input': { fontWeight: 800, fontSize: '1rem', color: '#0f172a' } }}
+                  />
+                </Paper>
+                <Typography variant="caption" sx={{ color: '#64748b', mt: 0.75, display: 'block', fontStyle: 'italic' }}>
+                  This defines the total seat capacity for the entire group plan.
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {/* Age Group Cards */}
+          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0f172a' }}>
+              Dynamic Eligibility Rules
+            </Typography>
+          </Box>
+
+          <Grid container spacing={2}>
+            {relevantAgeGroups.map(group => renderGroupCard(group))}
           </Grid>
+
+          {!readOnly && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: '#fffbeb', borderRadius: 3, border: '1px solid #fef3c7', display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+              <Typography>💡</Typography>
+              <Typography variant="caption" sx={{ color: '#92400e', fontWeight: 600, lineHeight: 1.6 }}>
+                Rule Enforcement: The system will validate that the sum of minimum required members does not exceed the total capacity on save.
+              </Typography>
+            </Box>
+          )}
+        </Box>
       );
   };
+
 
   // Helper render for Fees
   const renderFees = (categoryData: MembershipCategory, readOnly: boolean) => {
@@ -844,8 +1140,10 @@ export const Memberships = () => {
                              </Typography>
                          </Box>
                          <List sx={{ flex: 1, overflowY: 'auto', p: 0 }}>
-                             {activeProgram.categories.map((cat) => {
-                                 const isSelected = selectedCategoryId === cat.category_id;
+                             {[...activeProgram.categories]
+                                 .sort((a, b) => Number(a.members_allowed || 0) - Number(b.members_allowed || 0))
+                                 .map((cat) => {
+                                     const isSelected = selectedCategoryId === cat.category_id;
                                  return (
                                      <ListItemButton 
                                          key={cat.category_id}
@@ -950,20 +1248,35 @@ export const Memberships = () => {
                                         </Box>
                                      </Box>
                                      <Box>
-                                         {!isEditing ? (
-                                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                              <Button 
-                                                  variant="outlined" 
-                                                  startIcon={<Edit />} 
-                                                  onClick={handleStartEdit}
-                                                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, color: '#1e293b', borderColor: '#e2e8f0' }}
-                                              >
+                                          {!isEditing ? (
+                                             <Box sx={{ display: 'flex', gap: 1 }}>
+                                               <Button 
+                                                   variant="outlined" 
+                                                   startIcon={<Edit />} 
+                                                   onClick={handleStartEdit}
+                                                   sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, color: '#1e293b', borderColor: '#e2e8f0' }}
+                                               >
                                                    Edit
-                                              </Button>
-                                              
-                                                <Button
+                                               </Button>
+                                               <Button
                                                     variant="outlined"
-                                                    startIcon={<Delete />}
+                                                    startIcon={<ContentCopy />}
+                                                    onClick={handleStartDuplicateCategory}
+                                                    sx={{ 
+                                                        borderRadius: 2, 
+                                                        textTransform: 'none', 
+                                                        fontWeight: 700,
+                                                        px: 3,
+                                                        color: '#6366f1',
+                                                        borderColor: '#e0e7ff',
+                                                        '&:hover': { bgcolor: '#f5f7ff', borderColor: '#c7d2fe' }
+                                                    }}
+                                                >
+                                                    Duplicate
+                                                </Button>
+                                               <Button 
+                                                    variant="outlined" 
+                                                    startIcon={<Delete />} 
                                                     onClick={() => activeCategory?.category_id && handleDeleteCategory(activeCategory.category_id)}
                                                     sx={{ 
                                                         color: '#ef4444', 
@@ -995,30 +1308,30 @@ export const Memberships = () => {
                                          </Typography>
                                          
                                          {isEditing ? (
-                                              <Box sx={{ mb: 3, p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
-                                                  <FormControlLabel
-                                                      control={
-                                                          <Switch 
-                                                              checked={draftCategory?.is_active !== false}
-                                                              onChange={(e) => updateDraftField('is_active', e.target.checked)}
-                                                          />
-                                                      }
-                                                      label={<Typography fontWeight={600}>Active Status</Typography>}
-                                                  />
-                                              </Box>
-                                         ) : (
-                                              <Box sx={{ mb: 3 }}>
-                                                  <Chip 
-                                                      label={activeCategory?.is_active !== false ? "ACTIVE" : "INACTIVE"} 
-                                                      sx={{ 
-                                                          bgcolor: activeCategory?.is_active !== false ? '#dcfce7' : '#f1f5f9', 
-                                                          color: activeCategory?.is_active !== false ? '#166534' : '#64748b', 
-                                                          fontWeight: 800,
-                                                          borderRadius: '6px'
-                                                      }} 
-                                                  />
-                                              </Box>
-                                         )}
+                                               <Box sx={{ mb: 3, p: 3, bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                                                    <FormControlLabel
+                                                        control={
+                                                            <Switch 
+                                                                checked={draftCategory?.is_active !== false}
+                                                                onChange={(e) => updateDraftField('is_active', e.target.checked)}
+                                                            />
+                                                        }
+                                                        label={<Typography fontWeight={700} color="#1e293b">Active Status</Typography>}
+                                                    />
+                                               </Box>
+                                          ) : (
+                                               <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+                                                   <Chip 
+                                                       label={activeCategory?.is_active !== false ? "ACTIVE" : "INACTIVE"} 
+                                                       sx={{ 
+                                                           bgcolor: activeCategory?.is_active !== false ? '#dcfce7' : '#f1f5f9', 
+                                                           color: activeCategory?.is_active !== false ? '#166534' : '#64748b', 
+                                                           fontWeight: 800,
+                                                           borderRadius: '6px'
+                                                       }} 
+                                                   />
+                                               </Box>
+                                          )}
                                          
                                          {renderFees(isEditing ? draftCategory! : activeCategory!, !isEditing)}
                                      </Box>
@@ -1376,17 +1689,63 @@ export const Memberships = () => {
         </Snackbar>
 
 
-        <Dialog
-            open={deleteConfirm.open}
-            onClose={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}
-        >
-            <DialogTitle>{deleteConfirm.title}</DialogTitle>
+        {/* Duplicate Category Dialog */}
+        <Dialog open={openDuplicateCategory} onClose={() => setOpenDuplicateCategory(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Duplicate Membership Category</DialogTitle>
             <DialogContent>
-                <Typography>{deleteConfirm.message}</Typography>
+                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                     {role && ['admin', 'superadmin'].includes(role.toLowerCase()) && (
+                         <FormControl fullWidth>
+                            <InputLabel>Target Location</InputLabel>
+                            <Select
+                                value={duplicateTargetLocationId || ''}
+                                label="Target Location"
+                                onChange={e => handleDuplicateLocationChange(e.target.value as string)}
+                            >
+                                {locations.map(loc => (
+                                    <MenuItem key={loc.location_id} value={loc.location_id}>{loc.name}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                     )}
+
+                    <FormControl fullWidth disabled={loadingTargetPrograms}>
+                        <InputLabel>Target Membership Program</InputLabel>
+                        <Select
+                            value={duplicateTargetProgramId || ''}
+                            label="Target Membership Program"
+                            onChange={e => setDuplicateTargetProgramId(e.target.value)}
+                        >
+                            {targetPrograms.map(p => (
+                                <MenuItem key={p.membership_program_id} value={p.membership_program_id}>{p.name}</MenuItem>
+                            ))}
+                            {targetPrograms.length === 0 && !loadingTargetPrograms && <MenuItem disabled>No Programs in this location</MenuItem>}
+                        </Select>
+                        {loadingTargetPrograms && <CircularProgress size={16} sx={{ position: 'absolute', right: 30, top: 'calc(50% - 8px)' }} />}
+                    </FormControl>
+
+                     <TextField 
+                        label="New Category Name"
+                        placeholder="e.g. Individual (Copy)"
+                        fullWidth
+                        value={duplicateCategoryForm.name || ''}
+                        onChange={e => setDuplicateCategoryForm({...duplicateCategoryForm, name: e.target.value})}
+                    />
+                    
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        This will copy the name, fees, and eligibility rules. Bundled services must be configured separately for the new category.
+                    </Typography>
+                 </Box>
             </DialogContent>
             <DialogActions>
-                <Button onClick={() => setDeleteConfirm(prev => ({ ...prev, open: false }))}>Cancel</Button>
-                <Button onClick={deleteConfirm.onConfirm} color="error" variant="contained">Delete</Button>
+                <Button onClick={() => setOpenDuplicateCategory(false)}>Cancel</Button>
+                <Button 
+                    variant="contained" 
+                    onClick={handleDuplicateCategorySubmit}
+                    disabled={saving || !duplicateCategoryForm.name?.trim() || !duplicateTargetProgramId || loadingTargetPrograms}
+                >
+                    {saving ? <CircularProgress size={24} /> : "Duplicate"}
+                </Button>
             </DialogActions>
         </Dialog>
     </Box>

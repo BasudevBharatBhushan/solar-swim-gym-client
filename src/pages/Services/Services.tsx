@@ -433,6 +433,7 @@ const PricingPanel = memo(({ pack, ageGroups }: { pack: ServicePack, ageGroups: 
     }, [pack]);
 
     const activeAgeGroups = ageGroups.filter(ag => {
+        if (ag.age_group_category !== 'Service') return false;
         const agId = ag.age_group_id || ag.id;
         return priceData[agId] && priceData[agId].price !== '';
     });
@@ -488,7 +489,7 @@ const PricingPanel = memo(({ pack, ageGroups }: { pack: ServicePack, ageGroups: 
                                     <Box>
                                         <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>{ag.name}</Typography>
                                         <Typography sx={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>
-                                            {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : (ag.description || 'N/A')}
+                                            {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : 'N/A'}
                                         </Typography>
                                     </Box>
                                     
@@ -784,7 +785,7 @@ export const Services = () => {
                 enforce_usage_limit: packEnforceUsageLimit
             };
             const packRes = await serviceCatalog.upsertServicePack(packPayload);
-            const savedPackId = packRes?.data?.service_pack_id || packRes?.service_pack_id || packRes?.id || currentPack?.service_pack_id;
+            const savedPackId = packRes?.data?.service_pack_id || packRes?.service_pack_id || currentPack?.service_pack_id;
             
             if (savedPackId && currentLocationId) {
                 const toSave: Record<string, { price: number, num_students: number, num_instructors: number }> = {};
@@ -817,7 +818,7 @@ export const Services = () => {
             setIsPackModalOpen(false);
             fetchPacks(svcId);
             
-            if (selectedPack && (selectedPack.service_pack_id === savedPackId || selectedPack.id === savedPackId)) {
+            if (selectedPack && selectedPack.service_pack_id === savedPackId) {
                 setSelectedPack({ ...selectedPack }); 
             }
         } catch (err: any) { setError(err.message || 'Failed to save pack'); }
@@ -1327,7 +1328,7 @@ export const Services = () => {
                                     <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 800, letterSpacing: '0.05em', textAlign: 'right' }}>RATE ($)</Typography>
                                 </Box>
                                 
-                                {ageGroups.map(ag => {
+                                {ageGroups.filter(ag => ag.age_group_category === 'Service').map(ag => {
                                     const agId = ag.age_group_id || ag.id || Math.random().toString();
                                     const data = packPriceData[agId] || { price: '', students: '1', instructors: '1' };
                                     return (
@@ -1335,7 +1336,7 @@ export const Services = () => {
                                             <Box>
                                                 <Typography sx={{ fontWeight: 700, color: '#1e293b', fontSize: '0.875rem' }}>{ag.name}</Typography>
                                                 <Typography sx={{ color: '#94a3b8', fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase' }}>
-                                                    {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : (ag.description || 'N/A')}
+                                                    {ag.min_age !== undefined && ag.max_age !== undefined ? `(${ag.min_age}-${ag.max_age} y)` : 'N/A'}
                                                 </Typography>
                                             </Box>
                                             

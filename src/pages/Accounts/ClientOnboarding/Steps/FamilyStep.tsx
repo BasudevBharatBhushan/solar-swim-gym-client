@@ -34,6 +34,7 @@ interface FamilyMember {
     guardian_name?: string;
     guardian_mobile?: string;
     emergency_phone?: string;
+    gender?: string;
 }
 
 interface FamilyStepProps {
@@ -221,6 +222,17 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <FormControl fullWidth size="small">
+                                    <InputLabel shrink>Gender (Optional)</InputLabel>
+                                    <Select value={primaryData.gender || ''} onChange={e => updatePrimaryData('gender', e.target.value)} label="Gender (Optional)" displayEmpty>
+                                        <MenuItem value=""><em>Prefer not to say</em></MenuItem>
+                                        <MenuItem value="Male">Male</MenuItem>
+                                        <MenuItem value="Female">Female</MenuItem>
+                                        <MenuItem value="Other">Other</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Grid>
                              <Grid size={{ xs: 12, sm: 6 }}>
                                 <TextField 
                                     label="Mobile Number"
@@ -398,6 +410,17 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 onChange={(e) => handleChange(index, 'date_of_birth', e.target.value)}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <FormControl fullWidth size="small">
+                                <InputLabel shrink>Gender (Optional)</InputLabel>
+                                <Select value={member.gender || ''} onChange={(e) => handleChange(index, 'gender', e.target.value)} label="Gender (Optional)" displayEmpty>
+                                    <MenuItem value=""><em>Prefer not to say</em></MenuItem>
+                                    <MenuItem value="Male">Male</MenuItem>
+                                    <MenuItem value="Female">Female</MenuItem>
+                                    <MenuItem value="Other">Other</MenuItem>
+                                </Select>
+                            </FormControl>
                         </Grid>
 
                         <Grid size={{ xs: 12, sm: 6 }}>

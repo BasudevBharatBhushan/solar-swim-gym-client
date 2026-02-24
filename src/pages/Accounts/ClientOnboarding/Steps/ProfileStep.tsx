@@ -125,6 +125,58 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
         </Grid>
 
         <Grid size={{ xs: 12 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
+                Additional Details
+            </Typography>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6 }}>
+             <FormControl fullWidth size="small">
+                <InputLabel shrink>Gender (Optional)</InputLabel>
+                <Select value={data.gender || ''} onChange={e => updateData('gender', e.target.value)} label="Gender (Optional)" displayEmpty>
+                    <MenuItem value=""><em>Prefer not to say</em></MenuItem>
+                    <MenuItem value="Male">Male</MenuItem>
+                    <MenuItem value="Female">Female</MenuItem>
+                    <MenuItem value="Other">Other</MenuItem>
+                </Select>
+            </FormControl>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField label="How did you hear about us? (Optional)" size="small" fullWidth value={data.heard_about_us || ''} onChange={e => updateData('heard_about_us', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} placeholder="e.g. Google, Social Media, Friend" />
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
+                Address Information
+            </Typography>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField label="Address Line 1" size="small" fullWidth value={data.address_line1 || ''} onChange={e => updateData('address_line1', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField label="Address Line 2" placeholder="Apt, Suite, etc." size="small" fullWidth value={data.address_line2 || ''} onChange={e => updateData('address_line2', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField label="City" size="small" fullWidth value={data.city || ''} onChange={e => updateData('city', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField label="State/Province" size="small" fullWidth value={data.state || ''} onChange={e => updateData('state', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField label="Zip/Postal Code" size="small" fullWidth value={data.zip_code || ''} onChange={e => updateData('zip_code', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+            <TextField label="Country" size="small" fullWidth value={data.country || 'USA'} onChange={e => updateData('country', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+            <Typography variant="subtitle2" sx={{ mb: 0, mt: 1, fontWeight: 600, color: '#334155' }}>
+                Program Info & Preferences
+            </Typography>
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
             <FormControl fullWidth size="small">
                 <InputLabel id="waiver-program-label" shrink>State Waiver Program (Optional)</InputLabel>
                 <Select
@@ -144,7 +196,26 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
                         </MenuItem>
                     ))}
                 </Select>
-                 <FormHelperText>Select a government or partner-funded program if applicable.</FormHelperText>
+                  <FormHelperText>Select a government or partner-funded program if applicable.</FormHelperText>
+            </FormControl>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControl fullWidth size="small">
+                <InputLabel shrink>Primary Member Notifications</InputLabel>
+                <Select value={data.notify_primary_member !== false ? 'true' : 'false'} onChange={e => updateData('notify_primary_member', e.target.value === 'true')} label="Primary Member Notifications">
+                    <MenuItem value="true">Enable Notifications</MenuItem>
+                    <MenuItem value="false">Disable Notifications</MenuItem>
+                </Select>
+            </FormControl>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <FormControl fullWidth size="small">
+                <InputLabel shrink>Guardian Notifications</InputLabel>
+                <Select value={data.notify_guardian !== false ? 'true' : 'false'} onChange={e => updateData('notify_guardian', e.target.value === 'true')} label="Guardian Notifications">
+                    <MenuItem value="true">Enable Notifications</MenuItem>
+                    <MenuItem value="false">Disable Notifications</MenuItem>
+                </Select>
             </FormControl>
         </Grid>
 

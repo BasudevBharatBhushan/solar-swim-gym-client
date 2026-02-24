@@ -7,10 +7,12 @@ import { waiverService, WaiverTemplate } from '../services/waiverService';
 // Types
 export interface AgeGroup {
   age_group_id: string;
+  location_id: string;
   id?: string;
   name: string;
   min_age?: number;
   max_age?: number;
+  age_group_category?: 'Membership' | 'Service';
   is_recurring?: boolean;
   recurrence_unit?: string;
 }
@@ -63,10 +65,11 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Fetch Age Groups
   const refreshAgeGroups = useCallback(async () => {
+    const locId = currentLocationId || import.meta.env.VITE_LOCATION_1_ID;
     try {
       setLoading(true);
       setError(null);
-      const res = await configService.getAgeGroups();
+      const res = await configService.getAgeGroups(locId);
       const data = res?.data || (Array.isArray(res) ? res : []);
       setAgeGroups(data);
     } catch (err: any) {
@@ -75,7 +78,7 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentLocationId]);
 
   // Fetch Subscription Terms
   const refreshSubscriptionTerms = useCallback(async () => {
@@ -109,16 +112,17 @@ export const ConfigProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   }, []);
 
-  // Fetch Waiver Templates (Global)
+  // Fetch Waiver Templates
   const refreshWaiverTemplates = useCallback(async () => {
+    const locId = currentLocationId || import.meta.env.VITE_LOCATION_1_ID;
     try {
-      const res = await waiverService.getWaiverTemplates();
+      const res = await waiverService.getWaiverTemplates(locId);
       const data = res?.data || (Array.isArray(res) ? res : []);
       setWaiverTemplates(data);
     } catch (err: any) {
       console.error('Error fetching waiver templates:', err);
     }
-  }, []);
+  }, [currentLocationId]);
 
   // Fetch Dropdown Values
   const refreshDropdownValues = useCallback(async () => {

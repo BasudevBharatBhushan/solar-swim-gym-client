@@ -60,6 +60,9 @@ The billing entity. Represents a household or paying unit.
 | `account_id` | `UUID` | Unique billing account ID. | **PK**, Default: `gen_random_uuid()` |
 | `location_id` | `UUID` | The location this account belongs to. | **FK** -> `location`, `NOT NULL` |
 | `status` | `ENUM` | `PENDING`, `ACTIVE`, `SUSPENDED` | Default: `PENDING`, `NOT NULL` |
+| `heard_about_us` | `TEXT` | Source of information about the gym. | |
+| `notify_primary_member` | `BOOLEAN` | Whether to notify primary member. | Default: `TRUE` |
+| `notify_guardian` | `BOOLEAN` | Whether to notify guardian. | Default: `TRUE` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
 **RLS Policy**: Users match `app.current_location_id`.
@@ -74,11 +77,18 @@ Individuals (members) attached to an account.
 | `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
 | `first_name` | `TEXT` | First name. | `NOT NULL` |
 | `last_name` | `TEXT` | Last name. | `NOT NULL` |
+| `gender` | `TEXT` | Gender of the member. | |
 | `date_of_birth` | `DATE` | DOB used for age group calculation. | `NOT NULL` |
 | `email` | `TEXT` | Login email (required for Primary). | |
 | `password` | `TEXT` | Hashed password. | |
 | `is_primary` | `BOOLEAN` | True if this is the main account holder. | Default: `FALSE` |
 | `is_active` | `BOOLEAN` | Soft delete flag. | Default: `TRUE` |
+| `address_line1` | `TEXT` | Primary address line. | |
+| `address_line2` | `TEXT` | Secondary address line (suite, apt).| |
+| `city` | `TEXT` | City. | |
+| `state` | `TEXT` | State. | |
+| `zip_code` | `TEXT` | Postal / Zip code. | |
+| `country` | `TEXT` | Country. | Default: `'USA'` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 | **Minor / Emergency** | | | |
 | `guardian_name` | `TEXT` | Legal guardian (for minors). | |
@@ -268,7 +278,8 @@ Promotional codes that can be applied to subscriptions or invoices.
 | `discount_code` | `TEXT` | The unique string used to claim the discount. | `UNIQUE`, `NOT NULL` |
 | `discount` | `TEXT` | The value (e.g., "6%" or "6"). | `NOT NULL` |
 | `staff_name` | `TEXT` | Denormalized snapshot of the creator's name. | |
-| `service_id` | `UUID` | Linked service (if restricted to one). | **FK** -> `service` |
+| `discount_category` | `ENUM` | `SERVICE`, `MEMBERSHIP_PLAN`, `MEMBERSHIP_FEE` | |
+| `reference_id` | `UUID` | Polymorphic FK linked to `service_id`, `base_price_id`, or `membership_category_id` based on category. Null = All. | |
 | `start_date` | `DATE` | The date from which the discount is valid. | |
 | `end_date` | `DATE` | The date after which the discount expires. | |
 | `is_active` | `BOOLEAN` | If false, the code cannot be used. | Default: `TRUE` |
@@ -301,6 +312,7 @@ Variations of a program (e.g., "Family", "Individual").
 | `category_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
 | `membership_program_id`| `UUID` | Parent program. | **FK** -> `membership_program`, `NOT NULL` |
 | `name` | `TEXT` | Category name. | `NOT NULL` |
+| `members_allowed` | `INT` | Number of members allowed in this category. | Default: `1` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 
 **RLS Policy**: Filter by `location_id` (via Program).
@@ -363,7 +375,7 @@ Financial record for a transaction.
 | `account_id` | `UUID` | Who is being billed. | **FK** -> `account`, `NOT NULL` |
 | `location_id` | `UUID` | Location context. | **FK** -> `location`, `NOT NULL` |
 | `total_amount` | `DECIMAL` | Total due. | `NOT NULL`, Default: `0.00` |
-| `status` | `ENUM` | `DRAFT`, `PAID`, `PARTIAL`, `FAILED` | Default: `DRAFT`, `NOT NULL` |
+| `status` | `ENUM` | `DRAFT`, `PAID`, `PARTIAL`, `FAILED`, `PENDING` | Default: `DRAFT`, `NOT NULL` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
 **RLS Policy**: Filter by `location_id`.
@@ -441,7 +453,20 @@ Active recurring contract for a service/membership.
 | `discount_code` | `TEXT` | The discount code string used (e.g. "SUMMER10"). | |
 | `billing_period_start` | `DATE` | Start of coverage. | |
 | `billing_period_end` | `DATE` | End of coverage. | |
-| `status` | `ENUM` | `ACTIVE`, `PAID`, `CANCELLED` | Default: `ACTIVE`, `NOT NULL` |
+| `auto_renew` | `BOOLEAN` | Enables or disables auto-renewal. | `NOT NULL`, Default: `FALSE` |
+| `next_renewal_date` | `TIMESTAMP` | Next scheduled renewal date used by cron for billing.| |
+| `billing_interval_unit` | `ENUM` | `DAY`, `WEEK`, `MONTH`, `YEAR` | |
+| `billing_interval_count` | `INT` | Multiplier for billing interval. | |
+| `renewal_attempt_count` | `INT` | Number of failed renewal attempts. | `NOT NULL`, Default: `0` |
+| `last_renewal_attempt_at`| `TIMESTAMP` | Timestamp of the most recent renewal attempt. | |
+| `renewal_reminder_days` | `INT` | Days before renewal to trigger notifications. | |
+| `grace_period_days` | `INT` | Days to keep active after renewal failure. | |
+| `prorate_enabled` | `BOOLEAN` | Whether proration is active for the first cycle. | `NOT NULL`, Default: `FALSE` |
+| `prorate_from_date` | `DATE` | The specific date for starting coverage. | |
+| `pay_prorated_only` | `BOOLEAN` | If true, only pay the prorated amount at checkout. | `NOT NULL`, Default: `FALSE` |
+| `prorate_first_only` | `BOOLEAN` | If true, subsequent cycles are billed at full price. | `NOT NULL`, Default: `TRUE` |
+| `cancel_at_period_end` | `BOOLEAN` | If true, status becomes EXPIRED at end of period. | `NOT NULL`, Default: `FALSE` |
+| `status` | `ENUM` | `ACTIVE`, `PAST_DUE`, `EXPIRED`, `PAUSED`, `CANCELLED` | Default: `ACTIVE`, `NOT NULL` |
 | `role` | `ENUM` | `PRIMARY`, `ADD_ON` | Default: `PRIMARY` |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
@@ -485,7 +510,20 @@ Temporary storage for subscriptions before finalizing. Copy of `subscription` ta
 | `discount_code` | `TEXT` | Applied code. | |
 | `billing_period_start`| `DATE` | Start of coverage. | |
 | `billing_period_end` | `DATE` | End of coverage. | |
-| `status` | `TEXT` | `ACTIVE`, etc. | |
+| `auto_renew` | `BOOLEAN` | Enables or disables auto-renewal. | `NOT NULL`, Default: `FALSE` |
+| `next_renewal_date` | `TIMESTAMP` | Next scheduled renewal date. | |
+| `billing_interval_unit` | `ENUM` | `DAY`, `WEEK`, `MONTH`, `YEAR` | |
+| `billing_interval_count` | `INT` | Multiplier for billing interval. | |
+| `renewal_attempt_count` | `INT` | Number of failed renewal attempts. | `NOT NULL`, Default: `0` |
+| `last_renewal_attempt_at`| `TIMESTAMP` | Timestamp of the most recent renewal attempt. | |
+| `renewal_reminder_days` | `INT` | Days before renewal to trigger notifications. | |
+| `grace_period_days` | `INT` | Days to keep active after renewal failure. | |
+| `prorate_enabled` | `BOOLEAN` | Whether proration is active for the first cycle. | `NOT NULL`, Default: `FALSE` |
+| `prorate_from_date` | `DATE` | The specific date for starting coverage. | |
+| `pay_prorated_only` | `BOOLEAN` | If true, only pay the prorated amount at checkout. | `NOT NULL`, Default: `FALSE` |
+| `prorate_first_only` | `BOOLEAN` | If true, subsequent cycles are billed at full price. | `NOT NULL`, Default: `TRUE` |
+| `cancel_at_period_end` | `BOOLEAN` | If true, status becomes EXPIRED at end of period. | `NOT NULL`, Default: `FALSE` |
+| `status` | `TEXT` | `ACTIVE`, `PAST_DUE`, `EXPIRED`, `PAUSED`, `CANCELLED` | |
 | `metadata` | `JSONB` | Arbitrary JSON data. | Default: `{}` |
 | `role` | `ENUM` | `PRIMARY`, `ADD_ON` | Default: `PRIMARY` |
 | `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
@@ -507,17 +545,21 @@ Links specific profiles to a subscription.
 
 **RLS Policy**: Inherited via Subscription.
 ### **Table: `age_group`**
-Global age classifications.
+Global age classifications (now location scoped).
 
 | Field Name | Type | Description | Key / Constraint |
 | :--- | :--- | :--- | :--- |
 | `age_group_id` | `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
+| `location_id` | `UUID` | Location scope. | **FK** -> `location` |
 | `name` | `TEXT` | e.g., "Adult", "Child". | `NOT NULL` |
 | `min_age` | `DECIMAL` | Lower bound (inclusive). | `NOT NULL` |
 | `max_age` | `DECIMAL` | Upper bound (inclusive). | `NOT NULL` |
 | `accept_guardian_information`| `BOOLEAN` | If true, prompts for guardian details.| Default: `FALSE` |
 | `is_recurring` | `BOOLEAN` | Whether this group has recurring terms. | Default: `FALSE` |
 | `recurrence_unit` | `TEXT` | Period unit (e.g., "MONTH", "YEAR"). | Default: `'MONTH'` |
+| `age_group_category` | `ENUM` | `Membership`, `Service` | Default: `Membership`, `NOT NULL` |
+
+**RLS Policy**: Filter by `location_id`.
 
 ### **Table: `subscription_term`**
 Billing duration definitions.
@@ -543,6 +585,8 @@ Stores waiver document templates which can be mapped to various configurations.
 | :--- | :--- | :--- | :--- |
 | `waiver_template_id`| `UUID` | Unique ID. | **PK**, Default: `gen_random_uuid()` |
 | `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
+| `template_name` | `TEXT` | Human-readable name for the template. | |
+| `template_category` | `VARCHAR(50)` | Category (SERVICE, MEMBERSHIP, BASE_PLAN, AGE_PROFILE). | |
 | `ageprofile_id` | `UUID` | Target age group (Reference). | **FK** -> `age_group` |
 | `subterm_id` | `UUID` | Billing duration (Reference). | **FK** -> `subscription_term` |
 | `base_price_id` | `UUID` | Base pricing (Reference). | **FK** -> `base_price` |
@@ -553,7 +597,7 @@ Stores waiver document templates which can be mapped to various configurations.
 | `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
 | `updated_at` | `TIMESTAMP` | Record update. | Default: `NOW()` |
 
-**RLS Policy**: Disabled (Globally Accessible).
+**RLS Policy**: Filter by `location_id`.
 
 ### **Table: `signed_waiver`**
 Stored signed waivers linked to profiles.
@@ -572,6 +616,26 @@ Stored signed waivers linked to profiles.
 | `updated_at` | `TIMESTAMPTZ` | Record update. | Default: `now()` |
 
 **RLS Policy**: Filter by `location_id`.
+
+### **Table: `waiver_requests`**
+Tracks pending waiver signatures sent to clients.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | Primary Key. | **PK**, Default: `gen_random_uuid()` |
+| `token` | `UUID` | Unique token for public signing URL. | `UNIQUE`, `NOT NULL`, Default: `gen_random_uuid()` |
+| `account_id` | `UUID` | The account generating the request. | **FK** -> `account`, `NOT NULL` |
+| `profile_id` | `UUID` | The profile that needs to sign. | **FK** -> `profile`, `NOT NULL` |
+| `waiver_template_id` | `UUID` | The template being sent. | **FK** -> `waiver_template`, `NOT NULL` |
+| `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
+| `waiver_type` | `ENUM` | `REGISTRATION`, `MEMBERSHIP`, `SERVICE` | `NOT NULL` |
+| `variables` | `JSONB` | Snapshot of resolved data. | Default: `{}` |
+| `status` | `VARCHAR` | `pending`, `signed`, `expired` | Default: `pending` |
+| `expires_at` | `TIMESTAMPTZ` | Expiration time of request. | `NOT NULL` |
+| `created_at` | `TIMESTAMPTZ` | Record creation. | Default: `now()` |
+| `updated_at` | `TIMESTAMPTZ` | Record update. | Default: `now()` |
+
+**RLS Policy**: Public read/update by token. Authed filter by `location_id`.
 
 ---
 ## **8. Utility & Configuration**

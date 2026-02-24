@@ -89,6 +89,13 @@ export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
                 <DetailItem 
+                    icon={<PersonIcon fontSize="small" />} 
+                    label="Gender" 
+                    value={profile.gender || 'N/A'} 
+                />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+                <DetailItem 
                     icon={<ShieldIcon fontSize="small" />} 
                     label="Account Role" 
                     value={profile.is_primary ? 'Primary Member' : 'Family Member'} 
@@ -101,6 +108,31 @@ export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
                     value={profile.waiver_program ? `${profile.waiver_program.name} (${profile.waiver_program.code})` : 'No Program Assigned'} 
                 />
             </Grid>
+            {profile.case_manager_name && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                    <DetailItem icon={<ContactPhoneIcon fontSize="small" />} label="Case Manager Name" value={profile.case_manager_name} />
+                </Grid>
+            )}
+            {profile.case_manager_email && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                    <DetailItem icon={<EmailIcon fontSize="small" />} label="Case Manager Email" value={profile.case_manager_email} />
+                </Grid>
+            )}
+            
+            {(profile.address_line1 || profile.city || profile.state || profile.zip_code) && (
+                <Grid size={12}>
+                    <Box sx={{ mt: 2, mb: 2 }}>
+                        <Typography variant="overline" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
+                            Address Information
+                        </Typography>
+                    </Box>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                        {profile.address_line1} {profile.address_line2 ? `, ${profile.address_line2}` : ''}
+                        <br />
+                        {profile.city}, {profile.state} {profile.zip_code} {profile.country}
+                    </Typography>
+                </Grid>
+            )}
         </Grid>
 
         {(profile.guardian_name || profile.emergency_contact_name) && (

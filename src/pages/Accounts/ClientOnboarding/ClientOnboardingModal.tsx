@@ -44,7 +44,7 @@ interface ClientOnboardingModalProps {
   locationNameProp?: string;
 }
 
-const steps = ['Profile', 'Family Details', 'Waiver Signing', 'Review'];
+const steps = ['Account & Profiles', 'Waiver Signing', 'Review'];
 
 interface WaiverComposeDraft {
   to: string;
@@ -85,6 +85,16 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     date_of_birth: null,
     family_count: 1,
     waiver_program_id: '',
+    gender: '',
+    address_line1: '',
+    address_line2: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    country: 'USA',
+    heard_about_us: '',
+    notify_primary_member: true,
+    notify_guardian: true,
     // ... other fields
   });
 
@@ -157,15 +167,9 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const handleNext = () => {
     if (activeStep === 0) {
         if (!validateProfile()) return;
+        if (!validateFamily()) return;
     }
     if (activeStep === 1) {
-        if (!validateFamily()) return;
-        
-        // Filter empty family members before proceeding to waiver step?
-        // Or keep them but only require waivers for valid ones. 
-        // Logic in WaiverStep handles the list passed to it.
-    }
-    if (activeStep === 2) {
         if (!validateWaivers()) {
             showToast("Please sign all waivers to proceed.", "warning");
             return;
@@ -187,12 +191,22 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
           const payload = {
               location_id: currentLocationId,
+              heard_about_us: (profileData as any).heard_about_us,
+              notify_primary_member: (profileData as any).notify_primary_member,
+              notify_guardian: (profileData as any).notify_guardian,
               primary_profile: {
                 first_name: profileData.first_name,
                 last_name: profileData.last_name,
                 email: profileData.email,
                 date_of_birth: profileData.date_of_birth,
                 mobile: profileData.mobile,
+                gender: (profileData as any).gender,
+                address_line1: (profileData as any).address_line1,
+                address_line2: (profileData as any).address_line2,
+                city: (profileData as any).city,
+                state: (profileData as any).state,
+                zip_code: (profileData as any).zip_code,
+                country: (profileData as any).country || 'USA',
                 waiver_program_id: (profileData as any).waiver_program_id,
                 case_manager_name: (profileData as any).case_manager_name,
                 case_manager_email: (profileData as any).case_manager_email,
@@ -203,6 +217,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                   last_name: m.last_name,
                   date_of_birth: m.date_of_birth,
                   email: m.email || undefined,
+                  gender: m.gender || undefined,
                   waiver_program_id: m.waiver_program_id || undefined,
                   case_manager_name: m.case_manager_name || undefined,
                   case_manager_email: m.case_manager_email || undefined,
@@ -380,9 +395,9 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const renderStepContent = (step: number) => {
     switch (step) {
       case 0:
-        return <ProfileStep data={profileData} updateData={updateProfileData} errors={errors} />;
-      case 1:
         return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <ProfileStep data={profileData} updateData={updateProfileData} errors={errors} />
             <FamilyStep 
                 data={familyMembers} 
                 updateData={setFamilyMembers} 
@@ -390,8 +405,9 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 updatePrimaryData={(key: string, value: any) => updateProfileData(key, value)}
                 expectedCount={Math.max(1, profileData.family_count)}
             />
+          </Box>
         );
-      case 2:
+      case 1:
           // Filter valid members to pass to WaiverStep
           const validMembers = familyMembers.filter(m => m.first_name && m.last_name);
           return (
@@ -402,7 +418,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 onAllSigned={setAllSigned}
             />
           );
-      case 3:
+      case 2:
         return <ReviewStep primaryProfile={profileData} familyMembers={familyMembers} />;
       default:
         return <Typography>Unknown step</Typography>;
@@ -569,7 +585,17 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                                         mobile: '',
                                         date_of_birth: null,
                                         family_count: 1,
-                                        waiver_program_id: ''
+                                        waiver_program_id: '',
+                                        gender: '',
+                                        address_line1: '',
+                                        address_line2: '',
+                                        city: '',
+                                        state: '',
+                                        zip_code: '',
+                                        country: 'USA',
+                                        heard_about_us: '',
+                                        notify_primary_member: true,
+                                        notify_guardian: true
                                     });
                                     setFamilyMembers([]);
                                     setSignedWaivers({});
@@ -612,7 +638,17 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                                 mobile: '',
                                 date_of_birth: null,
                                 family_count: 1,
-                                waiver_program_id: ''
+                                waiver_program_id: '',
+                                gender: '',
+                                address_line1: '',
+                                address_line2: '',
+                                city: '',
+                                state: '',
+                                zip_code: '',
+                                country: 'USA',
+                                heard_about_us: '',
+                                notify_primary_member: true,
+                                notify_guardian: true
                             });
                             setFamilyMembers([]);
                             setSignedWaivers({});
@@ -680,10 +716,10 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
             Back
           </Button>
           <Box sx={{ display: 'flex', gap: 1.5, width: isMobile ? '100%' : 'auto', flexDirection: isMobile ? 'column' : 'row' }}>
-              {activeStep === 2 && mode === 'staff' && (
+              {activeStep === 1 && mode === 'staff' && (
                   <Button 
                       variant="outlined" 
-                      onClick={() => setActiveStep(3)}
+                      onClick={() => setActiveStep(2)}
                       fullWidth={isMobile}
                       sx={{ 
                           borderRadius: '8px', 

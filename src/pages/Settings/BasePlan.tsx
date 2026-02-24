@@ -29,9 +29,10 @@ import {
   MenuItem,
   Stack
 } from '@mui/material';
-import { Add, Edit, Save, Delete } from '@mui/icons-material';
-import { useConfig } from '../../context/ConfigContext';
+import { Add, Edit, Save, Delete, ContentCopy } from '@mui/icons-material';
+import { useConfig, AgeGroup, SubscriptionTerm } from '../../context/ConfigContext';
 import { useAuth } from '../../context/AuthContext';
+import { configService } from '../../services/configService';
 import { basePriceService, BasePrice } from '../../services/basePriceService';
 import { membershipService, MembershipService } from '../../services/membershipService';
 import { PageHeader } from '../../components/Common/PageHeader';
@@ -46,7 +47,7 @@ interface ProfileKey {
 }
 
 export const BasePlan = () => {
-  const { currentLocationId } = useAuth();
+  const { currentLocationId, locations, role } = useAuth();
   const { ageGroups, subscriptionTerms, dropdownValues, waiverPrograms } = useConfig();
   
   // -- Data State --
@@ -82,6 +83,15 @@ export const BasePlan = () => {
     is_active: true
   });
   const [createTermPrices, setCreateTermPrices] = useState<Record<string, string>>({});
+  
+  // -- Duplicate State --
+  const [openDuplicate, setOpenDuplicate] = useState(false);
+  const [duplicateForm, setDuplicateForm] = useState<Partial<BasePrice>>({});
+  const [duplicateTermPrices, setDuplicateTermPrices] = useState<Record<string, string>>({});
+  const [duplicateLocationId, setDuplicateLocationId] = useState<string | null>(null);
+  const [targetAgeGroups, setTargetAgeGroups] = useState<AgeGroup[]>([]);
+  const [targetTerms, setTargetTerms] = useState<SubscriptionTerm[]>([]);
+  const [loadingConfigs, setLoadingConfigs] = useState(false);
 
   // -- Delete Confirmation State --
   const [deleteConfirm, setDeleteConfirm] = useState<{
@@ -145,8 +155,11 @@ export const BasePlan = () => {
         return a.planName.localeCompare(b.planName);
     });
 
-    // Group by Age Group ID
+    // Group by Age Group ID (filter for Membership category only)
     profiles.forEach(p => {
+        const groupDef = ageGroups.find(g => g.age_group_id === p.ageGroupId);
+        if (groupDef && groupDef.age_group_category === 'Service') return; // Skip Service categories
+
         if (!groups[p.ageGroupId]) groups[p.ageGroupId] = [];
         groups[p.ageGroupId].push(p);
     });
@@ -394,6 +407,112 @@ export const BasePlan = () => {
     } catch (e) {
         console.error("Create failed:", e);
         setError("Failed to create Membership.");
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+  const handleStartDuplicate = () => {
+    if (!selectedProfile) return;
+    
+    // Pre-fill prices
+    const prices: Record<string, string> = {};
+    subscriptionTerms.forEach(t => {
+        const existing = getExistingPrice(selectedProfile, t.subscription_term_id);
+        if (existing) prices[t.subscription_term_id] = existing.price.toString();
+    });
+
+    setDuplicateForm({
+        name: `${selectedProfile.planName} (Copy)`,
+        role: selectedProfile.role,
+        age_group_id: selectedProfile.ageGroupId
+    });
+    setDuplicateTermPrices(prices);
+    setDuplicateLocationId(currentLocationId);
+    setTargetAgeGroups(ageGroups);
+    setTargetTerms(subscriptionTerms);
+    setOpenDuplicate(true);
+  };
+
+  const handleDuplicateLocationChange = async (newLocId: string) => {
+    setDuplicateLocationId(newLocId);
+    setLoadingConfigs(true);
+    try {
+        const [agRes, stRes] = await Promise.all([
+            configService.getAgeGroups(newLocId),
+            configService.getSubscriptionTerms(newLocId)
+        ]);
+        const newAGs = agRes?.data || (Array.isArray(agRes) ? agRes : []);
+        const newTerms = stRes?.data || (Array.isArray(stRes) ? stRes : []);
+        
+        setTargetAgeGroups(newAGs);
+        setTargetTerms(newTerms);
+
+        // Try to match current Age Group by name in target location
+        const currentAG = ageGroups.find(g => g.age_group_id === duplicateForm.age_group_id);
+        if (currentAG) {
+            const matchingAG = newAGs.find((g: any) => g.name === currentAG.name);
+            if (matchingAG) {
+                setDuplicateForm(prev => ({ ...prev, age_group_id: matchingAG.age_group_id }));
+            } else {
+                setDuplicateForm(prev => ({ ...prev, age_group_id: '' }));
+            }
+        }
+
+        // Try to match terms and remap prices
+        const newPrices: Record<string, string> = {};
+        subscriptionTerms.forEach(oldTerm => {
+            const matchingTerm = newTerms.find((t: any) => t.name === oldTerm.name);
+            if (matchingTerm) {
+                const oldPrice = duplicateTermPrices[oldTerm.subscription_term_id];
+                if (oldPrice !== undefined) {
+                    newPrices[matchingTerm.subscription_term_id || matchingTerm.id] = oldPrice;
+                }
+            }
+        });
+        setDuplicateTermPrices(newPrices);
+
+    } catch (e) {
+        console.error("Failed to fetch target location configs", e);
+        setError("Failed to load configuration for the selected location.");
+    } finally {
+        setLoadingConfigs(false);
+    }
+  };
+
+  const handleDuplicateProfile = async () => {
+    const trimmedName = duplicateForm.name?.trim();
+    if (!trimmedName || !duplicateForm.age_group_id || !duplicateLocationId) return;
+    
+    setIsSaving(true);
+
+    const pricesPayload: BasePrice[] = targetTerms.map((term) => {
+        const rawPrice = duplicateTermPrices[term.subscription_term_id];
+        const parsedPrice = rawPrice === '' || rawPrice === undefined ? 0 : Number(rawPrice);
+        return {
+            location_id: duplicateLocationId,
+            name: trimmedName,
+            role: (duplicateForm.role as 'PRIMARY' | 'ADD_ON') || 'PRIMARY',
+            age_group_id: duplicateForm.age_group_id!,
+            subscription_term_id: term.subscription_term_id,
+            price: isNaN(parsedPrice) ? 0 : parsedPrice,
+            is_active: true
+        };
+    });
+
+    const payload = {
+        location_id: duplicateLocationId,
+        prices: pricesPayload
+    };
+
+    try {
+        await basePriceService.upsert(payload, duplicateLocationId || undefined);
+        await fetchData();
+        setSuccess(`Membership duplicated.`);
+        setOpenDuplicate(false);
+    } catch (e) {
+        console.error("Duplicate failed:", e);
+        setError("Failed to duplicate Membership.");
     } finally {
         setIsSaving(false);
     }
@@ -693,6 +812,22 @@ export const BasePlan = () => {
                                                 }}
                                             >
                                                 Delete Membership
+                                            </Button>
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<ContentCopy />}
+                                                onClick={handleStartDuplicate}
+                                                sx={{ 
+                                                    borderRadius: 2, 
+                                                    textTransform: 'none', 
+                                                    fontWeight: 700,
+                                                    px: 3,
+                                                    color: '#6366f1',
+                                                    borderColor: '#e0e7ff',
+                                                    '&:hover': { bgcolor: '#f5f7ff', borderColor: '#c7d2fe' }
+                                                }}
+                                            >
+                                                Duplicate
                                             </Button>
                                             <Button 
                                                 variant="outlined" 
@@ -1102,7 +1237,7 @@ export const BasePlan = () => {
                             label="Age Group"
                             onChange={e => setCreateForm({...createForm, age_group_id: e.target.value})}
                         >
-                             {ageGroups.map(g => (
+                             {ageGroups.filter(g => !g.age_group_category || g.age_group_category === 'Membership').map(g => (
                                 <MenuItem key={g.age_group_id} value={g.age_group_id}>{g.name}</MenuItem>
                             ))}
                         </Select>
@@ -1116,26 +1251,34 @@ export const BasePlan = () => {
                         </Typography>
                     ) : (
                         <Grid container spacing={2}>
-                            {subscriptionTerms.map((term) => (
-                                <Grid key={term.subscription_term_id} size={{ xs: 12, sm: 6 }}>
-                                    <TextField
-                                        label={term.name}
-                                        type="number"
-                                        fullWidth
-                                        value={createTermPrices[term.subscription_term_id] ?? ''}
-                                        onChange={(e) =>
-                                            setCreateTermPrices((prev) => ({
-                                                ...prev,
-                                                [term.subscription_term_id]: e.target.value
-                                            }))
-                                        }
-                                        InputProps={{
-                                            startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                                            inputProps: { min: 0 }
-                                        }}
-                                    />
-                                </Grid>
-                            ))}
+                            {subscriptionTerms.map((term) => {
+                                const isRecurring = term.payment_mode === 'RECURRING';
+                                const unitValue = term.recurrence_unit_value || 1;
+                                const unit = isRecurring ? (term.recurrence_unit || 'Month') : '';
+                                const cycleText = isRecurring ? `${unitValue} ${unit.toLowerCase()}${unitValue > 1 ? 's' : ''}` : '';
+                                
+                                return (
+                                    <Grid key={term.subscription_term_id} size={{ xs: 12, sm: 6 }}>
+                                        <TextField
+                                            label={term.name}
+                                            type="number"
+                                            fullWidth
+                                            value={createTermPrices[term.subscription_term_id] ?? ''}
+                                            onChange={(e) =>
+                                                setCreateTermPrices((prev) => ({
+                                                    ...prev,
+                                                    [term.subscription_term_id]: e.target.value
+                                                }))
+                                            }
+                                            helperText={isRecurring ? `Recurring every ${cycleText}` : 'Pay in full'}
+                                            InputProps={{
+                                                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                                inputProps: { min: 0 }
+                                            }}
+                                        />
+                                    </Grid>
+                                );
+                            })}
                         </Grid>
                     )}
                  </Box>
@@ -1148,6 +1291,114 @@ export const BasePlan = () => {
                     disabled={isSaving || !createForm.name?.trim() || !createForm.age_group_id || subscriptionTerms.length === 0}
                 >
                     {isSaving ? <CircularProgress size={24} /> : "Create"}
+                </Button>
+            </DialogActions>
+        </Dialog>
+
+        {/* Duplicate Dialog */}
+        <Dialog open={openDuplicate} onClose={() => setOpenDuplicate(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>Duplicate Membership</DialogTitle>
+            <DialogContent>
+                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                     {['admin', 'superadmin'].includes(role?.toLowerCase()) && (
+                         <FormControl fullWidth>
+                            <InputLabel>Target Location</InputLabel>
+                            <Select
+                                value={duplicateLocationId || ''}
+                                label="Target Location"
+                                onChange={e => handleDuplicateLocationChange(e.target.value)}
+                            >
+                                {locations.map(loc => (
+                                    <MenuItem key={loc.location_id} value={loc.location_id}>{loc.name}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                     )}
+                     
+                     <TextField 
+                        label="New Membership Name"
+                        placeholder="e.g. Gold (Copy)"
+                        fullWidth
+                        value={duplicateForm.name || ''}
+                        onChange={e => setDuplicateForm({...duplicateForm, name: e.target.value})}
+                    />
+                     <FormControl fullWidth>
+                        <InputLabel>Role</InputLabel>
+                        <Select 
+                            value={duplicateForm.role || ''} 
+                            label="Role"
+                            onChange={e => setDuplicateForm({...duplicateForm, role: e.target.value as any})}
+                        >
+                            <MenuItem value="PRIMARY">Primary</MenuItem>
+                            <MenuItem value="ADD_ON">AddOn</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <FormControl fullWidth disabled={loadingConfigs}>
+                        <InputLabel>Age Group</InputLabel>
+                        <Select
+                            value={duplicateForm.age_group_id || ''}
+                            label="Age Group"
+                            onChange={e => setDuplicateForm({...duplicateForm, age_group_id: e.target.value})}
+                        >
+                             {targetAgeGroups.filter(g => !g.age_group_category || g.age_group_category === 'Membership').map(g => (
+                                <MenuItem key={g.age_group_id} value={g.age_group_id}>{g.name}</MenuItem>
+                            ))}
+                        </Select>
+                        {loadingConfigs && <CircularProgress size={16} sx={{ position: 'absolute', right: 30, top: 'calc(50% - 8px)' }} />}
+                    </FormControl>
+
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        Review/Update prices for the target location:
+                    </Typography>
+                    
+                    {loadingConfigs ? (
+                        <Box sx={{ py: 2, textAlign: 'center' }}><CircularProgress size={24} /></Box>
+                    ) : targetTerms.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                            No subscription terms found for this location.
+                        </Typography>
+                    ) : (
+                        <Grid container spacing={2}>
+                            {targetTerms.map((term) => {
+                                const isRecurring = term.payment_mode === 'RECURRING';
+                                const unitValue = term.recurrence_unit_value || 1;
+                                const unit = isRecurring ? (term.recurrence_unit || 'Month') : '';
+                                const cycleText = isRecurring ? `${unitValue} ${unit.toLowerCase()}${unitValue > 1 ? 's' : ''}` : '';
+
+                                return (
+                                    <Grid key={term.subscription_term_id} size={{ xs: 12, sm: 6 }}>
+                                        <TextField
+                                            label={term.name}
+                                            type="number"
+                                            fullWidth
+                                            value={duplicateTermPrices[term.subscription_term_id] ?? ''}
+                                            onChange={(e) =>
+                                                setDuplicateTermPrices((prev) => ({
+                                                    ...prev,
+                                                    [term.subscription_term_id]: e.target.value
+                                                }))
+                                            }
+                                            helperText={isRecurring ? `Recurring every ${cycleText}` : 'Pay in full'}
+                                            InputProps={{
+                                                startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                                                inputProps: { min: 0 }
+                                            }}
+                                        />
+                                    </Grid>
+                                );
+                            })}
+                        </Grid>
+                    )}
+                 </Box>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={() => setOpenDuplicate(false)}>Cancel</Button>
+                <Button 
+                    variant="contained" 
+                    onClick={handleDuplicateProfile}
+                    disabled={isSaving || !duplicateForm.name?.trim() || !duplicateForm.age_group_id || targetTerms.length === 0 || loadingConfigs}
+                >
+                    {isSaving ? <CircularProgress size={24} /> : "Duplicate"}
                 </Button>
             </DialogActions>
         </Dialog>

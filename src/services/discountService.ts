@@ -4,15 +4,18 @@ export interface Discount {
     discount_id: string;
     staff_id?: string;
     location_id: string;
-    service_id?: string | null;
     discount_code: string;
     discount: string; // e.g. "6%" or "50.00"
     staff_name?: string;
+    discount_category: 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE' | null;
+    reference_id: string | null;
     is_active: boolean;
     start_date?: string | null;
     end_date?: string | null;
     created_at?: string;
     updated_at?: string;
+    // Legacy fields
+    service_id?: string | null;
 }
 
 export const discountService = {

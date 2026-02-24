@@ -46,6 +46,8 @@ import {
 import { PageHeader } from '../../components/Common/PageHeader';
 import { discountService, Discount } from '../../services/discountService';
 import { serviceCatalog, Service } from '../../services/serviceCatalog';
+import { basePriceService, BasePrice } from '../../services/basePriceService';
+import { membershipService, MembershipCategory } from '../../services/membershipService';
 import { useAuth } from '../../context/AuthContext';
 
 export const DiscountCodes = () => {
@@ -53,6 +55,8 @@ export const DiscountCodes = () => {
     const [tabValue, setTabValue] = useState(0);
     const [discounts, setDiscounts] = useState<Discount[]>([]);
     const [services, setServices] = useState<Service[]>([]);
+    const [membershipPlans, setMembershipPlans] = useState<BasePrice[]>([]);
+    const [membershipCategories, setMembershipCategories] = useState<MembershipCategory[]>([]);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     
     // Form State
@@ -60,7 +64,8 @@ export const DiscountCodes = () => {
     const [discountName, setDiscountName] = useState('');
     const [discountType, setDiscountType] = useState<'Percentage' | 'Flat'>('Percentage');
     const [discountValue, setDiscountValue] = useState('');
-    const [selectedServiceId, setSelectedServiceId] = useState<string>('all');
+    const [discountScope, setDiscountScope] = useState<'GLOBAL' | 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE'>('GLOBAL');
+    const [referenceId, setReferenceId] = useState<string>('');
     const [isActive, setIsActive] = useState(true);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -80,13 +85,23 @@ export const DiscountCodes = () => {
         if (!locationId) return;
         setLoading(true);
         try {
-            const [discountData, serviceData] = await Promise.all([
+            const [discountData, serviceData, planData, membershipData] = await Promise.all([
                 discountService.getAllDiscounts(locationId),
-                serviceCatalog.getServices(locationId)
+                serviceCatalog.getServices(locationId),
+                basePriceService.getAll(locationId),
+                membershipService.getMemberships(locationId)
             ]);
+            
             setDiscounts(discountData || []);
+            
             const servicesList = serviceData.data || serviceData;
             setServices(Array.isArray(servicesList) ? servicesList : []);
+            
+            setMembershipPlans(planData.prices || []);
+            
+            // Flatten categories from membership programs
+            const categories = (membershipData || []).flatMap(p => p.categories || []);
+            setMembershipCategories(categories);
         } catch (error) {
             console.error("Failed to load initial data", error);
         } finally {
@@ -111,7 +126,11 @@ export const DiscountCodes = () => {
         const isPercentage = discount.discount.includes('%');
         setDiscountType(isPercentage ? 'Percentage' : 'Flat');
         setDiscountValue(discount.discount.replace('%', ''));
-        setSelectedServiceId(discount.service_id || 'all');
+        
+        // New logic
+        setDiscountScope(discount.discount_category || 'GLOBAL');
+        setReferenceId(discount.reference_id || '');
+        
         setIsActive(discount.is_active);
         setStartDate(discount.start_date ? discount.start_date.split('T')[0] : '');
         setEndDate(discount.end_date ? discount.end_date.split('T')[0] : '');
@@ -126,9 +145,11 @@ export const DiscountCodes = () => {
     const resetForm = () => {
         setEditingDiscountId(null);
         setDiscountName('');
+        setTabValue(0);
         setDiscountType('Percentage');
         setDiscountValue('');
-        setSelectedServiceId('all');
+        setDiscountScope('GLOBAL');
+        setReferenceId('');
         setIsActive(true);
         setStartDate('');
         setEndDate('');
@@ -156,7 +177,8 @@ export const DiscountCodes = () => {
                 is_active: isActive,
                 staff_name: staffName,
                 location_id: locationId,
-                service_id: selectedServiceId === 'all' ? null : selectedServiceId,
+                discount_category: discountScope === 'GLOBAL' ? null : discountScope,
+                reference_id: referenceId || null,
                 start_date: startDate || null,
                 end_date: endDate || null
             };
@@ -321,7 +343,6 @@ export const DiscountCodes = () => {
                                     ) : filteredDiscounts.map((discount) => {
                                         const isPercentage = discount.discount.includes('%');
                                         const displayValue = isPercentage ? discount.discount : `$${discount.discount}`;
-                                        const serviceName = discount.service_id ? services.find(s => s.service_id === discount.service_id)?.name || 'Error' : 'All Store Services';
                                         
                                         return (
                                         <TableRow key={discount.discount_id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
@@ -373,7 +394,30 @@ export const DiscountCodes = () => {
                                                 </Stack>
                                             </TableCell>
                                             <TableCell>
-                                                <Typography variant="body2" sx={{ color: '#334155', fontWeight: 700, fontSize: '0.8rem' }}>{serviceName}</Typography>
+                                                <Typography variant="body2" sx={{ color: '#334155', fontWeight: 700, fontSize: '0.8rem' }}>
+                                                    {(() => {
+                                                        if (!discount.discount_category || discount.discount_category === null) return 'Global';
+                                                        
+                                                        const scopeLabel = {
+                                                            'SERVICE': 'Service',
+                                                            'MEMBERSHIP_PLAN': 'Membership Plan',
+                                                            'MEMBERSHIP_FEE': 'Membership Fee'
+                                                        }[discount.discount_category];
+
+                                                        if (!discount.reference_id) return `All ${scopeLabel}s`;
+
+                                                        let itemName = 'Unknown Item';
+                                                        if (discount.discount_category === 'SERVICE') {
+                                                            itemName = services.find(s => s.service_id === discount.reference_id)?.name || 'Unknown Service';
+                                                        } else if (discount.discount_category === 'MEMBERSHIP_PLAN') {
+                                                            itemName = membershipPlans.find(p => p.base_price_id === discount.reference_id)?.name || 'Unknown Plan';
+                                                        } else if (discount.discount_category === 'MEMBERSHIP_FEE') {
+                                                            itemName = membershipCategories.find(c => c.category_id === discount.reference_id)?.name || 'Unknown Category';
+                                                        }
+
+                                                        return `${scopeLabel}: ${itemName}`;
+                                                    })()}
+                                                </Typography>
                                                 <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 500 }}>Added by {discount.staff_name || 'Admin'}</Typography>
                                             </TableCell>
                                             <TableCell align="right">
@@ -518,28 +562,58 @@ export const DiscountCodes = () => {
 
                             <Box>
                                 <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
-                                    Restrict to Service
+                                    Discount Scope
                                 </Typography>
                                 <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}>
                                     <Select
-                                        value={selectedServiceId}
-                                        onChange={(e: any) => setSelectedServiceId(e.target.value as string)}
-                                        displayEmpty
+                                        value={discountScope}
+                                        onChange={(e: any) => {
+                                            setDiscountScope(e.target.value);
+                                            setReferenceId(''); // Reset reference ID when scope changes
+                                        }}
                                     >
-                                        <MenuItem value="all">
-                                            <Stack direction="row" spacing={1} alignItems="center">
-                                                <CheckCircle sx={{ fontSize: 16, color: '#3b82f6' }} />
-                                                <Typography variant="body2" fontWeight={600}>All Store Services</Typography>
-                                            </Stack>
-                                        </MenuItem>
-                                        {services.map((service) => (
-                                            <MenuItem key={service.service_id} value={service.service_id}>
-                                                <Typography variant="body2">{service.name}</Typography>
-                                            </MenuItem>
-                                        ))}
+                                        <MenuItem value="GLOBAL">Global (Total Invoice)</MenuItem>
+                                        <MenuItem value="SERVICE">Service</MenuItem>
+                                        <MenuItem value="MEMBERSHIP_PLAN">Membership Plan</MenuItem>
+                                        <MenuItem value="MEMBERSHIP_FEE">Membership Fee</MenuItem>
                                     </Select>
                                 </FormControl>
                             </Box>
+
+                            {discountScope !== 'GLOBAL' && (
+                                <Box>
+                                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
+                                        Specific Item (Optional)
+                                    </Typography>
+                                    <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}>
+                                        <Select
+                                            value={referenceId}
+                                            onChange={(e: any) => setReferenceId(e.target.value as string)}
+                                            displayEmpty
+                                        >
+                                            <MenuItem value="">
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <CheckCircle sx={{ fontSize: 16, color: '#3b82f6' }} />
+                                                    <Typography variant="body2" fontWeight={600}>
+                                                        {discountScope === 'SERVICE' ? 'All Services' : 
+                                                         discountScope === 'MEMBERSHIP_PLAN' ? 'All Plans' : 
+                                                         'All Categories'}
+                                                    </Typography>
+                                                </Stack>
+                                            </MenuItem>
+                                            {discountScope === 'SERVICE' && services.map((s) => (
+                                                <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>
+                                            ))}
+                                            {discountScope === 'MEMBERSHIP_PLAN' && membershipPlans.map((p) => (
+                                                <MenuItem key={p.base_price_id} value={p.base_price_id}>{p.name}</MenuItem>
+                                            ))}
+                                            {discountScope === 'MEMBERSHIP_FEE' && membershipCategories.map((c) => (
+                                                <MenuItem key={c.category_id} value={c.category_id}>{c.name}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Box>
+                            )}
 
                             <Box>
                                 <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>

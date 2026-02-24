@@ -3,6 +3,9 @@ import EmailIcon from '@mui/icons-material/Email';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon from '@mui/icons-material/People';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
+import CampaignIcon from '@mui/icons-material/Campaign';
+import NotificationsIcon from '@mui/icons-material/Notifications';
+import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 
 interface AccountSummaryProps {
   account: any;
@@ -70,6 +73,26 @@ export const AccountSummary = ({ account, onStoreClick }: AccountSummaryProps) =
               <CalendarMonthIcon sx={{ fontSize: '1rem', color: '#64748b' }} />
               <Typography variant="body2" color="#64748b" fontWeight={500}>
                 Account Since {new Date(account.created_at).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+              </Typography>
+            </Box>
+            {account.heard_about_us && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CampaignIcon sx={{ fontSize: '1rem', color: '#64748b' }} />
+                  <Typography variant="body2" color="#64748b" fontWeight={500}>
+                    Source: {account.heard_about_us}
+                  </Typography>
+                </Box>
+            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {account.notify_primary_member !== false ? <NotificationsIcon sx={{ fontSize: '1rem', color: '#64748b' }} /> : <NotificationsOffIcon sx={{ fontSize: '1rem', color: '#64748b' }} />}
+              <Typography variant="body2" color="#64748b" fontWeight={500}>
+                Primary Notifications: {account.notify_primary_member !== false ? 'Enabled' : 'Disabled'}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {account.notify_guardian !== false ? <NotificationsIcon sx={{ fontSize: '1rem', color: '#64748b' }} /> : <NotificationsOffIcon sx={{ fontSize: '1rem', color: '#64748b' }} />}
+              <Typography variant="body2" color="#64748b" fontWeight={500}>
+                Guardian Notifications: {account.notify_guardian !== false ? 'Enabled' : 'Disabled'}
               </Typography>
             </Box>
           </Stack>

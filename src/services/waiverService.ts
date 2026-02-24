@@ -10,6 +10,33 @@ export interface WaiverTemplate {
   is_active: boolean;
 }
 
+export interface GroupedWaiverTemplate {
+  template_name: string;
+  template_category: string;
+  content: string;
+  assignments: {
+    service_ids: string[];
+    membership_category_ids: string[];
+    base_price_ids: string[];
+    ageprofile_ids: string[];
+    subterm_ids: string[];
+  };
+}
+
+export interface BatchUpsertWaiverPayload {
+  template_name: string;
+  template_category: string;
+  content: string;
+  location_id: string;
+  assignments: {
+    service_ids: string[];
+    membership_category_ids: string[];
+    base_price_ids: string[];
+    ageprofile_ids: string[];
+    subterm_ids: string[];
+  };
+}
+
 export interface SignedWaiverResponse {
   success: boolean;
   signature_url: string;
@@ -88,7 +115,7 @@ export const waiverService = {
   // Fetch all waiver templates
   getWaiverTemplates: async (locationId?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get('/waiver-templates', {}, options);
+    return apiClient.get('/waiver-templates', locationId ? { location_id: locationId } : {}, options);
   },
 
   // Create public waiver signing request link
@@ -135,6 +162,21 @@ export const waiverService = {
     return apiClient.patch(`/signed-waivers/${signedWaiverId}/link-profile`, { profile_id: profileId }, {
         headers: {
             'x-location-id': locationId
+        }
+    });
+  },
+
+  // Fetch grouped waiver templates for admin UI
+  getGroupedWaiverTemplates: async (locationId?: string): Promise<GroupedWaiverTemplate[]> => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get('/waiver-templates/grouped', locationId ? { location_id: locationId } : {}, options);
+  },
+
+  // Batch upsert a template
+  batchUpsertWaiverTemplate: async (payload: BatchUpsertWaiverPayload): Promise<any> => {
+    return apiClient.post('/waiver-templates/batch-upsert', payload, {
+        headers: {
+            'x-location-id': payload.location_id
         }
     });
   }

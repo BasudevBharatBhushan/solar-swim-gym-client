@@ -25,13 +25,17 @@ export const configService = {
   },
 
   // Age Groups
-  getAgeGroups: async (locationId?: string) => {
+  getAgeGroups: async (locationId?: string, category?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get('/config/age-groups', {}, options);
+    let url = '/config/age-groups';
+    if (category) {
+        url = `/config/age-groups/category/${category}`;
+    }
+    return apiClient.get(url, locationId ? { location_id: locationId } : {}, options);
   },
 
   upsertAgeGroup: async (ageGroupData: any, locationId?: string) => {
-    // ageGroupData: { age_group_id?, name, min_age, max_age }
+    // ageGroupData: { age_group_id?, name, min_age, max_age, age_group_category }
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/config/age-groups', ageGroupData, options);
   },

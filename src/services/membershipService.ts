@@ -15,7 +15,7 @@ export interface MembershipRule {
   priority: number;
   result: 'ALLOW' | 'DENY';
   condition_json: {
-    [key: string]: number | undefined;
+    [key: string]: string | number | undefined;
   }; 
   message?: string;
 }
@@ -24,6 +24,7 @@ export interface MembershipCategory {
   category_id?: string;
   name: string;
   is_active?: boolean;
+  members_allowed?: number | string;
   fees: MembershipFee[];
   rules: MembershipRule[];
 }

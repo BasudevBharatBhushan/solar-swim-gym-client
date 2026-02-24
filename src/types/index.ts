@@ -11,6 +11,13 @@ export interface Profile {
   };
   is_primary?: boolean;
   relationship?: string;
+  gender?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  country?: string;
 }
 
 export interface Account {
@@ -19,6 +26,9 @@ export interface Account {
   status: 'PENDING' | 'ACTIVE' | 'SUSPENDED';
   created_at: string;
   profiles: Profile[];
+  heard_about_us?: string;
+  notify_primary_member?: boolean;
+  notify_guardian?: boolean;
 }
 
 export interface Subscription {
