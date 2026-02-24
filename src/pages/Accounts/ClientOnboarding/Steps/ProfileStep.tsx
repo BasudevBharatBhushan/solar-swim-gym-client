@@ -11,6 +11,8 @@ import {
   FormHelperText
 } from '@mui/material';
 import { useConfig } from '../../../../context/ConfigContext';
+import { getAgeGroup, getAgeRangeLabel } from '../../../../lib/ageUtils';
+import { Chip } from '@mui/material';
 
 interface ProfileStepProps {
   data: any;
@@ -19,7 +21,8 @@ interface ProfileStepProps {
 }
 
 export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, errors }) => {
-    const { waiverPrograms } = useConfig();
+    const { waiverPrograms, ageGroups } = useConfig();
+    const ageProfile = getAgeGroup(data.date_of_birth || '', ageGroups, 'Membership');
 
     const handleProgramChange = (programId: string) => {
         updateData('waiver_program_id', programId);
@@ -122,6 +125,22 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
                 helperText={errors.date_of_birth}
                 slotProps={{ inputLabel: { shrink: true } }}
             />
+            {ageProfile && (
+                <Chip 
+                    label={`${ageProfile.name} ${getAgeRangeLabel(ageProfile)}`} 
+                    size="small" 
+                    sx={{ 
+                        mt: 1, 
+                        height: 24, 
+                        fontSize: '0.75rem', 
+                        fontWeight: 700, 
+                        bgcolor: '#f1f5f9', 
+                        color: '#475569',
+                        textTransform: 'uppercase',
+                        '& .MuiChip-label': { px: 1 }
+                    }} 
+                />
+            )}
         </Grid>
 
         <Grid size={{ xs: 12 }}>

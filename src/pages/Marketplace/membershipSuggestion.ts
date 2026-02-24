@@ -1,5 +1,6 @@
 import { MembershipCategory, MembershipProgram } from '../../services/membershipService';
 import { AgeGroup } from '../../context/ConfigContext';
+import { getAgeGroup } from '../../lib/ageUtils';
 
 export interface HouseholdCounts {
   [ageGroupId: string]: number;
@@ -82,16 +83,8 @@ const activeFeeAmount = (category: MembershipCategory, feeType: 'JOINING' | 'ANN
 };
 
 export const classifyAgeFromDob = (dob: string | Date, ageGroups: AgeGroup[]): string | null => {
-  const birthDate = new Date(dob);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDelta = today.getMonth() - birthDate.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
-    age -= 1;
-  }
-
-  const match = ageGroups.find(g => age >= (g.min_age ?? 0) && age <= (g.max_age ?? 999));
-  return match?.age_group_id || null;
+  const match = getAgeGroup(dob, ageGroups, 'Membership');
+  return (match as any)?.age_group_id || match?.id || null;
 };
 
 export const getBaseCartMissingDobProfileIds = (baseCartItems: BaseCartItemLike[]): string[] => {

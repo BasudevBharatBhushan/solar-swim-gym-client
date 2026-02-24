@@ -9,15 +9,26 @@ export const calculateAge = (dob: string | Date): number => {
   return age;
 };
 
-export const getAgeGroupName = (dob: string | Date, ageGroups: any[]): string => {
-  if (!dob) return 'No Age Group';
+export const getAgeGroup = (dob: string | Date, ageGroups: any[], category?: 'Membership' | 'Service'): any | null => {
+  if (!dob) return null;
   const age = calculateAge(dob);
   
-  const group = ageGroups.find(g => {
+  return ageGroups.find(g => {
     const min = g.min_age ?? 0;
     const max = g.max_age ?? 999;
-    return age >= min && age <= max;
+    const categoryMatch = !category || g.age_group_category === category;
+    return age >= min && age <= max && categoryMatch;
   });
+};
 
+export const getAgeGroupName = (dob: string | Date, ageGroups: any[], category?: 'Membership' | 'Service'): string => {
+  const group = getAgeGroup(dob, ageGroups, category);
   return group ? group.name : 'No Age Group';
+};
+
+export const getAgeRangeLabel = (group: any): string => {
+  if (!group) return '';
+  const min = group.min_age ?? 0;
+  const max = group.max_age ?? 999;
+  return `(${min}-${max === 999 ? '+' : max})`;
 };

@@ -29,7 +29,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { Service, ServicePack, ServicePrice, serviceCatalog, Session } from '../../services/serviceCatalog';
 import { CartItem, AccountProfile } from '../../types/marketplace';
-import { getAgeGroupName } from '../../lib/ageUtils';
+import { getAgeGroupName, getAgeGroup, getAgeRangeLabel } from '../../lib/ageUtils';
 import { useConfig } from '../../context/ConfigContext';
 
 interface ServicePackSelectionDialogProps {
@@ -105,14 +105,13 @@ export const ServicePackSelectionDialog = ({
         return profiles.map(profile => {
             if (!profile.date_of_birth) return { profile, eligible: false, reason: 'Missing DOB' };
             
-            const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups);
-            const ageGroup = ageGroups.find(g => g.name === ageGroupName);
+            const ageGroup = getAgeGroup(profile.date_of_birth, ageGroups, 'Service');
             
             if (!ageGroup) return { profile, eligible: false, reason: 'Unknown Age Group' };
 
             // Find price for this age group
             const price = prices.find(p => p.age_group_id === ageGroup.age_group_id);
-            if (!price) return { profile, eligible: false, reason: 'No pricing for age group' };
+            if (!price) return { profile, eligible: false, reason: `No pricing for ${ageGroup.name} ${getAgeRangeLabel(ageGroup)}` };
 
             // Check Waiver Program eligibility if pack requires one
             if (pack.waiver_program_id) {
@@ -207,7 +206,7 @@ export const ServicePackSelectionDialog = ({
                          profile_id: id,
                          name: `${p?.first_name} ${p?.last_name}`,
                          role: id === primaryId ? 'PRIMARY' : 'ADD_ON',
-                         age_group: p?.date_of_birth ? getAgeGroupName(p.date_of_birth, ageGroups) : undefined
+                         age_group: p?.date_of_birth ? getAgeGroupName(p.date_of_birth, ageGroups, 'Service') : undefined
                      };
                 })
             };
@@ -248,7 +247,7 @@ export const ServicePackSelectionDialog = ({
                              profile_id: id,
                              name: `${eligible.profile.first_name} ${eligible.profile.last_name}`,
                              role: 'PRIMARY',
-                             age_group: eligible.profile.date_of_birth ? getAgeGroupName(eligible.profile.date_of_birth, ageGroups) : undefined
+                             age_group: eligible.profile.date_of_birth ? getAgeGroupName(eligible.profile.date_of_birth, ageGroups, 'Service') : undefined
                         }]
                     };
                     newItems.push(item);
@@ -335,7 +334,9 @@ export const ServicePackSelectionDialog = ({
                                         const ageGroup = ageGroups.find(ag => ag.age_group_id === price.age_group_id);
                                         return (
                                             <TableRow key={idx}>
-                                                <TableCell>{ageGroup?.name || 'Unknown'}</TableCell>
+                                                <TableCell>
+                                                    {ageGroup ? `${ageGroup.name} ${getAgeRangeLabel(ageGroup)}` : 'Unknown'}
+                                                </TableCell>
                                                 <TableCell align="center">{price.num_students || 1}</TableCell>
                                                 <TableCell align="center">{price.num_instructors || 1}</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 700, color: '#2563eb' }}>
@@ -360,7 +361,7 @@ export const ServicePackSelectionDialog = ({
                             Select Profiles {pack.is_shrabable ? '(Sharable - Select Multiple)' : '(Non-Sharable - Separate Items)'}
                         </Typography>
                         <Grid container spacing={2}>
-                            {eligibleProfiles.map(({ profile, eligible, reason }) => (
+                            {eligibleProfiles.map(({ profile, eligible, price, reason }) => (
                                 <Grid size={{ xs: 12, sm: 6 }} key={profile.profile_id}>
                                     <Paper 
                                         variant="outlined" 
@@ -382,7 +383,12 @@ export const ServicePackSelectionDialog = ({
                                             label={
                                                 <Box>
                                                     <Typography variant="body2" fontWeight="600">
-                                                        {profile.first_name} {profile.last_name}
+                                                        {profile.first_name} {profile.last_name} 
+                                                        {eligible && (
+                                                            <Typography component="span" variant="caption" sx={{ ml: 1, color: 'text.secondary', fontWeight: 400 }}>
+                                                                {getAgeGroupName(profile.date_of_birth!, ageGroups, 'Service')} {getAgeRangeLabel(ageGroups.find(g => g.age_group_id === price?.age_group_id))}
+                                                            </Typography>
+                                                        )}
                                                     </Typography>
                                                     {!eligible && (
                                                         <Typography variant="caption" color="error">

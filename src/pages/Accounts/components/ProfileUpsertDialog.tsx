@@ -8,6 +8,8 @@ import {
 import { crmService } from '../../../services/crmService';
 import { configService } from '../../../services/configService';
 import { useAuth } from '../../../context/AuthContext';
+import { getAgeGroup, getAgeRangeLabel } from '../../../lib/ageUtils';
+import { Chip } from '@mui/material';
 
 interface ProfileUpsertDialogProps {
   open: boolean;
@@ -21,6 +23,7 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
   const { currentLocationId } = useAuth();
   const [loading, setLoading] = useState(false);
   const [waiverPrograms, setWaiverPrograms] = useState<any[]>([]);
+  const [ageGroups, setAgeGroups] = useState<any[]>([]);
   const [formData, setFormData] = useState<any>({
     first_name: '',
     last_name: '',
@@ -43,16 +46,20 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
   });
 
   useEffect(() => {
-    const fetchPrograms = async () => {
+    const fetchConfig = async () => {
       try {
-        const res = await configService.getWaiverPrograms();
-        setWaiverPrograms(res.data || res || []);
+        const [programsRes, ageGroupsRes] = await Promise.all([
+          configService.getWaiverPrograms(),
+          configService.getAgeGroups(currentLocationId || undefined)
+        ]);
+        setWaiverPrograms(programsRes.data || programsRes || []);
+        setAgeGroups(ageGroupsRes.data || ageGroupsRes || []);
       } catch (err) {
-        console.error("Failed to fetch waiver programs", err);
+        console.error("Failed to fetch configuration", err);
       }
     };
-    if (open) fetchPrograms();
-  }, [open]);
+    if (open) fetchConfig();
+  }, [open, currentLocationId]);
 
   useEffect(() => {
     if (profile) {
@@ -187,6 +194,25 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
               value={formData.date_of_birth}
               onChange={handleChange}
             />
+            {(() => {
+              const ageProfile = getAgeGroup(formData.date_of_birth, ageGroups, 'Membership');
+              return ageProfile ? (
+                <Chip 
+                  label={`${ageProfile.name} ${getAgeRangeLabel(ageProfile)}`} 
+                  size="small" 
+                  sx={{ 
+                    mt: 1, 
+                    height: 24, 
+                    fontSize: '0.75rem', 
+                    fontWeight: 700, 
+                    bgcolor: '#f1f5f9', 
+                    color: '#475569',
+                    textTransform: 'uppercase',
+                    '& .MuiChip-label': { px: 1 }
+                  }} 
+                />
+              ) : null;
+            })()}
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField

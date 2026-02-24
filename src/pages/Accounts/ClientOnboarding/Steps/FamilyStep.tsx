@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { Person, ChildCare, ContentCopy, Star, ContactEmergency } from '@mui/icons-material';
 import { useConfig } from '../../../../context/ConfigContext';
+import { getAgeGroup, getAgeRangeLabel, calculateAge } from '../../../../lib/ageUtils';
 
 interface FamilyMember {
     first_name: string;
@@ -74,31 +75,14 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
       updateData(updated);
   };
 
-  const calculateAge = (dob: string | null) => {
-    if (!dob) return 0;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-    }
-    return age;
-  };
-
   const getAgeProfile = (dob: string | null) => {
-      const age = calculateAge(dob);
-      if (dob === null) return null;
-      return ageGroups.find(g => {
-          const min = g.min_age ?? 0;
-          const max = g.max_age ?? 999;
-          return age >= min && age <= max;
-      });
+      return getAgeGroup(dob || '', ageGroups, 'Membership');
   };
 
   const isMinor = (dob: string | null) => {
+      if (!dob) return false;
       const age = calculateAge(dob);
-      return age !== null && age < 18;
+      return age < 18;
   };
 
   const copyPrimaryToGuardian = (index: number) => {
@@ -168,7 +152,7 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     </Typography>
                                     {ageProfile && (
                                         <Chip 
-                                            label={ageProfile.name} 
+                                            label={`${ageProfile.name} ${getAgeRangeLabel(ageProfile)}`} 
                                             size="small" 
                                             sx={{ 
                                                 mt: 0.5, 
@@ -177,7 +161,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                                 fontWeight: 800, 
                                                 bgcolor: '#f1f5f9', 
                                                 color: '#475569',
-                                                textTransform: 'uppercase'
+                                                textTransform: 'uppercase',
+                                                '& .MuiChip-label': { px: 1 }
                                             }} 
                                         />
                                     )}
@@ -348,7 +333,7 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
                                     {ageProfile && (
                                         <Chip 
-                                            label={ageProfile.name} 
+                                            label={`${ageProfile.name} ${getAgeRangeLabel(ageProfile)}`} 
                                             size="small" 
                                             sx={{ 
                                                 height: 20, 
@@ -356,7 +341,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                                 fontWeight: 800, 
                                                 bgcolor: memberIsMinor ? '#e0f2fe' : '#f1f5f9', 
                                                 color: memberIsMinor ? '#0369a1' : '#475569',
-                                                textTransform: 'uppercase'
+                                                textTransform: 'uppercase',
+                                                '& .MuiChip-label': { px: 1 }
                                             }} 
                                         />
                                     )}

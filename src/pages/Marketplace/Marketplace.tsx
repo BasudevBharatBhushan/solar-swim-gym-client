@@ -50,7 +50,7 @@ import { InputAdornment, MenuItem, Select, OutlinedInput } from '@mui/material';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
-import { getAgeGroupName, calculateAge } from '../../lib/ageUtils';
+import { getAgeGroupName, getAgeGroup, getAgeRangeLabel, calculateAge } from '../../lib/ageUtils';
 import { basePriceService, BasePrice } from '../../services/basePriceService';
 import { billingService } from '../../services/billingService';
 import { crmService } from '../../services/crmService';
@@ -140,6 +140,17 @@ const getTermSortValue = (orderMap: Map<string, number>, termId: string): number
     return typeof order === 'number' ? order : Number.MAX_SAFE_INTEGER;
 };
 
+interface ItemDiscountState {
+    code: string;
+    codeStatus: 'idle' | 'validating' | 'valid' | 'invalid';
+    codeError?: string;
+    appliedDiscount?: Discount;
+    manualAmount: string;
+    manualPercentage: string;
+    membershipDiscountExplanation?: string;
+    autoDiscountDisabled?: boolean;
+}
+
 export const Marketplace = () => {
     const { accountId: paramAccountId } = useParams<{ accountId: string }>();
     const navigate = useNavigate();
@@ -156,9 +167,10 @@ export const Marketplace = () => {
     const [services, setServices] = useState<ServiceWithPacks[]>([]);
     const [subscriptions, setSubscriptions] = useState<any[]>([]); // active subscriptions
 
-    const [tabValue, setTabValue] = useState(0);
+    const [activeSections, setActiveSections] = useState<string[]>(['MEMBERSHIP']);
     const [cart, setCart] = useState<CartItem[]>([]);
     const [submitting, setSubmitting] = useState(false);
+    const [manualMembershipOverride, setManualMembershipOverride] = useState(false);
 
     const [profiles, setProfiles] = useState<AccountProfile[]>([]);
     const [primaryProfileId, setPrimaryProfileId] = useState<string | null>(null);
@@ -187,17 +199,7 @@ export const Marketplace = () => {
     const [contractsOpen, setContractsOpen] = useState(false);
     const [activeTemplates, setActiveTemplates] = useState<WaiverTemplate[]>([]);
 
-    // Per-item discount state: keyed by CartItem.id
-    interface ItemDiscountState {
-        code: string;
-        codeStatus: 'idle' | 'validating' | 'valid' | 'invalid';
-        codeError?: string;
-        appliedDiscount?: Discount;
-        manualAmount: string;
-        manualPercentage: string;
-        membershipDiscountExplanation?: string;
-        autoDiscountDisabled?: boolean;
-    }
+
     const [itemDiscounts, setItemDiscounts] = useState<Record<string, ItemDiscountState>>({});
 
     // Track discounts provided by memberships in the cart: service_pack_id -> { discount, explanation }
@@ -260,10 +262,9 @@ export const Marketplace = () => {
             if (!profile.date_of_birth) {
                 return;
             }
-            const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups);
-            const matchedGroup = ageGroups.find((group) => group.name === ageGroupName);
-            if (matchedGroup?.age_group_id) {
-                ids.add(matchedGroup.age_group_id);
+            const group = getAgeGroup(profile.date_of_birth, ageGroups, 'Membership');
+            if (group?.age_group_id) {
+                ids.add(group.age_group_id);
             }
         });
         return ids;
@@ -481,8 +482,6 @@ export const Marketplace = () => {
     // Apply membership discounts to service packs in the cart
     useEffect(() => {
         if (Object.keys(membershipDiscounts).length === 0) {
-            // If no membership discounts, but some items have membership explanation, maybe remove them?
-            // Only if they haven't been manually overriden.
             setCart(prev => prev.map(item => {
                 if (item.type === 'SERVICE' && item.discountCode === 'MEMBERSHIP') {
                     return {
@@ -499,59 +498,53 @@ export const Marketplace = () => {
             return;
         }
 
-        setCart(prev => prev.map(item => {
-            if (item.type !== 'SERVICE') return item;
-            
-            const disc = membershipDiscounts[item.referenceId];
-            const discState = getItemDiscount(item.id);
+        setCart(prev => {
+            let changed = false;
+            const next = prev.map(item => {
+                if (item.type !== 'SERVICE') return item;
+                
+                const disc = membershipDiscounts[item.referenceId];
+                const discState = itemDiscounts[item.id] || { code: '', codeStatus: 'idle', manualAmount: '', manualPercentage: '' };
 
-            if (!disc || discState.autoDiscountDisabled) {
-                // Remove membership discount if it was there but no longer valid for this item or disabled
-                if (item.discountCode === 'MEMBERSHIP') {
-                    return {
-                        ...item,
-                        price: item.actualPrice ?? item.price,
-                        actualPrice: undefined,
-                        discountAmount: undefined,
-                        discountPercentage: undefined,
-                        discountCode: undefined
-                    };
+                if (!disc || discState.autoDiscountDisabled) {
+                    if (item.discountCode === 'MEMBERSHIP') {
+                        changed = true;
+                        return {
+                            ...item,
+                            price: item.actualPrice ?? item.price,
+                            actualPrice: undefined,
+                            discountAmount: undefined,
+                            discountPercentage: undefined,
+                            discountCode: undefined
+                        };
+                    }
+                    return item;
                 }
-                return item;
-            }
 
-            // Skip if user already applied a different code or manual discount
-            if (item.discountCode && item.discountCode !== 'MEMBERSHIP') return item;
-            // Check if it's already applied (to avoid infinite loop if price changes)
-            if (item.discountCode === 'MEMBERSHIP' && item.metadata?.membershipExplanation === disc.explanation) return item;
+                if (item.discountCode && item.discountCode !== 'MEMBERSHIP') return item;
+                if (item.discountCode === 'MEMBERSHIP' && item.metadata?.membershipExplanation === disc.explanation) return item;
 
-            const originalPrice = item.actualPrice ?? item.price;
-            const { amount, percentage } = parseDiscountValue(disc.value, originalPrice);
-            const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
+                const originalPrice = item.actualPrice ?? item.price;
+                const { amount, percentage } = parseDiscountValue(disc.value, originalPrice);
+                const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
 
-            // Update itemDiscounts state for the explanation
-            setItemDiscounts(prevDisc => ({
-                ...prevDisc,
-                [item.id]: {
-                    ...getItemDiscount(item.id),
-                    membershipDiscountExplanation: disc.explanation
-                }
-            }));
-
-            return {
-                ...item,
-                actualPrice: originalPrice,
-                price: discountedPrice,
-                discountAmount: amount,
-                discountPercentage: percentage,
-                discountCode: 'MEMBERSHIP',
-                metadata: {
-                    ...item.metadata,
-                    membershipExplanation: disc.explanation
-                }
-            };
-        }));
-    }, [membershipDiscounts, cart.length]); // Re-run when discounts change or cart items change
+                changed = true;
+                return {
+                    ...item,
+                    actualPrice: originalPrice,
+                    price: discountedPrice,
+                    discountAmount: amount,
+                    discountPercentage: percentage,
+                    discountCode: 'MEMBERSHIP',
+                    metadata: {
+                        ...item.metadata,
+                        membershipExplanation: disc.explanation
+                    }
+                };
+            });
+            return changed ? next : prev;
+        });
+    }, [membershipDiscounts, cart.length, itemDiscounts]);
 
     const basePlanCards = useMemo(() => {
         const grouped = new Map<string, BasePlanCard>();
@@ -566,7 +559,7 @@ export const Marketplace = () => {
                         name: price.name,
                         role: price.role,
                         ageGroupId: price.age_group_id,
-                        ageGroupName: price.age_group_name || 'Unknown',
+                        ageGroupName: `${price.age_group_name || 'Unknown'} ${getAgeRangeLabel(ageGroups.find(g => g.age_group_id === price.age_group_id))}`,
                         terms: [],
                     });
                 }
@@ -637,6 +630,70 @@ export const Marketplace = () => {
         }
         return getSpecificityScore(suggestedCandidate.range, ageGroups);
     }, [suggestedCandidate, ageGroups]);
+
+    // Auto-add or updated suggested membership plan
+    useEffect(() => {
+        if (manualMembershipOverride || !suggestedCandidate || baseCartItems.length === 0 || missingDobProfileIds.length > 0) {
+            return;
+        }
+
+        const existingMembershipItem = cart.find(item => item.type === 'MEMBERSHIP');
+        
+        // If no membership fee item in cart, add the suggested one
+        if (!existingMembershipItem) {
+            const membershipItem: CartItem = {
+                id: `MEMBERSHIP-${suggestedCandidate.categoryId}-JOINING-${Date.now()}`,
+                type: 'MEMBERSHIP',
+                referenceId: suggestedCandidate.categoryId,
+                membershipCategoryId: suggestedCandidate.categoryId,
+                membershipProgramId: suggestedCandidate.programId,
+                feeType: 'JOINING',
+                name: `${suggestedCandidate.programName} - ${suggestedCandidate.categoryName} (JOINING)`,
+                price: suggestedCandidate.joiningFee || 0,
+                membershipRange: suggestedCandidate.range,
+            };
+            setCart(prev => [...prev, membershipItem]);
+        } else {
+            // Update existing membership fee if it's different from suggested (and not manually overridden)
+            if (existingMembershipItem.membershipCategoryId !== suggestedCandidate.categoryId) {
+                setCart(prev => prev.map(item => {
+                    if (item.type === 'MEMBERSHIP') {
+                        const feeType = item.feeType || 'JOINING';
+                        const price = feeType === 'JOINING' ? suggestedCandidate.joiningFee : suggestedCandidate.annualFee;
+                        return {
+                            ...item,
+                            id: `MEMBERSHIP-${suggestedCandidate.categoryId}-${feeType}-${Date.now()}`,
+                            referenceId: suggestedCandidate.categoryId,
+                            membershipCategoryId: suggestedCandidate.categoryId,
+                            membershipProgramId: suggestedCandidate.programId,
+                            name: `${suggestedCandidate.programName} - ${suggestedCandidate.categoryName} (${feeType})`,
+                            price: price || 0,
+                            membershipRange: suggestedCandidate.range,
+                        };
+                    }
+                    return item;
+                }));
+            }
+        }
+    }, [suggestedCandidate, baseCartItems.length, manualMembershipOverride]);
+
+    const toggleSection = (sectionId: string) => {
+        setActiveSections((prev) =>
+            prev.includes(sectionId)
+                ? prev.length > 1
+                    ? prev.filter((id) => id !== sectionId)
+                    : prev
+                : [...prev, sectionId]
+        );
+    };
+
+    const sortedCart = useMemo(() => {
+        return [...cart].sort((a, b) => {
+            if (a.type === 'MEMBERSHIP' && b.type !== 'MEMBERSHIP') return 1;
+            if (a.type !== 'MEMBERSHIP' && b.type === 'MEMBERSHIP') return -1;
+            return 0;
+        });
+    }, [cart]);
     const isInCart = (idPrefix: string) => cart.some((item) => item.id === idPrefix || item.id.startsWith(`${idPrefix}-`));
     const removeFromCart = async (id: string) => {
         const item = cart.find(i => i.id === id);
@@ -785,15 +842,65 @@ export const Marketplace = () => {
             }
         }
 
-        // Check service applicability (null service_id = applies to all)
-        // If discount is for a specific service, the item MUST match that service.
-        if (discount.service_id && discount.service_id !== serviceId) {
-            setItemDiscounts((prev) => ({
-                ...prev,
-                [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this item.' },
-            }));
-            return;
+        // Category-based applicability check
+        const cartItem = cart.find(i => i.id === itemId);
+        if (!cartItem) return;
+
+        const category = discount.discount_category; // null = GLOBAL
+
+        if (category === 'SERVICE') {
+            // Only applies to SERVICE-type cart items
+            if (cartItem.type !== 'SERVICE') {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is only applicable to services.' },
+                }));
+                return;
+            }
+            // If a specific service is targeted, the cart item's serviceId must match
+            if (discount.reference_id && discount.reference_id !== cartItem.serviceId) {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this service.' },
+                }));
+                return;
+            }
+        } else if (category === 'MEMBERSHIP_FEE') {
+            // Only applies to MEMBERSHIP-type cart items (joining/renewal fees)
+            if (cartItem.type !== 'MEMBERSHIP') {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is only applicable to membership fees.' },
+                }));
+                return;
+            }
+            // If a specific membership category is targeted, the cart item must match
+            if (discount.reference_id && discount.reference_id !== cartItem.membershipCategoryId) {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this membership plan.' },
+                }));
+                return;
+            }
+        } else if (category === 'MEMBERSHIP_PLAN') {
+            // Only applies to BASE-type cart items (base membership plans)
+            if (cartItem.type !== 'BASE') {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is only applicable to base membership plans.' },
+                }));
+                return;
+            }
+            // If a specific base plan is targeted, the cart item's referenceId must match
+            if (discount.reference_id && discount.reference_id !== cartItem.referenceId) {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this base plan.' },
+                }));
+                return;
+            }
         }
+        // category === null → GLOBAL: applies to any item, no further check needed
 
         // Valid — apply
         setItemDiscounts((prev) => ({
@@ -801,7 +908,7 @@ export const Marketplace = () => {
             [itemId]: { ...getItemDiscount(itemId), codeStatus: 'valid', codeError: undefined, appliedDiscount: discount, manualAmount: '', manualPercentage: '' },
         }));
         applyDiscountToCartItem(itemId, discount);
-    }, [currentLocationId, getItemDiscount, applyDiscountToCartItem, canApplyManualDiscount, passcodeOpen]);
+    }, [currentLocationId, cart, getItemDiscount, applyDiscountToCartItem, canApplyManualDiscount, passcodeOpen]);
 
     /** Apply a manual discount (amount or percentage) to a cart item */
     const handleManualDiscountApply = useCallback((itemId: string, type: 'amount' | 'percentage', value: string, skipAuth = false) => {
@@ -1360,29 +1467,30 @@ export const Marketplace = () => {
                             overflow: 'hidden',
                         }}
                     >
-                        <Tabs
-                            value={tabValue}
-                            onChange={(_event, newValue) => setTabValue(newValue)}
-                            sx={{
-                                borderBottom: 1,
-                                borderColor: 'divider',
-                                px: 2,
-                                bgcolor: '#f8fafc',
-                                '& .MuiTab-root': {
-                                    textTransform: 'none',
-                                    fontWeight: 600,
-                                    fontSize: '0.95rem',
-                                    minHeight: 64,
-                                    px: 3,
-                                },
-                            }}
-                        >
-                            <Tab label="Memberships" />
-                            <Tab label="Services" />
-                        </Tabs>
+                        <Box sx={{ borderBottom: 1, borderColor: 'divider', px: 2, py: 2, bgcolor: '#f8fafc' }}>
+                            <Stack direction="row" spacing={1.5} flexWrap="wrap">
+                                <Chip
+                                    label="Memberships"
+                                    onClick={() => toggleSection('MEMBERSHIP')}
+                                    color={activeSections.includes('MEMBERSHIP') ? 'primary' : 'default'}
+                                    variant={activeSections.includes('MEMBERSHIP') ? 'filled' : 'outlined'}
+                                    sx={{ fontWeight: 700, px: 1, height: 40, borderRadius: 2 }}
+                                />
+                                {services.map((service) => (
+                                    <Chip
+                                        key={service.service_id}
+                                        label={service.name}
+                                        onClick={() => toggleSection(service.service_id)}
+                                        color={activeSections.includes(service.service_id) ? 'primary' : 'default'}
+                                        variant={activeSections.includes(service.service_id) ? 'filled' : 'outlined'}
+                                        sx={{ fontWeight: 700, px: 1, height: 40, borderRadius: 2 }}
+                                    />
+                                ))}
+                            </Stack>
+                        </Box>
 
                         <Box sx={{ p: 0 }}>
-                            {tabValue === 0 && (
+                            {activeSections.includes('MEMBERSHIP') && (
                                 <Box sx={{ p: 3 }}>
                                     {/* Membership Filters */}
                                     <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -1574,9 +1682,14 @@ export const Marketplace = () => {
                                                 <Typography variant="subtitle2" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#4c1d95' }}>
                                                     Membership Plans Suggestion
                                                 </Typography>
-                                                <Button variant="contained" color="secondary" onClick={() => setOtherPlansOpen(true)}>
-                                                    Add Other Plan
-                                                </Button>
+                                                {canApplyManualDiscount && (
+                                                    <Button variant="contained" color="secondary" onClick={() => {
+                                                        setManualMembershipOverride(true);
+                                                        setOtherPlansOpen(true);
+                                                    }}>
+                                                        Add Other Plan
+                                                    </Button>
+                                                )}
                                             </Box>
 
                                             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
@@ -1641,7 +1754,7 @@ export const Marketplace = () => {
                                 </Box>
                             )}
 
-                            {tabValue === 1 && (
+                            {activeSections.some(id => id !== 'MEMBERSHIP') && (
                                 <Box sx={{ p: 3 }}>
                                     {/* Service Search and Filters */}
                                     <Box sx={{ mb: 4, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
@@ -1692,7 +1805,7 @@ export const Marketplace = () => {
 
                                     <Grid container spacing={3}>
                                         {services
-                                            .filter((service) => selectedServiceIds.length === 0 || selectedServiceIds.includes(service.service_id))
+                                            .filter((service) => activeSections.includes(service.service_id))
                                             .flatMap((service) =>
                                                 (service.packs || [])
                                                     .filter((pack) => 
@@ -1917,7 +2030,7 @@ export const Marketplace = () => {
                         ) : (
                             <Box>
                                 <Stack spacing={2} sx={{ mb: 3 }}>
-                                    {cart.map((item) => {
+                                    {sortedCart.map((item) => {
                                         const discState = getItemDiscount(item.id);
                                         const hasDiscount = item.actualPrice !== undefined && item.actualPrice !== item.price;
                                         return (
@@ -1949,9 +2062,9 @@ export const Marketplace = () => {
                                                     const badge = item.type === 'SERVICE' 
                                                         ? { label: 'Service', color: '#1d4ed8', bgcolor: '#dbeafe' }
                                                         : item.type === 'MEMBERSHIP'
-                                                        ? { label: 'Membership Plan', color: '#15803d', bgcolor: '#dcfce7' }
+                                                        ? { label: 'Membership Fee', color: '#15803d', bgcolor: '#dcfce7' }
                                                         : item.type === 'BASE' 
-                                                        ? { label: 'Membership Fee', color: '#c2410c', bgcolor: '#fff7ed' }
+                                                        ? { label: 'Base Plan', color: '#c2410c', bgcolor: '#fff7ed' }
                                                         : { label: item.type, color: '#475569', bgcolor: '#f1f5f9' };
                                                     return (
                                                         <Chip
@@ -1970,6 +2083,50 @@ export const Marketplace = () => {
                                                     );
                                                 })()}
                                             </Box>
+
+                                            {item.type === 'MEMBERSHIP' && (
+                                                <Box sx={{ mb: 1 }}>
+                                                    <RadioGroup
+                                                        row
+                                                        value={item.feeType || 'JOINING'}
+                                                        onChange={(e) => {
+                                                            const newFeeType = e.target.value as 'JOINING' | 'ANNUAL';
+                                                            const candidate = membershipPrograms
+                                                                .flatMap(p => p.categories)
+                                                                .find(c => c.category_id === item.membershipCategoryId);
+                                                            
+                                                            if (candidate) {
+                                                                const joiningAmount = (candidate.fees || []).find(f => f.fee_type === 'JOINING' && f.is_active !== false)?.amount || 0;
+                                                                const annualAmount = (candidate.fees || []).find(f => f.fee_type === 'ANNUAL' && f.is_active !== false)?.amount || 0;
+                                                                const newPrice = newFeeType === 'JOINING' ? joiningAmount : annualAmount;
+                                                                
+                                                                setCart(prev => prev.map(cartItem => {
+                                                                    if (cartItem.id === item.id) {
+                                                                        return {
+                                                                            ...cartItem,
+                                                                            feeType: newFeeType,
+                                                                            price: newPrice,
+                                                                            name: item.name.replace(/\(JOINING\)|\(ANNUAL\)/, `(${newFeeType})`)
+                                                                        };
+                                                                    }
+                                                                    return cartItem;
+                                                                }));
+                                                            }
+                                                        }}
+                                                    >
+                                                        <FormControlLabel 
+                                                            value="JOINING" 
+                                                            control={<Radio size="small" />} 
+                                                            label={<Typography variant="caption">Joining</Typography>} 
+                                                        />
+                                                        <FormControlLabel 
+                                                            value="ANNUAL" 
+                                                            control={<Radio size="small" />} 
+                                                            label={<Typography variant="caption">Renewal</Typography>} 
+                                                        />
+                                                    </RadioGroup>
+                                                </Box>
+                                            )}
 
                                             {/* Price display */}
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>

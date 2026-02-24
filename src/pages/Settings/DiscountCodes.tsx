@@ -400,8 +400,8 @@ export const DiscountCodes = () => {
                                                         
                                                         const scopeLabel = {
                                                             'SERVICE': 'Service',
-                                                            'MEMBERSHIP_PLAN': 'Membership Plan',
-                                                            'MEMBERSHIP_FEE': 'Membership Fee'
+                                                            'MEMBERSHIP_PLAN': 'Membership Plan (Base Price)',
+                                                            'MEMBERSHIP_FEE': 'Membership Plan'
                                                         }[discount.discount_category];
 
                                                         if (!discount.reference_id) return `All ${scopeLabel}s`;
@@ -564,18 +564,18 @@ export const DiscountCodes = () => {
                                 <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
                                     Discount Scope
                                 </Typography>
-                                <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}>
+                                <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: '#f8fafc' } }}>
                                     <Select
                                         value={discountScope}
                                         onChange={(e: any) => {
                                             setDiscountScope(e.target.value);
                                             setReferenceId(''); // Reset reference ID when scope changes
                                         }}
+                                        sx={{ color: '#1e293b', fontWeight: 600 }}
                                     >
                                         <MenuItem value="GLOBAL">Global (Total Invoice)</MenuItem>
                                         <MenuItem value="SERVICE">Service</MenuItem>
-                                        <MenuItem value="MEMBERSHIP_PLAN">Membership Plan</MenuItem>
-                                        <MenuItem value="MEMBERSHIP_FEE">Membership Fee</MenuItem>
+                                        <MenuItem value="MEMBERSHIP_FEE">Membership Plan</MenuItem>
                                     </Select>
                                 </FormControl>
                             </Box>
@@ -585,27 +585,23 @@ export const DiscountCodes = () => {
                                     <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
                                         Specific Item (Optional)
                                     </Typography>
-                                    <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}>
+                                    <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: '#f8fafc' } }}>
                                         <Select
                                             value={referenceId}
                                             onChange={(e: any) => setReferenceId(e.target.value as string)}
                                             displayEmpty
+                                            sx={{ color: '#1e293b', fontWeight: 600 }}
                                         >
                                             <MenuItem value="">
                                                 <Stack direction="row" spacing={1} alignItems="center">
                                                     <CheckCircle sx={{ fontSize: 16, color: '#3b82f6' }} />
                                                     <Typography variant="body2" fontWeight={600}>
-                                                        {discountScope === 'SERVICE' ? 'All Services' : 
-                                                         discountScope === 'MEMBERSHIP_PLAN' ? 'All Plans' : 
-                                                         'All Categories'}
+                                                        {discountScope === 'SERVICE' ? 'All Services' : 'All Membership Plans'}
                                                     </Typography>
                                                 </Stack>
                                             </MenuItem>
                                             {discountScope === 'SERVICE' && services.map((s) => (
                                                 <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>
-                                            ))}
-                                            {discountScope === 'MEMBERSHIP_PLAN' && membershipPlans.map((p) => (
-                                                <MenuItem key={p.base_price_id} value={p.base_price_id}>{p.name}</MenuItem>
                                             ))}
                                             {discountScope === 'MEMBERSHIP_FEE' && membershipCategories.map((c) => (
                                                 <MenuItem key={c.category_id} value={c.category_id}>{c.name}</MenuItem>
