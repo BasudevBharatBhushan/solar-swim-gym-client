@@ -13,6 +13,7 @@ import { billingService } from '../../services/billingService';
 import { waiverService } from '../../services/waiverService';
 import { emailService } from '../../services/emailService';
 import { configService } from '../../services/configService';
+import { getAgeGroup } from '../../lib/ageUtils';
 import { createWaiverPdfAttachment } from '../../utils/waiverPdf';
 import { EmailComposer } from '../../components/Email/EmailComposer';
 import { crmService } from '../../services/crmService';
@@ -48,10 +49,15 @@ export const AccountDetail = () => {
   const [tabValue, setTabValue] = useState(3);
   const [searchParams] = useSearchParams();
 
-  // Auto-switch to Waivers tab if ?tab=waivers is in the URL
+  // Auto-switch tabs / pre-select profile based on URL params
   useEffect(() => {
     if (searchParams.get('tab') === 'waivers') {
       setTabValue(2);
+    }
+    const profileIdParam = searchParams.get('profileId');
+    if (profileIdParam) {
+      setSelectedProfileId(profileIdParam);
+      setTabValue(0); // open Profile Details tab
     }
   }, [searchParams]);
 
@@ -234,7 +240,7 @@ export const AccountDetail = () => {
 
           // Unauthenticated signing handles pending vs active cleanly by not requiring login
           const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
-            waiverService.getWaiverTemplates(),
+            waiverService.getWaiverTemplates(currentLocationId),
             configService.getAgeGroups(currentLocationId)
           ]);
           const templates = (waiverTemplatesRes as any).data || [];
@@ -242,8 +248,7 @@ export const AccountDetail = () => {
 
           let linksText = '';
           for (const profile of profiles) {
-             const age = calculateAge(profile.date_of_birth);
-             const group = ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+             const group = getAgeGroup(profile.date_of_birth, ageGroups, 'Membership');
              const matchedTemplate = templates.find((t: any) => 
                t.is_active && (t.ageprofile_id === group?.age_group_id || !t.ageprofile_id)
              );
@@ -340,18 +345,6 @@ export const AccountDetail = () => {
       }
   };
 
-  // Helper to calculate age
-  const calculateAge = (dob: string | null | undefined) => {
-    if (!dob) return 0;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
 
   const fetchAccount = async () => {
     if (!accountId || !currentLocationId) return;
@@ -367,27 +360,26 @@ export const AccountDetail = () => {
       };
       
       setAccount(normalizedData);
-      // Auto-select the primary member only if nothing is selected or if previous selection is gone
+      // Auto-select the primary member only if nothing is already selected (e.g. from URL param)
       const primaryProfile = normalizedData.profiles?.find((p: any) => p.is_primary);
-      if (!selectedProfileId) {
-          setSelectedProfileId(primaryProfile?.profile_id || normalizedData.profiles?.[0]?.profile_id || null);
-      }
+      setSelectedProfileId(prev =>
+        prev ? prev : (primaryProfile?.profile_id || normalizedData.profiles?.[0]?.profile_id || null)
+      );
 
       // Check waiver status for all profiles
       try {
         const profiles = normalizedData.profiles || [];
         if (profiles.length > 0) {
           const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
-            waiverService.getWaiverTemplates(),
-            configService.getAgeGroups()
+            waiverService.getWaiverTemplates(currentLocationId || undefined),
+            configService.getAgeGroups(currentLocationId || undefined)
           ]);
           const templates = (waiverTemplatesRes as any).data || [];
           const ageGroups = (ageGroupsRes as any) || [];
 
           let foundUnsigned = false;
           for (const profile of profiles) {
-            const age = calculateAge(profile.date_of_birth);
-            const group = ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+            const group = getAgeGroup(profile.date_of_birth, ageGroups, 'Membership');
             const matchedTemplate = templates.find((t: any) => 
               t.is_active && (t.ageprofile_id === group?.age_group_id || !t.ageprofile_id)
             );
@@ -571,7 +563,7 @@ export const AccountDetail = () => {
         }
       />
 
-      <AccountSummary account={account} onStoreClick={handleAddSubscription} />
+      <AccountSummary account={account} onStoreClick={handleAddSubscription} selectedProfileId={selectedProfileId} />
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Left Panel: Profile List */}

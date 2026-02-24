@@ -9,6 +9,9 @@ import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 
 import EditIcon from '@mui/icons-material/Edit';
 import { Button } from '@mui/material';
+import { useConfig } from '../../../context/ConfigContext';
+import { getAgeGroup, getAgeRangeLabel } from '../../../lib/ageUtils';
+import BadgeIcon from '@mui/icons-material/Badge';
 
 interface ProfileDetailProps {
   profile: any;
@@ -33,6 +36,9 @@ const DetailItem = ({ icon, label, value }: { icon: any, label: string, value: s
 );
 
 export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
+  const { ageGroups } = useConfig();
+  const membershipAgeGroup = profile?.date_of_birth ? getAgeGroup(profile.date_of_birth, ageGroups, 'Membership') : null;
+
   if (!profile) return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', py: 8 }}>
        <PersonIcon sx={{ fontSize: '4rem', color: '#e2e8f0', mb: 2 }} />
@@ -99,6 +105,13 @@ export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
                     icon={<ShieldIcon fontSize="small" />} 
                     label="Account Role" 
                     value={profile.is_primary ? 'Primary Member' : 'Family Member'} 
+                />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+                <DetailItem 
+                    icon={<BadgeIcon fontSize="small" />} 
+                    label="Membership Age Profile" 
+                    value={membershipAgeGroup ? `${membershipAgeGroup.name} ${getAgeRangeLabel(membershipAgeGroup)}` : 'Not Assigned'} 
                 />
             </Grid>
             <Grid size={12}>

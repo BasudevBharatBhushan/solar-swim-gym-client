@@ -10,15 +10,23 @@ import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 interface AccountSummaryProps {
   account: any;
   onStoreClick?: () => void;
+  selectedProfileId?: string | null;
 }
 
-export const AccountSummary = ({ account, onStoreClick }: AccountSummaryProps) => {
+export const AccountSummary = ({ account, onStoreClick, selectedProfileId }: AccountSummaryProps) => {
   if (!account) return null;
 
   const primaryProfile = account.primary_profile || (account.profiles && account.profiles.find((p: any) => p.is_primary));
   const name = primaryProfile ? `${primaryProfile.first_name} ${primaryProfile.last_name}` : 'Unknown';
   const email = primaryProfile?.email || 'N/A';
   const memberCount = account.profiles?.length || 0;
+
+  // The profile currently selected in the left panel
+  const selectedProfile = selectedProfileId
+    ? account.profiles?.find((p: any) => p.profile_id === selectedProfileId)
+    : null;
+  const isViewingNonPrimary = selectedProfile && !selectedProfile.is_primary;
+  const selectedName = selectedProfile ? `${selectedProfile.first_name} ${selectedProfile.last_name}` : null;
 
   return (
     <Paper 
@@ -44,7 +52,7 @@ export const AccountSummary = ({ account, onStoreClick }: AccountSummaryProps) =
     >
       <Grid container spacing={3} alignItems="center">
         <Grid size={{ xs: 12, md: 7 }}>
-          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
             <Typography variant="h4" fontWeight="800" color="#1e293b" sx={{ letterSpacing: '-0.5px' }}>
               {name}
             </Typography>
@@ -54,6 +62,26 @@ export const AccountSummary = ({ account, onStoreClick }: AccountSummaryProps) =
               color={account.status === 'ACTIVE' ? 'success' : account.status === 'PENDING' ? 'warning' : 'default'}
               sx={{ fontWeight: 700, px: 1 }}
             />
+            {/* Show which profile is active — only visible when a non-primary is selected */}
+            {isViewingNonPrimary && selectedName && (
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.75,
+                  px: 1.25,
+                  py: 0.35,
+                  borderRadius: '20px',
+                  bgcolor: '#eff6ff',
+                  border: '1.5px solid #93c5fd',
+                }}
+              >
+                <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#3b82f6', flexShrink: 0 }} />
+                <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#1d4ed8', whiteSpace: 'nowrap' }}>
+                  {selectedName}
+                </Typography>
+              </Box>
+            )}
           </Stack>
           
           <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>

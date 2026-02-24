@@ -4,7 +4,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import StarIcon from '@mui/icons-material/Star';
 import PeopleIcon from '@mui/icons-material/People';
 import { useConfig } from '../../../context/ConfigContext';
-import { getAgeGroupName } from '../../../lib/ageUtils';
+import { getAgeGroup, getAgeRangeLabel } from '../../../lib/ageUtils';
 
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
@@ -131,17 +131,23 @@ export const ProfileList = ({ profiles, selectedProfileId, onSelectProfile, onAd
               <ListItemText
                 primary={
                   <Box display="flex" alignItems="center" gap={1}>
-                     <Typography variant="body2" fontWeight={700} color={isSelected ? '#0369a1' : '#1e293b'}>
+                     <Typography variant="body1" fontWeight={700} color={isSelected ? '#0369a1' : '#1e293b'} sx={{ fontSize: '0.95rem' }}>
                        {profile.first_name} {profile.last_name}
                      </Typography>
-                     {profile.is_primary && <StarIcon sx={{ fontSize: 14, color: '#f59e0b' }} />}
+                     {profile.is_primary && <StarIcon sx={{ fontSize: 15, color: '#f59e0b' }} />}
                   </Box>
                 }
                 secondary={
                     <Box sx={{ display: 'flex', gap: 1, mt: 0.25 }}>
-                       <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 500 }}>
-                          {getAgeGroupName(profile.date_of_birth, ageGroups)}
-                      </Typography>
+                       {(() => {
+                     const group = getAgeGroup(profile.date_of_birth, ageGroups, 'Membership');
+                     if (!group) return <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 500, fontSize: '0.8rem' }}>No Age Profile</Typography>;
+                     return (
+                       <Typography variant="body2" sx={{ color: '#94a3b8', fontWeight: 500, fontSize: '0.8rem' }}>
+                         {group.name} {getAgeRangeLabel(group)}
+                       </Typography>
+                     );
+                   })()}
                     </Box>
                }
               />

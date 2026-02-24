@@ -39,6 +39,7 @@ import { createWaiverPdfAttachment } from '../../../utils/waiverPdf';
 import { EmailComposer } from '../../../components/Email/EmailComposer';
 import { WaiverPreview } from '../../../components/Waiver/WaiverPreview';
 import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../../../components/Waiver/SignaturePad';
+import { getAgeGroup, getAgeRangeLabel } from '../../../lib/ageUtils';
 
 interface WaiversTabProps {
   profiles: Profile[];
@@ -98,18 +99,7 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
     setToast(prev => ({ ...prev, open: false }));
   };
 
-  const calculateAge = (dob: string | null | undefined) => {
-    if (!dob) return 0;
-    const birthDate = new Date(dob);
-    const today = new Date();
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const m = today.getMonth() - birthDate.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-    return age;
-  };
-
+  
   useEffect(() => {
     const fetchWaiverData = async () => {
       if (!currentLocationId) return;
@@ -134,7 +124,7 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
 
         // Fetch waiver templates, age groups, and signed waivers in parallel
         const [waiverTemplatesRes, ageGroupsRes, ...signedResults] = await Promise.all([
-          waiverService.getWaiverTemplates(),
+          waiverService.getWaiverTemplates(currentLocationId || undefined),
           configService.getAgeGroups(currentLocationId),
           ...profilesToFetch.map(p => 
             waiverService.getSignedWaivers(p.profile_id, currentLocationId)
@@ -169,11 +159,10 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
         const pending: PendingWaiver[] = [];
 
         for (const profile of profilesToFetch) {
-          const age = calculateAge(profile.date_of_birth);
-          const group = ageGroups.find((g: any) => age >= g.min_age && age <= g.max_age);
+          const group = profile.date_of_birth ? getAgeGroup(profile.date_of_birth, ageGroups, 'Membership') : null;
 
-          // Find the template for this age profile
-          let matchedTemplate = templates.find(t => 
+          // Find the template for this membership age profile
+          let matchedTemplate = templates.find(t =>
             t.is_active && t.ageprofile_id === group?.age_group_id
           );
           if (!matchedTemplate) {
@@ -187,10 +176,11 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId }: WaiversTa
           const hasRegistrationWaiver = profileSigned.some(w => w.waiver_type === 'REGISTRATION');
 
           if (!hasRegistrationWaiver) {
+            const ageGroupLabel = group ? `${group.name} ${getAgeRangeLabel(group)}` : 'Unknown';
             pending.push({
               profile,
               waiverTemplate: matchedTemplate,
-              ageGroupName: group?.name || 'Unknown'
+              ageGroupName: ageGroupLabel
             });
           }
         }

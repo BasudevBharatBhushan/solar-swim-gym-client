@@ -236,7 +236,7 @@ export const Profiles = () => {
                                 key={profile.profile_id} 
                                 hover 
                                 sx={{ cursor: 'pointer', '&:last-child td, &:last-child th': { border: 0 } }}
-                                onClick={() => navigate(`/admin/accounts/${profile.account_id}`)}
+                                onClick={() => navigate(`/admin/accounts/${profile.account_id}?profileId=${profile.profile_id}`)}
                             >
                                 <TableCell sx={{ fontWeight: 600, color: '#1e293b' }}>
                                     {profile.first_name} {profile.last_name}

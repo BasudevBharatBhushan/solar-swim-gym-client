@@ -586,7 +586,7 @@ export const WaiverTemplates = () => {
                                             <Typography fontWeight={700}>Age Profiles ({assignments.ageprofile_ids.length})</Typography>
                                         </AccordionSummary>
                                         <AccordionDetails sx={{ maxHeight: 200, overflowY: 'auto', p: 1 }}>
-                                            {(ageGroups || []).map(a => (
+                                            {(ageGroups || []).filter(a => a.age_group_category === 'Membership').map(a => (
                                                 <FormControlLabel 
                                                     key={a.age_group_id} 
                                                     control={<Checkbox size="small" checked={assignments.ageprofile_ids.includes(a.age_group_id)} onChange={() => handleToggleAssignment('ageprofile_ids', a.age_group_id)} />} 
@@ -594,7 +594,7 @@ export const WaiverTemplates = () => {
                                                     sx={{ display: 'flex', m: 0 }}
                                                 />
                                             ))}
-                                            {(!ageGroups || ageGroups.length === 0) && <Typography variant="caption" color="textSecondary">No age profiles available</Typography>}
+                                            {(!ageGroups || ageGroups.filter(a => a.age_group_category === 'Membership').length === 0) && <Typography variant="caption" color="textSecondary">No membership age profiles available</Typography>}
                                         </AccordionDetails>
                                     </Accordion>
                                 </Grid>
