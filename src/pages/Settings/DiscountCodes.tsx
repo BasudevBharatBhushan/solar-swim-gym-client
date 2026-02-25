@@ -153,8 +153,8 @@ export const DiscountCodes = () => {
         if (!scope || scope === 'GLOBAL') return 'Applicable to All';
         return {
             'SERVICE': 'Service',
-            'MEMBERSHIP_PLAN': 'Membership Fees',
-            'MEMBERSHIP_FEE': 'Membership Plan'
+            'MEMBERSHIP_PLAN': 'Membership Plan',
+            'MEMBERSHIP_FEE': 'Membership Fees'
         }[scope] ?? 'Item';
     };
 
@@ -162,8 +162,8 @@ export const DiscountCodes = () => {
         if (!scope || scope === 'GLOBAL') return 'Applicable to All';
         return {
             'SERVICE': 'Services',
-            'MEMBERSHIP_PLAN': 'Membership Fees',
-            'MEMBERSHIP_FEE': 'Membership Plans'
+            'MEMBERSHIP_PLAN': 'Membership Plans',
+            'MEMBERSHIP_FEE': 'Membership Fees'
         }[scope] ?? 'Items';
     };
 
@@ -173,7 +173,7 @@ export const DiscountCodes = () => {
                 .filter((s) => !!s.service_id)
                 .map((s) => ({ id: s.service_id as string, label: s.name || 'Unnamed Service', referenceIds: [s.service_id as string] }));
         }
-        if (scope === 'MEMBERSHIP_PLAN') {
+        if (scope === 'MEMBERSHIP_FEE') {
             const grouped = new Map<string, string[]>();
             membershipPlans
                 .filter((p) => !!p.base_price_id)
@@ -198,7 +198,7 @@ export const DiscountCodes = () => {
         if (scope === 'SERVICE') {
             return services.find(s => s.service_id === referenceId)?.name || 'Unknown Service';
         }
-        if (scope === 'MEMBERSHIP_PLAN') {
+        if (scope === 'MEMBERSHIP_FEE') {
             return membershipPlans.find(p => p.base_price_id === referenceId)?.name || 'Unknown Plan';
         }
         return membershipCategories.find(c => c.category_id === referenceId)?.name || 'Unknown Category';
@@ -547,7 +547,7 @@ export const DiscountCodes = () => {
                                                         }
 
                                                         let names = referenceIds.map((id) => getReferenceName(category, id));
-                                                        if (category === 'MEMBERSHIP_PLAN') {
+                                                        if (category === 'MEMBERSHIP_FEE') {
                                                             names = Array.from(new Set(names));
                                                         }
                                                         const maxNames = 2;
@@ -720,8 +720,8 @@ export const DiscountCodes = () => {
                                     >
                                         <MenuItem value="GLOBAL">Applicable to All</MenuItem>
                                         <MenuItem value="SERVICE">Service</MenuItem>
-                                        <MenuItem value="MEMBERSHIP_PLAN">Membership Fees</MenuItem>
-                                        <MenuItem value="MEMBERSHIP_FEE">Membership Plan</MenuItem>
+                                        <MenuItem value="MEMBERSHIP_PLAN">Membership Plan</MenuItem>
+                                        <MenuItem value="MEMBERSHIP_FEE">Membership Fees</MenuItem>
                                     </Select>
                                 </FormControl>
                             </Box>
