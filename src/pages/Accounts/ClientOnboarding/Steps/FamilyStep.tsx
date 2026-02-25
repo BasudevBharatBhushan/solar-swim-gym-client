@@ -285,23 +285,25 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
 
                              {/* Waiver Program for Primary */}
                              <Grid size={{ xs: 12, sm: 6 }}>
-                                <FormControl fullWidth size="small">
-                                    <InputLabel id="primary-waiver-label" shrink>Waiver Program (Optional)</InputLabel>
-                                    <Select
-                                        labelId="primary-waiver-label"
-                                        value={waiverPrograms.some(p => p.waiver_program_id === primaryData.waiver_program_id) ? primaryData.waiver_program_id : ''}
-                                        onChange={(e: any) => updatePrimaryData('waiver_program_id', e.target.value)}
-                                        label="Waiver Program (Optional)"
-                                        displayEmpty
-                                    >
-                                        <MenuItem value=""><em>None / Private Pay</em></MenuItem>
-                                        {waiverPrograms.filter(p => p.is_active).map((p: any) => (
-                                            <MenuItem key={p.waiver_program_id} value={p.waiver_program_id}>
-                                                {p.name}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    label="Waiver Program (Optional)"
+                                    value={waiverPrograms.some(p => p.waiver_program_id === primaryData.waiver_program_id) ? primaryData.waiver_program_id : ''}
+                                    onChange={(e: any) => updatePrimaryData('waiver_program_id', e.target.value)}
+                                    slotProps={{ 
+                                        inputLabel: { shrink: true },
+                                        select: { displayEmpty: true }
+                                    }}
+                                >
+                                    <MenuItem value=""><em>None / Private Pay</em></MenuItem>
+                                    {waiverPrograms.filter(p => p.is_active).map((p: any) => (
+                                        <MenuItem key={p.waiver_program_id} value={p.waiver_program_id}>
+                                            {p.name}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
                             </Grid>
 
                             {/* Case Manager for Primary */}
@@ -543,23 +545,25 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
 
                         {/* Waiver Program Selection */}
                          <Grid size={{ xs: 12, sm: 6 }}>
-                            <FormControl fullWidth size="small">
-                                <InputLabel id={`waiver-label-${index}`} shrink>Waiver Program (Optional)</InputLabel>
-                                <Select
-                                    labelId={`waiver-label-${index}`}
-                                    value={waiverPrograms.some(p => p.waiver_program_id === member.waiver_program_id) ? member.waiver_program_id : ''}
-                                    onChange={(e: any) => handleChange(index, 'waiver_program_id', e.target.value)}
-                                    label="Waiver Program (Optional)"
-                                    displayEmpty
-                                >
-                                    <MenuItem value=""><em>None / Private Pay</em></MenuItem>
-                                    {waiverPrograms.filter(p => p.is_active).map((p: any) => (
-                                        <MenuItem key={p.waiver_program_id} value={p.waiver_program_id}>
-                                            {p.name}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
+                             <TextField
+                                select
+                                fullWidth
+                                size="small"
+                                label="Waiver Program (Optional)"
+                                value={waiverPrograms.some(p => p.waiver_program_id === member.waiver_program_id) ? member.waiver_program_id : ''}
+                                onChange={(e: any) => handleChange(index, 'waiver_program_id', e.target.value)}
+                                slotProps={{ 
+                                    inputLabel: { shrink: true },
+                                    select: { displayEmpty: true }
+                                }}
+                            >
+                                <MenuItem value=""><em>None / Private Pay</em></MenuItem>
+                                {waiverPrograms.filter(p => p.is_active).map((p: any) => (
+                                    <MenuItem key={p.waiver_program_id} value={p.waiver_program_id}>
+                                        {p.name}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
                         </Grid>
 
                         {/* Case Manager Fields - Show if any program selected */}

@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from './theme';
@@ -66,11 +67,16 @@ const AppRoutes = () => {
       
       {/* Dynamic Location Login Routes */}
       {locations.map((loc) => (
-        <Route 
-          key={loc.slug} 
-          path={`/${loc.slug}/login`} 
-          element={<UserLogin companyName={loc.name} locationId={loc.id} />} 
-        />
+        <React.Fragment key={loc.slug}>
+          <Route 
+            path={`/${loc.slug}/login`} 
+            element={<UserLogin companyName={loc.name} locationId={loc.id} />} 
+          />
+          <Route 
+            path={`/${loc.slug}`} 
+            element={<Navigate to={`/${loc.slug}/login`} replace />} 
+          />
+        </React.Fragment>
       ))}
 
       {/* Redirect generic login to first location if configured, otherwise fallback */}

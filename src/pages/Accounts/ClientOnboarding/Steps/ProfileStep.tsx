@@ -8,11 +8,13 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  FormHelperText
+  IconButton,
+  InputAdornment,
+  Chip
 } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
 import { useConfig } from '../../../../context/ConfigContext';
 import { getAgeGroup, getAgeRangeLabel } from '../../../../lib/ageUtils';
-import { Chip } from '@mui/material';
 
 interface ProfileStepProps {
   data: any;
@@ -85,21 +87,7 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
           />
         </Grid>
 
-        <Grid size={{ xs: 12 }}>
-           <TextField
-            label="Password"
-            fullWidth
-            value="Min. 8 characters"
-            disabled
-            helperText="Password will be set via activation link sent to email."
-            slotProps={{ inputLabel: { shrink: true } }}
-            sx={{
-                '& .MuiInputBase-input.Mui-disabled': {
-                    WebkitTextFillColor: 'rgba(0, 0, 0, 0.38)',
-                }
-            }}
-          />
-        </Grid>
+
 
         <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
@@ -208,27 +196,30 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6 }}>
-             <FormControl fullWidth size="small">
-                <InputLabel shrink>State Waiver Program (Optional)</InputLabel>
-                <Select
-                    labelId="waiver-program-label"
-                    value={selectValue}
-                    label="State Waiver Program (Optional)"
-                    onChange={(e) => handleProgramChange(e.target.value)}
-                >
-                    <MenuItem value="">
-                        <em>None</em>
+             <TextField
+                select
+                fullWidth
+                size="small"
+                label="State Waiver Program (Optional)"
+                value={selectValue}
+                onChange={(e) => handleProgramChange(e.target.value)}
+                slotProps={{ 
+                    inputLabel: { shrink: true },
+                    select: { displayEmpty: true }
+                }}
+                helperText="Select a government or partner-funded program if applicable."
+            >
+                <MenuItem value="">
+                    <em>None / Private Pay</em>
+                </MenuItem>
+                {waiverPrograms
+                    .filter((p: any) => p.is_active)
+                    .map((program: any) => (
+                    <MenuItem key={program.waiver_program_id} value={program.waiver_program_id}>
+                        {program.name} ({program.code})
                     </MenuItem>
-                    {waiverPrograms
-                        .filter((p: any) => p.is_active)
-                        .map((program: any) => (
-                        <MenuItem key={program.waiver_program_id} value={program.waiver_program_id}>
-                            {program.name} ({program.code})
-                        </MenuItem>
-                    ))}
-                </Select>
-                  <FormHelperText>Select a government or partner-funded program if applicable.</FormHelperText>
-            </FormControl>
+                ))}
+            </TextField>
         </Grid>
 
         {data.waiver_program_id && (
@@ -287,10 +278,29 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             </Typography>
              <TextField
                 type="number"
-                value={data.family_count || 1}
-                onChange={(e) => updateData('family_count', parseInt(e.target.value))}
-                slotProps={{ htmlInput: { min: 1 } }}
-                sx={{ width: 100 }}
+                value={data.family_count || ''}
+                onChange={(e) => {
+                    const val = e.target.value === '' ? '' : parseInt(e.target.value);
+                    updateData('family_count', val);
+                }}
+                slotProps={{ 
+                    htmlInput: { min: 1 },
+                    input: {
+                        endAdornment: data.family_count > 1 ? (
+                            <InputAdornment position="end">
+                                <IconButton 
+                                    size="small" 
+                                    onClick={() => updateData('family_count', 1)}
+                                    edge="end"
+                                    title="Reset to 1"
+                                >
+                                    <ClearIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                            </InputAdornment>
+                        ) : null
+                    }
+                }}
+                sx={{ width: 120 }}
              />
         </Grid>
       </Grid>

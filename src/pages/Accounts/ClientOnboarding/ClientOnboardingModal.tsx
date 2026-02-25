@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -101,6 +101,37 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const showToast = (message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'error') => {
     setToast({ open: true, message, severity });
   };
+
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop - clientHeight < 40) {
+        setHasScrolledToBottom(true);
+    }
+  };
+
+  useEffect(() => {
+      // Reset scroll status on step change
+      setHasScrolledToBottom(false);
+      
+      // Check if content is already short enough to not need scrolling
+      const checkScroll = () => {
+          if (dialogContentRef.current) {
+              const { scrollHeight, clientHeight } = dialogContentRef.current;
+              // If scrollHeight is close to clientHeight, it means no scroll is needed
+              if (scrollHeight <= clientHeight + 10) {
+                  setHasScrolledToBottom(true);
+              }
+          }
+      };
+
+      // Check immediately and also after content might have settled
+      checkScroll();
+      const timer = setTimeout(checkScroll, 500);
+      return () => clearTimeout(timer);
+  }, [activeStep, open, profileData.family_count, familyMembers.length]);
 
   const handleCloseToast = () => {
     setToast(prev => ({ ...prev, open: false }));
@@ -344,7 +375,11 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
         )}
       </DialogTitle>
       
-      <DialogContent sx={{ mt: 2, px: isMobile ? 2 : 4 }}>
+      <DialogContent 
+        ref={dialogContentRef}
+        onScroll={handleScroll}
+        sx={{ mt: 2, px: isMobile ? 2 : 4 }}
+      >
         {!isSuccess ? (
           <>
             <Stepper activeStep={activeStep} alternativeLabel={!isMobile} orientation={isMobile ? 'vertical' : 'horizontal'} sx={{ mb: 4, display: isMobile ? 'none' : 'flex' }}>
@@ -483,10 +518,10 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                   </Button>
               )}
               {activeStep === steps.length - 1 ? (
-                  <Button 
+                   <Button 
                     variant="contained" 
                     onClick={handleFinish} 
-                    disabled={loading}
+                    disabled={loading || !hasScrolledToBottom}
                     fullWidth={isMobile}
                     sx={{ 
                         borderRadius: '8px', 
@@ -495,16 +530,21 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                         bgcolor: '#0f172a',
                         px: 4,
                         py: isMobile ? 1.5 : 0.75,
-                        '&:hover': { bgcolor: '#334155' }
+                        '&:hover': { bgcolor: '#334155' },
+                        '&.Mui-disabled': {
+                            bgcolor: '#f1f5f9',
+                            color: '#94a3b8'
+                        }
                     }}
                   >
-                      {loading ? 'Creating Account...' : 'Create Account'}
+                      {!hasScrolledToBottom ? 'Scroll to bottom' : (loading ? 'Creating Account...' : 'Create Account')}
                   </Button>
               ) : (
                   <Button 
                     variant="contained" 
                     onClick={handleNext}
                     fullWidth={isMobile}
+                    disabled={!hasScrolledToBottom}
                     sx={{ 
                         borderRadius: '8px', 
                         textTransform: 'none', 
@@ -512,10 +552,14 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                         bgcolor: '#0f172a',
                         px: 4,
                         py: isMobile ? 1.5 : 0.75,
-                        '&:hover': { bgcolor: '#334155' }
+                        '&:hover': { bgcolor: '#334155' },
+                        '&.Mui-disabled': {
+                            bgcolor: '#f1f5f9',
+                            color: '#94a3b8'
+                        }
                     }}
                   >
-                      Next Step
+                      {!hasScrolledToBottom && !isMobile ? 'Scroll down' : 'Next Step'}
                   </Button>
               )}
           </Box>
