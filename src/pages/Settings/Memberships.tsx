@@ -1491,20 +1491,16 @@ export const Memberships = () => {
                                                                          </Typography>
                                                                       )}
                                                                       <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap', rowGap: 1 }}>
-                                                                          {(serviceRef?.type || "Group") && (
-                                                                              <Chip 
-                                                                                  label={(dropdownValues?.find(v => v.module?.toLowerCase() === "services" && v.label?.toUpperCase() === "TYPE" && v.value?.toLowerCase() === serviceRef?.type?.toLowerCase())?.value || serviceRef?.type || "Group").toUpperCase()} 
-                                                                                  size="small" 
-                                                                                  sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} 
-                                                                              />
-                                                                          )}
-                                                                          {(serviceRef?.service_type || "Training") && (
-                                                                              <Chip 
-                                                                                  label={(dropdownValues?.find(v => v.module?.toLowerCase() === "services" && v.label?.toUpperCase() === "CATEGORY" && v.value?.toLowerCase() === serviceRef?.service_type?.toLowerCase())?.value || serviceRef?.service_type || "Training").toUpperCase()} 
-                                                                                  size="small" 
-                                                                                  sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#eff6ff', color: '#3b82f6', borderRadius: '4px' }} 
-                                                                              />
-                                                                          )}
+                                                                          <Chip 
+                                                                              label={(dropdownValues?.find(v => v.module?.toLowerCase() === "services" && v.label?.toUpperCase() === "TYPE" && v.value?.toLowerCase() === serviceRef?.type?.toLowerCase())?.value || serviceRef?.type || "Group").toUpperCase()} 
+                                                                              size="small" 
+                                                                              sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b', borderRadius: '4px' }} 
+                                                                          />
+                                                                          <Chip 
+                                                                              label={(dropdownValues?.find(v => v.module?.toLowerCase() === "services" && v.label?.toUpperCase() === "CATEGORY" && v.value?.toLowerCase() === serviceRef?.service_type?.toLowerCase())?.value || serviceRef?.service_type || "Training").toUpperCase()} 
+                                                                              size="small" 
+                                                                              sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, bgcolor: '#eff6ff', color: '#3b82f6', borderRadius: '4px' }} 
+                                                                          />
                                                                           {!!classes && <Chip label={`${classes} CLASSES`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
                                                                           {!!students && <Chip label={`${students} STUDENTS`} size="small" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
                                                                           {wName && <Chip label={wName.toUpperCase()} size="small" sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 800, fontSize: '0.65rem', height: 20, borderRadius: '4px' }} />}
