@@ -1,5 +1,6 @@
 
 import { useEffect, useState, useRef } from 'react';
+import 'react-quill-new/dist/quill.snow.css';
 import { 
   Box, 
   Typography, 
@@ -776,23 +777,28 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
         <DialogContent dividers>
             {selectedWaiver && (
                 <>
+                  {/* Use ql-editor so Quill's full snow.css styles apply (lists, indent, size, etc.) */}
                   <style>{`
-                    .ql-waiver-view .ql-align-center { text-align: center; }
-                    .ql-waiver-view .ql-align-right  { text-align: right; }
-                    .ql-waiver-view .ql-align-justify { text-align: justify; }
-                    .ql-waiver-view ul, .ql-waiver-view ol { padding-left: 1.5em; margin-bottom: 1em; }
-                    .ql-waiver-view li { margin-bottom: 0.5em; }
-                    .ql-waiver-view img { max-width: 100%; height: auto; }
-                    .ql-waiver-view .ql-indent-1:not(.ql-direction-rtl) { padding-left: 3em; }
-                    .ql-waiver-view li.ql-indent-1:not(.ql-direction-rtl) { padding-left: 4.5em; }
-                    .ql-waiver-view .ql-indent-2:not(.ql-direction-rtl) { padding-left: 6em; }
-                    .ql-waiver-view li.ql-indent-2:not(.ql-direction-rtl) { padding-left: 7.5em; }
-                    .ql-waiver-view .ql-indent-3:not(.ql-direction-rtl) { padding-left: 9em; }
-                    .ql-waiver-view li.ql-indent-3:not(.ql-direction-rtl) { padding-left: 10.5em; }
+                    .ql-waiver-view.ql-editor {
+                      font-family: inherit;
+                      font-size: 14px;
+                      line-height: 1.6;
+                      padding: 0;
+                      border: none;
+                      box-sizing: border-box;
+                    }
+                    .ql-waiver-view.ql-editor p { margin-bottom: 0.75em; }
+                    .ql-waiver-view.ql-editor h1 { font-size: 2em; font-weight: bold; margin: 0.75em 0 0.5em; }
+                    .ql-waiver-view.ql-editor h2 { font-size: 1.5em; font-weight: bold; margin: 0.75em 0 0.5em; }
+                    .ql-waiver-view.ql-editor h3 { font-size: 1.17em; font-weight: bold; margin: 0.75em 0 0.5em; }
+                    .ql-waiver-view.ql-editor .ql-align-center { text-align: center !important; }
+                    .ql-waiver-view.ql-editor .ql-align-right  { text-align: right  !important; }
+                    .ql-waiver-view.ql-editor .ql-align-justify { text-align: justify !important; }
+                    .ql-waiver-view.ql-editor blockquote { border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; }
+                    .ql-waiver-view.ql-editor img { max-width: 100%; height: auto; }
                   `}</style>
-                  <Box
-                    className="ql-waiver-view"
-                    sx={{ fontFamily: 'inherit', fontSize: '14px', lineHeight: 1.6 }}
+                  <div
+                    className="ql-editor ql-waiver-view"
                     dangerouslySetInnerHTML={{ __html: selectedWaiver.content }}
                   />
                 </>

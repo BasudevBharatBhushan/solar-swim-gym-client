@@ -740,7 +740,8 @@ export const Marketplace = () => {
 
                 if (needsCategoryUpdate || needsCoverageUpdate) {
                     const feeType = existingMembershipItem.feeType || 'JOINING';
-                    const price = feeType === 'JOINING' ? suggestedCandidate.joiningFee : suggestedCandidate.annualFee;
+                    const newPrice = feeType === 'JOINING' ? suggestedCandidate.joiningFee : suggestedCandidate.annualFee;
+                    const finalPrice = needsCategoryUpdate ? (newPrice || 0) : existingMembershipItem.price;
                     
                     const updatedItem: CartItem = {
                         ...existingMembershipItem,
@@ -749,7 +750,11 @@ export const Marketplace = () => {
                         membershipCategoryId: suggestedCandidate.categoryId,
                         membershipProgramId: suggestedCandidate.programId,
                         name: `${suggestedCandidate.programName} - ${suggestedCandidate.categoryName} (${feeType})`,
-                        price: needsCategoryUpdate ? (price || 0) : existingMembershipItem.price,
+                        price: finalPrice,
+                        actualPrice: finalPrice,
+                        discountAmount: undefined, // Reset discount on category change to prevent diff bugs
+                        discountPercentage: undefined,
+                        discountCode: undefined,
                         membershipRange: suggestedCandidate.range,
                         coverage: aggregatedBaseCoverage,
                     };
@@ -1889,15 +1894,16 @@ export const Marketplace = () => {
                                             </Grid>
                                         </Paper>
 
-                                        <Paper
-                                            variant="outlined"
-                                            sx={{
-                                                p: 2.5,
-                                                borderRadius: 2,
-                                                bgcolor: '#f5f3ff',
-                                                borderColor: '#ddd6fe',
-                                            }}
-                                        >
+                                        {false && (
+                                            <Paper
+                                                variant="outlined"
+                                                sx={{
+                                                    p: 2.5,
+                                                    borderRadius: 2,
+                                                    bgcolor: '#f5f3ff',
+                                                    borderColor: '#ddd6fe',
+                                                }}
+                                            >
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                                 <Typography variant="subtitle2" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#4c1d95' }}>
                                                     Membership Plans Suggestion
@@ -1969,7 +1975,8 @@ export const Marketplace = () => {
                                                     No eligible membership plan found for this household. You can still add a plan manually.
                                                 </Alert>
                                             )}
-                                        </Paper>
+                                            </Paper>
+                                        )}
                                     </Stack>
                                 </Box>
                             )}
