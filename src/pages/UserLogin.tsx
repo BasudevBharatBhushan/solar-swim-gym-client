@@ -35,8 +35,17 @@ export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', lo
   const [error, setError] = useState<string | null>(null);
   const { login, setCurrentLocationId, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (searchParams.get('action') === 'create' || searchParams.get('newAccount') === 'true') {
+      setIsRegisterOpen(true);
+      searchParams.delete('action');
+      searchParams.delete('newAccount');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Redirect if already authenticated
   React.useEffect(() => {
