@@ -293,17 +293,19 @@ export const Accounts = () => {
                                 <Chip label={account.profiles?.length || 0} size="small" />
                             </TableCell>
                             <TableCell align="center">
-                                {(cartCounts[account.account_id] || 0) > 0 ? (
-                                    <Tooltip title={`${cartCounts[account.account_id]} item(s) in cart`}>
-                                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/admin/accounts/${account.account_id}/marketplace`); }}>
-                                            <Badge badgeContent={cartCounts[account.account_id]} color="error">
-                                                <ShoppingCartIcon color="action" />
-                                            </Badge>
-                                        </IconButton>
-                                    </Tooltip>
-                                ) : (
-                                    <Typography variant="body2" color="text.secondary">-</Typography>
-                                )}
+                                <Tooltip title={(cartCounts[account.account_id] || 0) > 0 ? `${cartCounts[account.account_id]} item(s) in cart` : "Go to Marketplace"}>
+                                    <IconButton 
+                                        size="small" 
+                                        onClick={(e) => { 
+                                            e.stopPropagation(); 
+                                            navigate(`/admin/accounts/${account.account_id}/marketplace`); 
+                                        }}
+                                    >
+                                        <Badge badgeContent={cartCounts[account.account_id]} color="error" invisible={!(cartCounts[account.account_id] > 0)}>
+                                            <ShoppingCartIcon color="action" />
+                                        </Badge>
+                                    </IconButton>
+                                </Tooltip>
                             </TableCell>
                             <TableCell align="right">
                                 <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/admin/accounts/${account.account_id}`); }}>

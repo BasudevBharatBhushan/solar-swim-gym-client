@@ -10,6 +10,7 @@ import {
   Chip,
   IconButton,
   InputAdornment,
+  Checkbox,
   Table,
   TableBody,
   TableCell,
@@ -25,6 +26,9 @@ import {
   MenuItem,
   Select,
   FormControl,
+  FormControlLabel,
+  FormGroup,
+  FormHelperText,
   Drawer,
   Tooltip,
   Avatar,
@@ -40,7 +44,6 @@ import {
   MonetizationOn, 
   CalendarToday,
   Close,
-  CheckCircle,
   TrendingUp
 } from '@mui/icons-material';
 import { PageHeader } from '../../components/Common/PageHeader';
@@ -65,7 +68,7 @@ export const DiscountCodes = () => {
     const [discountType, setDiscountType] = useState<'Percentage' | 'Flat'>('Percentage');
     const [discountValue, setDiscountValue] = useState('');
     const [discountScope, setDiscountScope] = useState<'GLOBAL' | 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE'>('GLOBAL');
-    const [referenceId, setReferenceId] = useState<string>('');
+    const [selectedReferenceIds, setSelectedReferenceIds] = useState<string[]>([]);
     const [isActive, setIsActive] = useState(true);
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
@@ -85,25 +88,40 @@ export const DiscountCodes = () => {
         if (!locationId) return;
         setLoading(true);
         try {
-            const [discountData, serviceData, planData, membershipData] = await Promise.all([
+            const [discountRes, serviceRes, planRes, membershipRes] = await Promise.allSettled([
                 discountService.getAllDiscounts(locationId),
                 serviceCatalog.getServices(locationId),
                 basePriceService.getAll(locationId),
                 membershipService.getMemberships(locationId)
             ]);
-            
-            setDiscounts(discountData || []);
-            
-            const servicesList = serviceData.data || serviceData;
-            setServices(Array.isArray(servicesList) ? servicesList : []);
-            
-            setMembershipPlans(planData.prices || []);
-            
-            // Flatten categories from membership programs
-            const categories = (membershipData || []).flatMap(p => p.categories || []);
-            setMembershipCategories(categories);
-        } catch (error) {
-            console.error("Failed to load initial data", error);
+
+            if (discountRes.status === 'fulfilled') {
+                setDiscounts(discountRes.value || []);
+            } else {
+                console.error("Failed to load discounts", discountRes.reason);
+            }
+
+            if (serviceRes.status === 'fulfilled') {
+                const servicesList = unwrapArray(serviceRes.value, ['services']);
+                setServices(servicesList);
+            } else {
+                console.error("Failed to load services", serviceRes.reason);
+            }
+
+            if (planRes.status === 'fulfilled') {
+                const planPrices = unwrapArray(planRes.value, ['prices']);
+                setMembershipPlans(planPrices);
+            } else {
+                console.error("Failed to load membership plans", planRes.reason);
+            }
+
+            if (membershipRes.status === 'fulfilled') {
+                const membershipPrograms = unwrapArray(membershipRes.value, ['programs', 'memberships']);
+                const categories = membershipPrograms.flatMap((p: any) => p.categories || []);
+                setMembershipCategories(categories);
+            } else {
+                console.error("Failed to load membership categories", membershipRes.reason);
+            }
         } finally {
             setLoading(false);
         }
@@ -119,6 +137,81 @@ export const DiscountCodes = () => {
         }
     };
 
+    const unwrapArray = (value: any, keys: string[] = []) => {
+        if (Array.isArray(value)) return value;
+        if (Array.isArray(value?.data)) return value.data;
+        if (Array.isArray(value?.data?.data)) return value.data.data;
+        for (const key of keys) {
+            if (Array.isArray(value?.[key])) return value[key];
+            if (Array.isArray(value?.data?.[key])) return value.data[key];
+            if (Array.isArray(value?.data?.data?.[key])) return value.data.data[key];
+        }
+        return [];
+    };
+
+    const getScopeLabel = (scope: 'GLOBAL' | 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE' | null) => {
+        if (!scope || scope === 'GLOBAL') return 'Applicable to All';
+        return {
+            'SERVICE': 'Service',
+            'MEMBERSHIP_PLAN': 'Membership Fees',
+            'MEMBERSHIP_FEE': 'Membership Plan'
+        }[scope] ?? 'Item';
+    };
+
+    const getScopeLabelPlural = (scope: 'GLOBAL' | 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE' | null) => {
+        if (!scope || scope === 'GLOBAL') return 'Applicable to All';
+        return {
+            'SERVICE': 'Services',
+            'MEMBERSHIP_PLAN': 'Membership Fees',
+            'MEMBERSHIP_FEE': 'Membership Plans'
+        }[scope] ?? 'Items';
+    };
+
+    const getScopeItems = (scope: 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE') => {
+        if (scope === 'SERVICE') {
+            return services
+                .filter((s) => !!s.service_id)
+                .map((s) => ({ id: s.service_id as string, label: s.name || 'Unnamed Service', referenceIds: [s.service_id as string] }));
+        }
+        if (scope === 'MEMBERSHIP_PLAN') {
+            const grouped = new Map<string, string[]>();
+            membershipPlans
+                .filter((p) => !!p.base_price_id)
+                .forEach((p) => {
+                    const label = (p.name || 'Unnamed Plan').trim();
+                    const list = grouped.get(label) || [];
+                    list.push(p.base_price_id as string);
+                    grouped.set(label, list);
+                });
+            return Array.from(grouped.entries()).map(([label, ids]) => ({
+                id: label,
+                label,
+                referenceIds: ids
+            }));
+        }
+        return membershipCategories
+            .filter((c) => !!c.category_id)
+            .map((c) => ({ id: c.category_id as string, label: c.name || 'Unnamed Category', referenceIds: [c.category_id as string] }));
+    };
+
+    const getReferenceName = (scope: 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE', referenceId: string) => {
+        if (scope === 'SERVICE') {
+            return services.find(s => s.service_id === referenceId)?.name || 'Unknown Service';
+        }
+        if (scope === 'MEMBERSHIP_PLAN') {
+            return membershipPlans.find(p => p.base_price_id === referenceId)?.name || 'Unknown Plan';
+        }
+        return membershipCategories.find(c => c.category_id === referenceId)?.name || 'Unknown Category';
+    };
+
+    const toggleReferenceId = (referenceIds: string[]) => {
+        setSelectedReferenceIds((prev) => (
+            referenceIds.every((id) => prev.includes(id))
+                ? prev.filter((id) => !referenceIds.includes(id))
+                : Array.from(new Set([...prev, ...referenceIds]))
+        ));
+    };
+
     const handleEditClick = (discount: Discount) => {
         setEditingDiscountId(discount.discount_id);
         setDiscountName(discount.discount_code);
@@ -128,8 +221,18 @@ export const DiscountCodes = () => {
         setDiscountValue(discount.discount.replace('%', ''));
         
         // New logic
-        setDiscountScope(discount.discount_category || 'GLOBAL');
-        setReferenceId(discount.reference_id || '');
+        const scope = (discount.discount_category ?? discount.applicable_refs?.[0]?.discount_category ?? 'GLOBAL') as 'GLOBAL' | 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE';
+        setDiscountScope(scope);
+        const applicableIds = scope === 'GLOBAL'
+            ? []
+            : (discount.applicable_refs && discount.applicable_refs.length > 0)
+                ? discount.applicable_refs
+                    .filter(ref => ref.discount_category === scope)
+                    .map(ref => ref.reference_id)
+                : discount.reference_id
+                    ? [discount.reference_id]
+                    : [];
+        setSelectedReferenceIds(applicableIds);
         
         setIsActive(discount.is_active);
         setStartDate(discount.start_date ? discount.start_date.split('T')[0] : '');
@@ -149,7 +252,7 @@ export const DiscountCodes = () => {
         setDiscountType('Percentage');
         setDiscountValue('');
         setDiscountScope('GLOBAL');
-        setReferenceId('');
+        setSelectedReferenceIds([]);
         setIsActive(true);
         setStartDate('');
         setEndDate('');
@@ -177,11 +280,22 @@ export const DiscountCodes = () => {
                 is_active: isActive,
                 staff_name: staffName,
                 location_id: locationId,
-                discount_category: discountScope === 'GLOBAL' ? null : discountScope,
-                reference_id: referenceId || null,
                 start_date: startDate || null,
                 end_date: endDate || null
             };
+
+            if (discountScope === 'GLOBAL') {
+                payload.discount_category = null;
+                payload.reference_id = null;
+                payload.applicable_refs = [];
+            } else {
+                payload.discount_category = discountScope;
+                payload.reference_id = selectedReferenceIds.length === 1 ? selectedReferenceIds[0] : null;
+                payload.applicable_refs = selectedReferenceIds.map((referenceId) => ({
+                    discount_category: discountScope,
+                    reference_id: referenceId
+                }));
+            }
 
             if (editingDiscountId) {
                 payload.discount_id = editingDiscountId;
@@ -204,6 +318,24 @@ export const DiscountCodes = () => {
         }
     };
 
+    const handleDeleteDiscount = async (discount: Discount) => {
+        if (!locationId || !discount.discount_id) return;
+        const confirmed = window.confirm(`Delete discount code "${discount.discount_code}"?`);
+        if (!confirmed) return;
+
+        setLoading(true);
+        setMessage(null);
+        try {
+            await discountService.deleteDiscount(locationId, discount.discount_id);
+            setMessage({ type: 'success', text: 'Discount deleted successfully' });
+            loadDiscounts();
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || 'Failed to delete discount' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const filteredDiscounts = discounts.filter(d => {
         if (tabValue === 1) return d.is_active;
         if (tabValue === 2) return !d.is_active;
@@ -211,6 +343,7 @@ export const DiscountCodes = () => {
     });
 
     const activeCount = discounts.filter(d => d.is_active).length;
+    const scopedItems = discountScope === 'GLOBAL' ? [] : getScopeItems(discountScope);
 
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1400, mx: 'auto' }}>
@@ -396,26 +529,31 @@ export const DiscountCodes = () => {
                                             <TableCell>
                                                 <Typography variant="body2" sx={{ color: '#334155', fontWeight: 700, fontSize: '0.8rem' }}>
                                                     {(() => {
-                                                        if (!discount.discount_category || discount.discount_category === null) return 'Global';
-                                                        
-                                                        const scopeLabel = {
-                                                            'SERVICE': 'Service',
-                                                            'MEMBERSHIP_PLAN': 'Membership Plan (Base Price)',
-                                                            'MEMBERSHIP_FEE': 'Membership Plan'
-                                                        }[discount.discount_category];
+                                                        const category = discount.discount_category ?? discount.applicable_refs?.[0]?.discount_category ?? null;
+                                                        if (!category) return 'Applicable to All';
 
-                                                        if (!discount.reference_id) return `All ${scopeLabel}s`;
+                                                        const scopeLabel = getScopeLabel(category);
+                                                        const applicableRefs = (discount.applicable_refs || [])
+                                                            .filter(ref => ref.discount_category === category)
+                                                            .map(ref => ref.reference_id);
+                                                        const referenceIds = applicableRefs.length > 0
+                                                            ? applicableRefs
+                                                            : discount.reference_id
+                                                                ? [discount.reference_id]
+                                                                : [];
 
-                                                        let itemName = 'Unknown Item';
-                                                        if (discount.discount_category === 'SERVICE') {
-                                                            itemName = services.find(s => s.service_id === discount.reference_id)?.name || 'Unknown Service';
-                                                        } else if (discount.discount_category === 'MEMBERSHIP_PLAN') {
-                                                            itemName = membershipPlans.find(p => p.base_price_id === discount.reference_id)?.name || 'Unknown Plan';
-                                                        } else if (discount.discount_category === 'MEMBERSHIP_FEE') {
-                                                            itemName = membershipCategories.find(c => c.category_id === discount.reference_id)?.name || 'Unknown Category';
+                                                        if (referenceIds.length === 0) {
+                                                            return `${scopeLabel}: Applicable to All`;
                                                         }
 
-                                                        return `${scopeLabel}: ${itemName}`;
+                                                        let names = referenceIds.map((id) => getReferenceName(category, id));
+                                                        if (category === 'MEMBERSHIP_PLAN') {
+                                                            names = Array.from(new Set(names));
+                                                        }
+                                                        const maxNames = 2;
+                                                        const displayNames = names.slice(0, maxNames).join(', ');
+                                                        const extraCount = names.length - maxNames;
+                                                        return `${scopeLabel}: ${displayNames}${extraCount > 0 ? ` +${extraCount} more` : ''}`;
                                                     })()}
                                                 </Typography>
                                                 <Typography variant="caption" sx={{ color: '#94a3b8', fontWeight: 500 }}>Added by {discount.staff_name || 'Admin'}</Typography>
@@ -428,7 +566,11 @@ export const DiscountCodes = () => {
                                                         </IconButton>
                                                     </Tooltip>
                                                     <Tooltip title="Delete">
-                                                        <IconButton size="small" sx={{ color: '#64748b', '&:hover': { color: '#ef4444', bgcolor: '#fef2f2' } }}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleDeleteDiscount(discount)}
+                                                            sx={{ color: '#64748b', '&:hover': { color: '#ef4444', bgcolor: '#fef2f2' } }}
+                                                        >
                                                             <Delete fontSize="small" />
                                                         </IconButton>
                                                     </Tooltip>
@@ -454,8 +596,11 @@ export const DiscountCodes = () => {
                 anchor="right"
                 open={isDrawerOpen}
                 onClose={() => setIsDrawerOpen(false)}
+                ModalProps={{
+                    BackdropProps: { sx: { backgroundColor: 'rgba(15, 23, 42, 0.08)' } }
+                }}
                 PaperProps={{
-                    sx: { width: { xs: '100%', sm: 450 }, border: 'none', boxShadow: '-10px 0 25px rgba(0,0,0,0.05)' }
+                    sx: { width: { xs: '100%', sm: 450 }, border: 'none', bgcolor: '#ffffff', boxShadow: '-10px 0 25px rgba(15,23,42,0.06)' }
                 }}
             >
                 <Box sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -569,12 +714,13 @@ export const DiscountCodes = () => {
                                         value={discountScope}
                                         onChange={(e: any) => {
                                             setDiscountScope(e.target.value);
-                                            setReferenceId(''); // Reset reference ID when scope changes
+                                            setSelectedReferenceIds([]); // Reset selections when scope changes
                                         }}
                                         sx={{ color: '#1e293b', fontWeight: 600 }}
                                     >
-                                        <MenuItem value="GLOBAL">Global (Total Invoice)</MenuItem>
+                                        <MenuItem value="GLOBAL">Applicable to All</MenuItem>
                                         <MenuItem value="SERVICE">Service</MenuItem>
+                                        <MenuItem value="MEMBERSHIP_PLAN">Membership Fees</MenuItem>
                                         <MenuItem value="MEMBERSHIP_FEE">Membership Plan</MenuItem>
                                     </Select>
                                 </FormControl>
@@ -583,30 +729,37 @@ export const DiscountCodes = () => {
                             {discountScope !== 'GLOBAL' && (
                                 <Box>
                                     <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1.5, display: 'block', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '1px' }}>
-                                        Specific Item (Optional)
+                                        Applicable Items
                                     </Typography>
-                                    <FormControl fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px', bgcolor: '#f8fafc' } }}>
-                                        <Select
-                                            value={referenceId}
-                                            onChange={(e: any) => setReferenceId(e.target.value as string)}
-                                            displayEmpty
-                                            sx={{ color: '#1e293b', fontWeight: 600 }}
-                                        >
-                                            <MenuItem value="">
-                                                <Stack direction="row" spacing={1} alignItems="center">
-                                                    <CheckCircle sx={{ fontSize: 16, color: '#3b82f6' }} />
-                                                    <Typography variant="body2" fontWeight={600}>
-                                                        {discountScope === 'SERVICE' ? 'All Services' : 'All Membership Plans'}
-                                                    </Typography>
-                                                </Stack>
-                                            </MenuItem>
-                                            {discountScope === 'SERVICE' && services.map((s) => (
-                                                <MenuItem key={s.service_id} value={s.service_id}>{s.name}</MenuItem>
-                                            ))}
-                                            {discountScope === 'MEMBERSHIP_FEE' && membershipCategories.map((c) => (
-                                                <MenuItem key={c.category_id} value={c.category_id}>{c.name}</MenuItem>
-                                            ))}
-                                        </Select>
+                                    <FormControl fullWidth sx={{ borderRadius: '10px', bgcolor: '#f8fafc', border: '1px solid #e2e8f0', p: 1.5 }}>
+                                        <FormGroup>
+                                            {scopedItems.length === 0 && (
+                                                <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                                                    No items available for this category.
+                                                </Typography>
+                                            )}
+                                            {scopedItems.map((item) => {
+                                                const selectedCount = item.referenceIds.filter((id) => selectedReferenceIds.includes(id)).length;
+                                                const isChecked = selectedCount === item.referenceIds.length && item.referenceIds.length > 0;
+                                                const isIndeterminate = selectedCount > 0 && selectedCount < item.referenceIds.length;
+                                                return (
+                                                <FormControlLabel
+                                                    key={item.id}
+                                                    control={
+                                                        <Checkbox
+                                                            checked={isChecked}
+                                                            indeterminate={isIndeterminate}
+                                                            onChange={() => toggleReferenceId(item.referenceIds)}
+                                                            size="small"
+                                                        />
+                                                    }
+                                                    label={item.label}
+                                                />
+                                            )})}
+                                        </FormGroup>
+                                        <FormHelperText sx={{ mt: 1 }}>
+                                            Leave all unchecked to apply to all items in this category.
+                                        </FormHelperText>
                                     </FormControl>
                                 </Box>
                             )}

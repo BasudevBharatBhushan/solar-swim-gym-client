@@ -14,8 +14,17 @@ export interface Discount {
     end_date?: string | null;
     created_at?: string;
     updated_at?: string;
+    applicable_refs?: DiscountApplicableRef[];
     // Legacy fields
     service_id?: string | null;
+}
+
+export interface DiscountApplicableRef {
+    id?: string;
+    discount_id?: string;
+    discount_category: 'SERVICE' | 'MEMBERSHIP_PLAN' | 'MEMBERSHIP_FEE';
+    reference_id: string;
+    created_at?: Date | string;
 }
 
 export const discountService = {
@@ -48,6 +57,11 @@ export const discountService = {
         return response.data;
     }
     return response as Discount;
+  },
+
+  deleteDiscount: async (locationId: string, discountId: string): Promise<void> => {
+    const options = { headers: { 'x-location-id': locationId } };
+    await apiClient.delete(`/discounts/${discountId}`, options);
   },
 
   validateDiscount: async (discountCode: string, locationId: string): Promise<Discount | null> => {

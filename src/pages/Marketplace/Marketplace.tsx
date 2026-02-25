@@ -906,9 +906,17 @@ export const Marketplace = () => {
         const cartItem = cart.find(i => i.id === itemId);
         if (!cartItem) return;
 
-        const category = discount.discount_category; // null = GLOBAL
+        const resolvedCategory = discount.discount_category ?? discount.applicable_refs?.[0]?.discount_category ?? null;
+        const applicableRefIds = (discount.applicable_refs || [])
+            .filter(ref => !resolvedCategory || ref.discount_category === resolvedCategory)
+            .map(ref => ref.reference_id);
+        const referenceIds = applicableRefIds.length > 0
+            ? applicableRefIds
+            : discount.reference_id
+                ? [discount.reference_id]
+                : [];
 
-        if (category === 'SERVICE') {
+        if (resolvedCategory === 'SERVICE') {
             // Only applies to SERVICE-type cart items
             if (cartItem.type !== 'SERVICE') {
                 setItemDiscounts((prev) => ({
@@ -918,14 +926,14 @@ export const Marketplace = () => {
                 return;
             }
             // If a specific service is targeted, the cart item's serviceId must match
-            if (discount.reference_id && discount.reference_id !== cartItem.serviceId) {
+            if (referenceIds.length > 0 && !referenceIds.includes(cartItem.serviceId ?? '')) {
                 setItemDiscounts((prev) => ({
                     ...prev,
                     [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this service.' },
                 }));
                 return;
             }
-        } else if (category === 'MEMBERSHIP_FEE') {
+        } else if (resolvedCategory === 'MEMBERSHIP_FEE') {
             // Only applies to BASE-type cart items (membership fees)
             if (cartItem.type !== 'BASE') {
                 setItemDiscounts((prev) => ({
@@ -935,14 +943,14 @@ export const Marketplace = () => {
                 return;
             }
             // If a specific base plan is targeted, the cart item's referenceId must match
-            if (discount.reference_id && discount.reference_id !== cartItem.referenceId) {
+            if (referenceIds.length > 0 && !referenceIds.includes(cartItem.referenceId ?? '')) {
                 setItemDiscounts((prev) => ({
                     ...prev,
                     [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this membership fee.' },
                 }));
                 return;
             }
-        } else if (category === 'MEMBERSHIP_PLAN') {
+        } else if (resolvedCategory === 'MEMBERSHIP_PLAN') {
             // Only applies to MEMBERSHIP-type cart items (membership plans)
             if (cartItem.type !== 'MEMBERSHIP') {
                 setItemDiscounts((prev) => ({
@@ -952,7 +960,7 @@ export const Marketplace = () => {
                 return;
             }
             // If a specific membership plan is targeted, the cart item's membershipCategoryId must match
-            if (discount.reference_id && discount.reference_id !== cartItem.membershipCategoryId) {
+            if (referenceIds.length > 0 && !referenceIds.includes(cartItem.membershipCategoryId ?? '')) {
                 setItemDiscounts((prev) => ({
                     ...prev,
                     [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this membership plan.' },
@@ -2877,4 +2885,3 @@ export const Marketplace = () => {
         </Box>
     );
 };
-
