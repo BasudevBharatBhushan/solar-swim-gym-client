@@ -461,7 +461,7 @@ export const Marketplace = () => {
                         if (s.service_pack_id && s.discount) {
                             newDiscounts[s.service_pack_id] = {
                                 value: s.discount,
-                                explanation: `${item.type === 'BASE' ? 'Base Plan' : 'Membership'} Discount: ${item.name}`
+                                explanation: `${item.type === 'BASE' ? 'Membership Fee' : 'Membership Plan'} Discount: ${item.name}`
                             };
                         }
                     });
@@ -866,28 +866,11 @@ export const Marketplace = () => {
                 return;
             }
         } else if (category === 'MEMBERSHIP_FEE') {
-            // Only applies to MEMBERSHIP-type cart items (joining/renewal fees)
-            if (cartItem.type !== 'MEMBERSHIP') {
-                setItemDiscounts((prev) => ({
-                    ...prev,
-                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is only applicable to membership fees.' },
-                }));
-                return;
-            }
-            // If a specific membership category is targeted, the cart item must match
-            if (discount.reference_id && discount.reference_id !== cartItem.membershipCategoryId) {
-                setItemDiscounts((prev) => ({
-                    ...prev,
-                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this membership plan.' },
-                }));
-                return;
-            }
-        } else if (category === 'MEMBERSHIP_PLAN') {
-            // Only applies to BASE-type cart items (base membership plans)
+            // Only applies to BASE-type cart items (membership fees)
             if (cartItem.type !== 'BASE') {
                 setItemDiscounts((prev) => ({
                     ...prev,
-                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is only applicable to base membership plans.' },
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is only applicable to membership fees.' },
                 }));
                 return;
             }
@@ -895,7 +878,24 @@ export const Marketplace = () => {
             if (discount.reference_id && discount.reference_id !== cartItem.referenceId) {
                 setItemDiscounts((prev) => ({
                     ...prev,
-                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this base plan.' },
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this membership fee.' },
+                }));
+                return;
+            }
+        } else if (category === 'MEMBERSHIP_PLAN') {
+            // Only applies to MEMBERSHIP-type cart items (membership plans)
+            if (cartItem.type !== 'MEMBERSHIP') {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is only applicable to membership plans.' },
+                }));
+                return;
+            }
+            // If a specific membership plan is targeted, the cart item's membershipCategoryId must match
+            if (discount.reference_id && discount.reference_id !== cartItem.membershipCategoryId) {
+                setItemDiscounts((prev) => ({
+                    ...prev,
+                    [itemId]: { ...getItemDiscount(itemId), codeStatus: 'invalid', codeError: 'This discount code is not applicable to this membership plan.' },
                 }));
                 return;
             }
@@ -1527,7 +1527,7 @@ export const Marketplace = () => {
                                         <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                                 <Typography variant="subtitle2" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#334155' }}>
-                                                    Memberships
+                                                    Membership Fees
                                                 </Typography>
                                                 <Button
                                                     size="small"
@@ -1632,7 +1632,7 @@ export const Marketplace = () => {
 
                                                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
                                                                         <Typography variant="caption" color="text.secondary">
-                                                                            Joining or renewal fees are selected when adding membership category.
+                                                                            Joining or renewal fees are selected when adding membership plan.
                                                                         </Typography>
                                                                         <Tooltip title="Add this base card, select term in popup, then choose profile coverage.">
                                                                             <IconButton size="small">
@@ -2062,9 +2062,9 @@ export const Marketplace = () => {
                                                     const badge = item.type === 'SERVICE' 
                                                         ? { label: 'Service', color: '#1d4ed8', bgcolor: '#dbeafe' }
                                                         : item.type === 'MEMBERSHIP'
-                                                        ? { label: 'Membership Fee', color: '#15803d', bgcolor: '#dcfce7' }
+                                                        ? { label: 'Membership Plan', color: '#15803d', bgcolor: '#dcfce7' }
                                                         : item.type === 'BASE' 
-                                                        ? { label: 'Base Plan', color: '#c2410c', bgcolor: '#fff7ed' }
+                                                        ? { label: 'Membership Fee', color: '#c2410c', bgcolor: '#fff7ed' }
                                                         : { label: item.type, color: '#475569', bgcolor: '#f1f5f9' };
                                                     return (
                                                         <Chip
