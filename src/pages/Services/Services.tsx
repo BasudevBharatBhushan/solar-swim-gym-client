@@ -435,7 +435,8 @@ const PricingPanel = memo(({ pack, ageGroups }: { pack: ServicePack, ageGroups: 
     const activeAgeGroups = ageGroups.filter(ag => {
         if (ag.age_group_category !== 'Service') return false;
         const agId = ag.age_group_id || ag.id;
-        return priceData[agId] && priceData[agId].price !== '';
+        const val = priceData[agId];
+        return val && val.price !== '' && val.price !== null && parseFloat(val.price) !== 0;
     });
 
     if (loading) {
