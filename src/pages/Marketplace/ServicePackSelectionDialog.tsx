@@ -91,6 +91,9 @@ export const ServicePackSelectionDialog = ({
             } else if (pack.duration_days) {
                 start.setDate(start.getDate() + pack.duration_days);
                 setBillingEnd(start.toISOString().split('T')[0]);
+            } else {
+                // Default to same as start date if no duration provided
+                setBillingEnd(start.toISOString().split('T')[0]);
             }
         }
     }, [billingStart, pack.duration_months, pack.duration_days, selectedSessionId]);
@@ -211,6 +214,28 @@ export const ServicePackSelectionDialog = ({
                 })
             };
             newItems.push(item);
+            
+            // Add Registration Fee if applicable
+            if (service.LessonRegistrationFee && service.LessonRegistrationFee > 0) {
+                const regFeeItem: CartItem = {
+                    id: `REG-FEE-${service.service_id}-${primaryId}-${Date.now()}`,
+                    type: 'REGISTRATION_FEE',
+                    referenceId: service.service_id,
+                    name: `${service.name} - Lesson Registration Fee`,
+                    price: parseFloat(service.LessonRegistrationFee.toString()),
+                    serviceId: service.service_id,
+                    session_id: selectedSessionId || undefined,
+                    billing_period_start: billingStart || undefined,
+                    billing_period_end: billingEnd || undefined,
+                    coverage: [{
+                        profile_id: primaryId,
+                        name: item.coverage?.[0]?.name || 'Unknown',
+                        role: 'PRIMARY',
+                        age_group: item.coverage?.[0]?.age_group
+                    }]
+                };
+                newItems.push(regFeeItem);
+            }
 
         } else {
             // Non-sharable: Separate line items
@@ -251,6 +276,28 @@ export const ServicePackSelectionDialog = ({
                         }]
                     };
                     newItems.push(item);
+
+                    // Add Registration Fee if applicable
+                    if (service.LessonRegistrationFee && service.LessonRegistrationFee > 0) {
+                        const regFeeItem: CartItem = {
+                            id: `REG-FEE-${service.service_id}-${id}-${Date.now()}`,
+                            type: 'REGISTRATION_FEE',
+                            referenceId: service.service_id,
+                            name: `${service.name} - Lesson Registration Fee`,
+                            price: parseFloat(service.LessonRegistrationFee.toString()),
+                            serviceId: service.service_id,
+                            session_id: selectedSessionId || undefined,
+                            billing_period_start: billingStart || undefined,
+                            billing_period_end: billingEnd || undefined,
+                            coverage: [{
+                                profile_id: id,
+                                name: `${eligible.profile.first_name} ${eligible.profile.last_name}`,
+                                role: 'PRIMARY',
+                                age_group: item.coverage?.[0]?.age_group
+                            }]
+                        };
+                        newItems.push(regFeeItem);
+                    }
                 }
             });
         }
@@ -452,6 +499,7 @@ export const ServicePackSelectionDialog = ({
                                     fullWidth
                                     size="small"
                                     InputLabelProps={{ shrink: true }}
+                                    disabled
                                 />
                             </Grid>
                         </Grid>

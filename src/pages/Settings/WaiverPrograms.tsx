@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   Box, 
   Paper, 
@@ -23,7 +23,7 @@ import {
   Switch,
   Chip
 } from '@mui/material';
-import { EditOutlined, Add, InfoOutlined } from '@mui/icons-material';
+import { EditOutlined, Add, InfoOutlined, DeleteOutline } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { configService } from '../../services/configService';
@@ -36,8 +36,10 @@ export const WaiverPrograms = () => {
     const [success, setSuccess] = useState<string|null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [currentProgram, setCurrentProgram] = useState<any>({});
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [programToDelete, setProgramToDelete] = useState<any>(null);
     
-    const { token, currentLocationId } = useAuth();
+    const { currentLocationId } = useAuth();
     const { refreshWaiverPrograms } = useConfig();
     // Assuming location_id comes from userDetails or context for the header
     const locationId = currentLocationId;
@@ -90,6 +92,26 @@ export const WaiverPrograms = () => {
         } catch (err) {
             console.error(err);
             setError('Failed to save waiver program');
+        }
+    };
+
+    const handleDeleteClick = (program: any) => {
+        setProgramToDelete(program);
+        setDeleteDialogOpen(true);
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!programToDelete) return;
+        try {
+            await configService.deleteWaiverProgram(programToDelete.waiver_program_id, locationId || undefined);
+            setSuccess('Program deleted successfully');
+            setDeleteDialogOpen(false);
+            setProgramToDelete(null);
+            fetchData();
+            refreshWaiverPrograms();
+        } catch (err) {
+            console.error(err);
+            setError('Failed to delete waiver program');
         }
     };
 
@@ -153,6 +175,9 @@ export const WaiverPrograms = () => {
                                 <TableCell align="right">
                                     <IconButton size="small" onClick={() => handleOpenDialog(row)} sx={{ color: 'text.secondary' }}>
                                         <EditOutlined fontSize="small" />
+                                    </IconButton>
+                                    <IconButton size="small" onClick={() => handleDeleteClick(row)} sx={{ color: 'error.main' }}>
+                                        <DeleteOutline fontSize="small" />
                                     </IconButton>
                                 </TableCell>
                             </TableRow>
@@ -242,6 +267,21 @@ export const WaiverPrograms = () => {
                 <DialogActions sx={{ p: 2.5 }}>
                     <Button onClick={handleCloseDialog} color="inherit">Cancel</Button>
                     <Button variant="contained" onClick={handleSave}>Save Program</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+                <DialogTitle>Delete Waiver Program</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Are you sure you want to delete the waiver program <strong>{programToDelete?.name}</strong>? 
+                        This action cannot be undone.
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ p: 2.5 }}>
+                    <Button onClick={() => setDeleteDialogOpen(false)} color="inherit">Cancel</Button>
+                    <Button onClick={handleDeleteConfirm} color="error" variant="contained">Delete</Button>
                 </DialogActions>
             </Dialog>
 

@@ -72,4 +72,8 @@ export const configService = {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.delete(`/config/subscription-terms/${id}`, options);
   },
+  deleteWaiverProgram: async (id: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.delete(`/config/waiver-programs/${id}`, options);
+  },
 };

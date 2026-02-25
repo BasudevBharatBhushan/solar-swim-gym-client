@@ -409,7 +409,7 @@ const ServiceBasicInfo = memo(({
 });
 
 const PricingPanel = memo(({ pack, ageGroups }: { pack: ServicePack, ageGroups: any[] }) => {
-    const [priceData, setPriceData] = useState<Record<string, { price: string, students: string, instructors: string }>>({});
+    const [priceData, setPriceData] = useState<Record<string, { price: string, students: string, instructors: string, service_price_id?: string }>>({});
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -418,12 +418,13 @@ const PricingPanel = memo(({ pack, ageGroups }: { pack: ServicePack, ageGroups: 
             setLoading(true);
             try {
                 const res = await serviceCatalog.getPackPrices(pack.service_pack_id);
-                const map: Record<string, { price: string, students: string, instructors: string }> = {};
+                const map: Record<string, { price: string, students: string, instructors: string, service_price_id?: string }> = {};
                 res.forEach((p: ServicePrice) => {
                     map[p.age_group_id] = {
                         price: p.price.toString(),
                         students: (p.num_students ?? 1).toString(),
-                        instructors: (p.num_instructors ?? 1).toString()
+                        instructors: (p.num_instructors ?? 1).toString(),
+                        service_price_id: p.service_price_id
                     };
                 });
                 setPriceData(map);
@@ -583,7 +584,7 @@ export const Services = () => {
     const [packEnforceUsageLimit, setPackEnforceUsageLimit] = useState(false);
     
     // Pricing State for Pack Modal
-    const [packPriceData, setPackPriceData] = useState<Record<string, { price: string, students: string, instructors: string }>>({});
+    const [packPriceData, setPackPriceData] = useState<Record<string, { price: string, students: string, instructors: string, service_price_id?: string }>>({});
     const [isPackPricesLoading, setIsPackPricesLoading] = useState(false);
     
     // Deletion State
@@ -746,12 +747,13 @@ export const Services = () => {
             setIsPackPricesLoading(true);
             try {
                 const res = await serviceCatalog.getPackPrices(pack.service_pack_id);
-                const map: Record<string, { price: string, students: string, instructors: string }> = {};
+                const map: Record<string, { price: string, students: string, instructors: string, service_price_id?: string }> = {};
                 res.forEach((p: ServicePrice) => {
                     map[p.age_group_id] = {
                         price: p.price.toString(),
                         students: (p.num_students ?? 1).toString(),
-                        instructors: (p.num_instructors ?? 1).toString()
+                        instructors: (p.num_instructors ?? 1).toString(),
+                        service_price_id: p.service_price_id
                     };
                 });
                 setPackPriceData(map);
@@ -789,20 +791,22 @@ export const Services = () => {
             const savedPackId = packRes?.data?.service_pack_id || packRes?.service_pack_id || currentPack?.service_pack_id;
             
             if (savedPackId && currentLocationId) {
-                const toSave: Record<string, { price: number, num_students: number, num_instructors: number }> = {};
+                const toSave: Record<string, { price: number, num_students: number, num_instructors: number, service_price_id?: string }> = {};
                 Object.entries(packPriceData).forEach(([id, data]) => {
                     const priceNum = parseFloat(data.price);
                     if (!isNaN(priceNum)) {
                         toSave[id] = {
                             price: priceNum,
                             num_students: parseInt(data.students) || 1,
-                            num_instructors: parseInt(data.instructors) || 1
+                            num_instructors: parseInt(data.instructors) || 1,
+                            service_price_id: data.service_price_id
                         };
                     }
                 });
 
                 const promises = Object.entries(toSave).map(([ageGroupId, data]) => 
                     serviceCatalog.upsertServicePrice({
+                        service_price_id: data.service_price_id,
                         location_id: currentLocationId,
                         service_pack_id: savedPackId,
                         age_group_id: ageGroupId,
@@ -1343,7 +1347,7 @@ export const Services = () => {
                                             
                                             <TextField 
                                                 value={data.students} 
-                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1' }), students: e.target.value } }))}
+                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1', service_price_id: undefined }), students: e.target.value } }))}
                                                 size="small"
                                                 type="number"
                                                 sx={{ 
@@ -1357,7 +1361,7 @@ export const Services = () => {
 
                                             <TextField 
                                                 value={data.instructors} 
-                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1' }), instructors: e.target.value } }))}
+                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1', service_price_id: undefined }), instructors: e.target.value } }))}
                                                 size="small"
                                                 type="number"
                                                 sx={{ 
@@ -1371,7 +1375,7 @@ export const Services = () => {
 
                                             <TextField 
                                                 value={data.price} 
-                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1' }), price: e.target.value } }))}
+                                                onChange={(e) => setPackPriceData(prev => ({ ...prev, [agId]: { ...(prev[agId] || { price: '', students: '1', instructors: '1', service_price_id: undefined }), price: e.target.value } }))}
                                                 size="small"
                                                 placeholder="N/A"
                                                 InputProps={{

@@ -27,7 +27,7 @@ export interface RuleRange {
 export interface CartItem {
     id: string;
     cart_id?: string;
-    type: 'BASE' | 'MEMBERSHIP' | 'SERVICE';
+    type: 'BASE' | 'MEMBERSHIP' | 'SERVICE' | 'REGISTRATION_FEE';
     referenceId: string;
     name: string;
     /** The final (possibly discounted) price used for checkout */

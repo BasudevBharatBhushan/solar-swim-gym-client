@@ -3,11 +3,9 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, Grid, CircularProgress, Typography, Button, Paper, Tabs, Tab, Stack, Snackbar, Alert, Dialog, DialogContent, Tooltip } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import EmailIcon from '@mui/icons-material/Email';
 import LinkIcon from '@mui/icons-material/Link';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import LaunchIcon from '@mui/icons-material/Launch';
-import DrawIcon from '@mui/icons-material/Draw';
 import { authService } from '../../services/authService';
 import { billingService } from '../../services/billingService';
 import { waiverService } from '../../services/waiverService';
@@ -17,6 +15,7 @@ import { getAgeGroup } from '../../lib/ageUtils';
 import { createWaiverPdfAttachment } from '../../utils/waiverPdf';
 import { EmailComposer } from '../../components/Email/EmailComposer';
 import { crmService } from '../../services/crmService';
+import { cartService } from '../../services/cartService';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { AccountSummary } from './components/AccountSummary';
 import { ProfileList } from './components/ProfileList';
@@ -63,6 +62,9 @@ export const AccountDetail = () => {
 
   // Waiver status tracking
   const [hasUnsignedWaivers, setHasUnsignedWaivers] = useState(false);
+  
+  // Cart state
+  const [cartCount, setCartCount] = useState(0);
 
   // Actions State
   const [actionLoading, setActionLoading] = useState(false);
@@ -408,9 +410,36 @@ export const AccountDetail = () => {
     }
   };
 
+  const fetchCartCount = async () => {
+    if (!accountId || !currentLocationId) return;
+    try {
+      const items = await cartService.getItems(currentLocationId);
+      const count = items.filter(i => i.account_id === accountId).length;
+      setCartCount(count);
+    } catch (err) {
+      console.error("Failed to fetch cart count", err);
+    }
+  };
+
   useEffect(() => {
     fetchAccount();
+    fetchCartCount();
   }, [accountId, currentLocationId]);
+
+  const handleClearCart = async () => {
+    if (!accountId || !currentLocationId) return;
+    setActionLoading(true);
+    try {
+      await cartService.clearCart(accountId, currentLocationId);
+      setCartCount(0);
+      showToast('Cart cleared successfully', 'success');
+    } catch (err: any) {
+      console.error("Failed to clear cart", err);
+      showToast(err.message || 'Failed to clear cart', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -583,7 +612,14 @@ export const AccountDetail = () => {
         }
       />
 
-      <AccountSummary account={account} onStoreClick={handleAddSubscription} selectedProfileId={selectedProfileId} onToggleNotification={handleToggleNotification} />
+      <AccountSummary 
+        account={account} 
+        onStoreClick={handleAddSubscription} 
+        selectedProfileId={selectedProfileId} 
+        onToggleNotification={handleToggleNotification} 
+        cartCount={cartCount}
+        onClearCart={handleClearCart}
+      />
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Left Panel: Profile List */}

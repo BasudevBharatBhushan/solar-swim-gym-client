@@ -9,16 +9,19 @@ import {
   CardContent,
   Stack,
   FormControl,
+  FormControlLabel,
   InputLabel,
   Select,
   MenuItem,
   Tooltip,
   Chip,
   Avatar,
+  Checkbox,
   useTheme,
   useMediaQuery
 } from '@mui/material';
-import { Person, ChildCare, ContentCopy, Star, ContactEmergency } from '@mui/icons-material';
+import { Person, ChildCare, ContentCopy, Star, ContactEmergency }
+from '@mui/icons-material';
 import { useConfig } from '../../../../context/ConfigContext';
 import { getAgeGroup, getAgeRangeLabel, calculateAge } from '../../../../lib/ageUtils';
 
@@ -27,6 +30,15 @@ interface FamilyMember {
     last_name: string;
     date_of_birth: string | null;
     email?: string;
+    mobile?: string;
+    gender?: string;
+    // Address
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    state?: string;
+    zip_code?: string;
+    country?: string;
     // Waiver / Program
     waiver_program_id?: string | null;
     case_manager_name?: string;
@@ -34,8 +46,9 @@ interface FamilyMember {
     // Minor Fields
     guardian_name?: string;
     guardian_mobile?: string;
-    emergency_phone?: string;
-    gender?: string;
+    emergency_contact_name?: string;
+    emergency_contact_phone?: string;
+    use_primary_info?: boolean;
 }
 
 interface FamilyStepProps {
@@ -83,6 +96,34 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
       if (!dob) return false;
       const age = calculateAge(dob);
       return age < 18;
+  };
+
+  const handleTogglePrimaryInfo = (index: number, checked: boolean) => {
+      const updated = [...data];
+      if (checked) {
+          updated[index] = {
+              ...updated[index],
+              use_primary_info: true,
+              address_line1: primaryData.address_line1,
+              address_line2: primaryData.address_line2,
+              city: primaryData.city,
+              state: primaryData.state,
+              zip_code: primaryData.zip_code,
+              country: primaryData.country,
+              mobile: primaryData.mobile,
+              email: primaryData.email,
+              emergency_contact_name: primaryData.emergency_contact_name,
+              emergency_contact_phone: primaryData.emergency_contact_phone,
+              guardian_name: `${primaryData.first_name} ${primaryData.last_name}`,
+              guardian_mobile: primaryData.mobile
+          };
+      } else {
+          updated[index] = {
+              ...updated[index],
+              use_primary_info: false
+          };
+      }
+      updateData(updated);
   };
 
   const copyPrimaryToGuardian = (index: number) => {
@@ -409,6 +450,53 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                             </FormControl>
                         </Grid>
 
+                        <Grid size={{ xs: 12, sm: 12 }}>
+                            <Box sx={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: 1, 
+                                mb: 1, 
+                                mt: 1,
+                                bgcolor: '#f1f5f9',
+                                p: 1.5,
+                                borderRadius: 2
+                            }}>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox 
+                                            size="small"
+                                            checked={member.use_primary_info || false} 
+                                            onChange={(e) => handleTogglePrimaryInfo(index, e.target.checked)}
+                                        />
+                                    }
+                                    label={
+                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#475569' }}>
+                                            Same address and contact info as primary member
+                                        </Typography>
+                                    }
+                                    sx={{ m: 0 }}
+                                />
+                            </Box>
+                        </Grid>
+
+                        <Grid size={{ xs: 12 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                                Address & Contact Information
+                            </Typography>
+                        </Grid>
+
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                             <TextField 
+                                label="Mobile (Optional)"
+                                placeholder="(555) 123-4567"
+                                size="small"
+                                fullWidth
+                                value={member.mobile || ''}
+                                onChange={(e) => handleChange(index, 'mobile', e.target.value)}
+                                slotProps={{ inputLabel: { shrink: true } }}
+                            />
+                        </Grid>
+
                         <Grid size={{ xs: 12, sm: 6 }}>
                              <TextField 
                                 label="Email (Optional)"
@@ -420,6 +508,37 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 onChange={(e) => handleChange(index, 'email', e.target.value)}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
+                        </Grid>
+
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField label="Address Line 1" size="small" fullWidth value={member.address_line1 || ''} onChange={(e) => handleChange(index, 'address_line1', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField label="Address Line 2" placeholder="Apt, Suite, etc." size="small" fullWidth value={member.address_line2 || ''} onChange={(e) => handleChange(index, 'address_line2', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField label="City" size="small" fullWidth value={member.city || ''} onChange={(e) => handleChange(index, 'city', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField label="State" size="small" fullWidth value={member.state || ''} onChange={(e) => handleChange(index, 'state', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField label="Zip Code" size="small" fullWidth value={member.zip_code || ''} onChange={(e) => handleChange(index, 'zip_code', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                            <TextField label="Country" size="small" fullWidth value={member.country || 'USA'} onChange={(e) => handleChange(index, 'country', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+                        </Grid>
+
+                        <Grid size={{ xs: 12 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em', textTransform: 'uppercase', mt: 1, display: 'block' }}>
+                                Emergency Contact
+                            </Typography>
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField label="Emergency Name" size="small" fullWidth value={member.emergency_contact_name || ''} onChange={(e) => handleChange(index, 'emergency_contact_name', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+                        </Grid>
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <TextField label="Emergency Phone" size="small" fullWidth value={member.emergency_contact_phone || ''} onChange={(e) => handleChange(index, 'emergency_contact_phone', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
                         </Grid>
 
                         {/* Waiver Program Selection */}
@@ -484,23 +603,25 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 <Box sx={{ bgcolor: '#f8fafc', p: 3, borderRadius: 2, border: '1px solid #e2e8f0' }}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                         <Typography variant="caption" sx={{ fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                            Guardian & Emergency Contact
+                                            Guardian Info
                                         </Typography>
-                                        <Tooltip title="Copy name and mobile from Primary Member">
-                                            <Button 
-                                                variant="outlined"
-                                                size="small" 
-                                                startIcon={<ContentCopy fontSize="inherit" />} 
-                                                onClick={() => copyPrimaryToGuardian(index)}
-                                                sx={{ fontSize: '0.65rem', textTransform: 'none', py: 0.5, borderRadius: 1.5 }}
-                                            >
-                                                Copy Primary Info
-                                            </Button>
-                                        </Tooltip>
+                                        {!member.use_primary_info && (
+                                            <Tooltip title="Copy name and mobile from Primary Member">
+                                                <Button 
+                                                    variant="outlined"
+                                                    size="small" 
+                                                    startIcon={<ContentCopy fontSize="inherit" />} 
+                                                    onClick={() => copyPrimaryToGuardian(index)}
+                                                    sx={{ fontSize: '0.65rem', textTransform: 'none', py: 0.5, borderRadius: 1.5 }}
+                                                >
+                                                    Copy Primary Info
+                                                </Button>
+                                            </Tooltip>
+                                        )}
                                     </Box>
                                     
                                     <Grid container spacing={2}>
-                                        <Grid size={{ xs: 12, sm: 4 }}>
+                                        <Grid size={{ xs: 12, sm: 6 }}>
                                             <TextField 
                                                 label="Guardian Name"
                                                 placeholder="Full Name"
@@ -512,7 +633,7 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                                 slotProps={{ inputLabel: { shrink: true } }}
                                             />
                                         </Grid>
-                                        <Grid size={{ xs: 12, sm: 4 }}>
+                                        <Grid size={{ xs: 12, sm: 6 }}>
                                             <TextField 
                                                 label="Guardian Mobile"
                                                 placeholder="(555) 123-4567"
@@ -521,18 +642,6 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                                 required
                                                 value={member.guardian_mobile || ''}
                                                 onChange={(e) => handleChange(index, 'guardian_mobile', e.target.value)}
-                                                slotProps={{ inputLabel: { shrink: true } }}
-                                            />
-                                        </Grid>
-                                        <Grid size={{ xs: 12, sm: 4 }}>
-                                            <TextField 
-                                                label="Emergency Phone"
-                                                placeholder="(555) 999-9999"
-                                                size="small"
-                                                fullWidth
-                                                required
-                                                value={member.emergency_phone || ''}
-                                                onChange={(e) => handleChange(index, 'emergency_phone', e.target.value)}
                                                 slotProps={{ inputLabel: { shrink: true } }}
                                             />
                                         </Grid>

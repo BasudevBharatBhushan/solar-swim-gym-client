@@ -167,6 +167,18 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
 
         <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
+                Emergency Contact
+            </Typography>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField label="Emergency Name" size="small" fullWidth value={data.emergency_contact_name || ''} onChange={e => updateData('emergency_contact_name', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField label="Emergency Phone" size="small" fullWidth value={data.emergency_contact_phone || ''} onChange={e => updateData('emergency_contact_phone', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+        </Grid>
+
+        <Grid size={{ xs: 12 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
                 Address Information
             </Typography>
         </Grid>

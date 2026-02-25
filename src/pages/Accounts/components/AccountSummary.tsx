@@ -13,9 +13,10 @@ interface AccountSummaryProps {
   onStoreClick?: () => void;
   selectedProfileId?: string | null;
   onToggleNotification?: (field: 'notify_primary_member' | 'notify_guardian', value: boolean) => Promise<void>;
+  cartCount?: number;
 }
 
-export const AccountSummary = ({ account, onStoreClick, selectedProfileId, onToggleNotification }: AccountSummaryProps) => {
+export const AccountSummary = ({ account, onStoreClick, selectedProfileId, onToggleNotification, cartCount = 0 }: AccountSummaryProps) => {
   const [togglingField, setTogglingField] = useState<string | null>(null);
 
   const handleNotificationToggle = async (field: 'notify_primary_member' | 'notify_guardian', currentValue: boolean) => {
@@ -199,42 +200,48 @@ export const AccountSummary = ({ account, onStoreClick, selectedProfileId, onTog
           <Box 
             sx={{ 
               display: 'flex', 
-              flexDirection: 'row', 
-              justifyContent: { xs: 'flex-start', md: 'flex-end' },
-              alignItems: 'center',
-              height: '100%'
+              flexDirection: 'column', 
+              justifyContent: { xs: 'flex-start', md: 'center' },
+              alignItems: { xs: 'flex-start', md: 'flex-end' },
+              height: '100%',
+              gap: 0.5
             }}
           >
             <Tooltip title="Go to marketplace to purchase memberships or services" arrow>
                 <Button
-                    variant="contained"
-                    startIcon={<ShoppingCartIcon />}
-                    onClick={onStoreClick}
-                    sx={{
-                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                        color: 'white',
-                        fontWeight: 800,
-                        fontSize: '0.9rem',
-                        textTransform: 'none',
-                        px: 4,
-                        py: 1.5,
-                        borderRadius: '12px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
-                        boxShadow: 'none',
-                        '&:hover': {
-                            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                            transform: 'translateY(-2px)',
+                        variant="contained"
+                        startIcon={<ShoppingCartIcon />}
+                        onClick={onStoreClick}
+                        sx={{
+                            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                            color: 'white',
+                            fontWeight: 800,
+                            fontSize: '0.9rem',
+                            textTransform: 'none',
+                            px: 4,
+                            py: 1.5,
+                            borderRadius: '12px',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
                             boxShadow: 'none',
-                        },
-                        '&:active': {
-                            transform: 'translateY(0)',
-                        },
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    }}
-                >
-                    Store
-                </Button>
+                            '&:hover': {
+                                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                                transform: 'translateY(-2px)',
+                                boxShadow: 'none',
+                            },
+                            '&:active': {
+                                transform: 'translateY(0)',
+                            },
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        }}
+                    >
+                        Store
+                    </Button>
             </Tooltip>
+            {cartCount > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mr: 1 }}>
+                    {cartCount} item(s) in cart
+                </Typography>
+            )}
           </Box>
         </Grid>
       </Grid>

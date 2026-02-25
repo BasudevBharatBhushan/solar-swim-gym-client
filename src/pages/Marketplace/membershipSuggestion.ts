@@ -82,8 +82,8 @@ const activeFeeAmount = (category: MembershipCategory, feeType: 'JOINING' | 'ANN
   return fee?.amount;
 };
 
-export const classifyAgeFromDob = (dob: string | Date, ageGroups: AgeGroup[]): string | null => {
-  const match = getAgeGroup(dob, ageGroups, 'Membership');
+export const classifyAgeFromDob = (dob: string | Date, ageGroups: AgeGroup[], category: 'Membership' | 'Service' = 'Membership'): string | null => {
+  const match = getAgeGroup(dob, ageGroups, category);
   return (match as any)?.age_group_id || match?.id || null;
 };
 

@@ -114,6 +114,7 @@ interface ServiceWithPacks {
     service_type?: string;
     image_url?: string;
     packs?: ServicePackWithPrices[];
+    LessonRegistrationFee?: number;
 }
 
 interface BasePlanCard {
@@ -296,7 +297,7 @@ export const Marketplace = () => {
                             return {
                                 id: metadata.id || `CART-${i.cart_id}`,
                                 cart_id: i.cart_id,
-                                type: metadata.type || (i.subscription_type === 'SERVICE' ? 'SERVICE' : 'MEMBERSHIP'),
+                                type: metadata.type || (i.subscription_type === 'SERVICE' ? 'SERVICE' : (i.subscription_type === 'LESSON_REGISTRATION_FEE' ? 'REGISTRATION_FEE' : 'MEMBERSHIP')),
                                 referenceId: i.reference_id,
                                 name: metadata.name || 'Unknown Item',
                                 price: i.total_amount,
@@ -597,6 +598,20 @@ export const Marketplace = () => {
     }, [basePlanCards, selectedMembershipAgeGroupIds]);
 
     const baseCartItems = useMemo(() => cart.filter((item) => item.type === 'BASE'), [cart]);
+    
+    // Aggregated coverage from all BASE items in the cart
+    const aggregatedBaseCoverage = useMemo(() => {
+        const profileMap = new Map<string, CoverageProfile>();
+        baseCartItems.forEach((item) => {
+            item.coverage?.forEach((p) => {
+                if (!profileMap.has(p.profile_id)) {
+                    profileMap.set(p.profile_id, p);
+                }
+            });
+        });
+        return Array.from(profileMap.values()).sort((a, b) => a.profile_id.localeCompare(b.profile_id));
+    }, [baseCartItems]);
+
     const householdCounts = useMemo(() => buildHouseholdCountsFromBaseCart(baseCartItems, ageGroups), [baseCartItems, ageGroups]);
     const missingDobProfileIds = useMemo(() => getBaseCartMissingDobProfileIds(baseCartItems), [baseCartItems]);
 
@@ -633,49 +648,92 @@ export const Marketplace = () => {
 
     // Auto-add or updated suggested membership plan
     useEffect(() => {
-        if (manualMembershipOverride || !suggestedCandidate || baseCartItems.length === 0 || missingDobProfileIds.length > 0) {
-            return;
-        }
-
-        const existingMembershipItem = cart.find(item => item.type === 'MEMBERSHIP');
-        
-        // If no membership fee item in cart, add the suggested one
-        if (!existingMembershipItem) {
-            const membershipItem: CartItem = {
-                id: `MEMBERSHIP-${suggestedCandidate.categoryId}-JOINING-${Date.now()}`,
-                type: 'MEMBERSHIP',
-                referenceId: suggestedCandidate.categoryId,
-                membershipCategoryId: suggestedCandidate.categoryId,
-                membershipProgramId: suggestedCandidate.programId,
-                feeType: 'JOINING',
-                name: `${suggestedCandidate.programName} - ${suggestedCandidate.categoryName} (JOINING)`,
-                price: suggestedCandidate.joiningFee || 0,
-                membershipRange: suggestedCandidate.range,
-            };
-            setCart(prev => [...prev, membershipItem]);
-        } else {
-            // Update existing membership fee if it's different from suggested (and not manually overridden)
-            if (existingMembershipItem.membershipCategoryId !== suggestedCandidate.categoryId) {
-                setCart(prev => prev.map(item => {
-                    if (item.type === 'MEMBERSHIP') {
-                        const feeType = item.feeType || 'JOINING';
-                        const price = feeType === 'JOINING' ? suggestedCandidate.joiningFee : suggestedCandidate.annualFee;
-                        return {
-                            ...item,
-                            id: `MEMBERSHIP-${suggestedCandidate.categoryId}-${feeType}-${Date.now()}`,
-                            referenceId: suggestedCandidate.categoryId,
-                            membershipCategoryId: suggestedCandidate.categoryId,
-                            membershipProgramId: suggestedCandidate.programId,
-                            name: `${suggestedCandidate.programName} - ${suggestedCandidate.categoryName} (${feeType})`,
-                            price: price || 0,
-                            membershipRange: suggestedCandidate.range,
-                        };
-                    }
-                    return item;
-                }));
+        const syncMembership = async () => {
+            if (manualMembershipOverride || !suggestedCandidate || baseCartItems.length === 0 || missingDobProfileIds.length > 0) {
+                return;
             }
-        }
-    }, [suggestedCandidate, baseCartItems.length, manualMembershipOverride]);
+
+            const existingMembershipItem = cart.find(item => item.type === 'MEMBERSHIP');
+            
+            // Helper to get a stable comparison string for coverage
+            const getCoverageSig = (coverage?: CoverageProfile[]) => 
+                (coverage || []).map(c => c.profile_id).sort().join(',');
+
+            const aggregatedSig = getCoverageSig(aggregatedBaseCoverage);
+
+            // If no membership fee item in cart, add the suggested one
+            if (!existingMembershipItem) {
+                const membershipItem: CartItem = {
+                    id: `MEMBERSHIP-${suggestedCandidate.categoryId}-JOINING-${Date.now()}`,
+                    type: 'MEMBERSHIP',
+                    referenceId: suggestedCandidate.categoryId,
+                    membershipCategoryId: suggestedCandidate.categoryId,
+                    membershipProgramId: suggestedCandidate.programId,
+                    feeType: 'JOINING',
+                    name: `${suggestedCandidate.programName} - ${suggestedCandidate.categoryName} (JOINING)`,
+                    price: suggestedCandidate.joiningFee || 0,
+                    membershipRange: suggestedCandidate.range,
+                    coverage: aggregatedBaseCoverage,
+                };
+
+                // Persist if we have account/location
+                if (accountId && currentLocationId) {
+                    try {
+                        const dbPayload = cartService.transformToCartData(membershipItem, accountId, currentLocationId);
+                        const saved = await cartService.upsertItem(dbPayload, currentLocationId);
+                        membershipItem.cart_id = saved.cart_id;
+                    } catch (err) {
+                        console.error('Failed to auto-add membership to server:', err);
+                    }
+                }
+                
+                setCart(prev => [...prev, membershipItem]);
+            } else {
+                // Update existing membership fee if it's different from suggested (and not manually overridden)
+                // or if the coverage is out of sync
+                const needsCategoryUpdate = existingMembershipItem.membershipCategoryId !== suggestedCandidate.categoryId;
+                const needsCoverageUpdate = getCoverageSig(existingMembershipItem.coverage) !== aggregatedSig;
+
+                if (needsCategoryUpdate || needsCoverageUpdate) {
+                    const feeType = existingMembershipItem.feeType || 'JOINING';
+                    const price = feeType === 'JOINING' ? suggestedCandidate.joiningFee : suggestedCandidate.annualFee;
+                    
+                    const updatedItem: CartItem = {
+                        ...existingMembershipItem,
+                        id: needsCategoryUpdate ? `MEMBERSHIP-${suggestedCandidate.categoryId}-${feeType}-${Date.now()}` : existingMembershipItem.id,
+                        referenceId: suggestedCandidate.categoryId,
+                        membershipCategoryId: suggestedCandidate.categoryId,
+                        membershipProgramId: suggestedCandidate.programId,
+                        name: `${suggestedCandidate.programName} - ${suggestedCandidate.categoryName} (${feeType})`,
+                        price: needsCategoryUpdate ? (price || 0) : existingMembershipItem.price,
+                        membershipRange: suggestedCandidate.range,
+                        coverage: aggregatedBaseCoverage,
+                    };
+
+                    // Persist if we have account/location
+                    if (accountId && currentLocationId) {
+                        try {
+                            const dbPayload = cartService.transformToCartData(updatedItem, accountId, currentLocationId);
+                            if (updatedItem.cart_id) dbPayload.cart_id = updatedItem.cart_id;
+                            const saved = await cartService.upsertItem(dbPayload, currentLocationId);
+                            updatedItem.cart_id = saved.cart_id;
+                        } catch (err) {
+                            console.error('Failed to auto-update membership on server:', err);
+                        }
+                    }
+
+                    setCart(prev => prev.map(item => {
+                        if (item.type === 'MEMBERSHIP') {
+                            return updatedItem;
+                        }
+                        return item;
+                    }));
+                }
+            }
+        };
+
+        syncMembership();
+    }, [suggestedCandidate, baseCartItems.length, manualMembershipOverride, aggregatedBaseCoverage, accountId, currentLocationId]);
 
     const toggleSection = (sectionId: string) => {
         setActiveSections((prev) =>
@@ -691,6 +749,8 @@ export const Marketplace = () => {
         return [...cart].sort((a, b) => {
             if (a.type === 'MEMBERSHIP' && b.type !== 'MEMBERSHIP') return 1;
             if (a.type !== 'MEMBERSHIP' && b.type === 'MEMBERSHIP') return -1;
+            if (a.type === 'REGISTRATION_FEE' && b.type === 'SERVICE') return 1;
+            if (a.type === 'SERVICE' && b.type === 'REGISTRATION_FEE') return -1;
             return 0;
         });
     }, [cart]);
@@ -1007,6 +1067,7 @@ export const Marketplace = () => {
 
     const openCoverageDialogForItem = (item: CartItem) => {
         const existing = cart.find((cartItem) => cartItem.id === item.id);
+        const ageCategory = (item.type === 'SERVICE' || item.type === 'REGISTRATION_FEE') ? 'Service' : 'Membership';
         setPendingItem(item);
 
         const initialSelection = existing?.coverage?.map((profile) => profile.profile_id) || (primaryProfileId ? [primaryProfileId] : []);
@@ -1020,8 +1081,8 @@ export const Marketplace = () => {
 
             if (item.type === 'BASE' && item.ageGroupId) {
                 if (profile.date_of_birth) {
-                    const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups);
-                    const matchedGroup = ageGroups.find((group) => group.name === ageGroupName);
+                    const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups, ageCategory);
+                    const matchedGroup = ageGroups.find((group) => group.name === ageGroupName && group.age_group_category === ageCategory);
                     if (matchedGroup?.age_group_id !== item.ageGroupId) {
                         isAllowed = false;
                     }
@@ -1030,7 +1091,7 @@ export const Marketplace = () => {
                 }
             } else if (item.type === 'MEMBERSHIP' && item.membershipRange) {
                 if (profile.date_of_birth) {
-                    const ageGroupId = classifyAgeFromDob(profile.date_of_birth, ageGroups);
+                    const ageGroupId = classifyAgeFromDob(profile.date_of_birth, ageGroups, ageCategory);
                     const range = item.membershipRange;
                     const maxAllowed = ageGroupId ? range[ageGroupId]?.max : 0;
                     if (maxAllowed === 0) {
@@ -1069,10 +1130,12 @@ export const Marketplace = () => {
             return;
         }
 
+        const ageCategory = (pendingItem.type === 'SERVICE' || pendingItem.type === 'REGISTRATION_FEE') ? 'Service' : 'Membership';
+
         const coverage: CoverageProfile[] = selectedProfileIds.map((profileId) => {
             const profile = profilesById.get(profileId);
             const ageGroup = profile?.date_of_birth
-                ? getAgeGroupName(profile.date_of_birth, ageGroups)
+                ? getAgeGroupName(profile.date_of_birth, ageGroups, ageCategory)
                 : 'Unknown';
 
             return {
@@ -1317,7 +1380,9 @@ export const Marketplace = () => {
                           : 'MEMBERSHIP_FEE'
                     : item.type === 'SERVICE'
                       ? 'SERVICE'
-                      : 'MEMBERSHIP_FEE',
+                      : item.type === 'REGISTRATION_FEE'
+                        ? 'LESSON_REGISTRATION_FEE'
+                        : 'MEMBERSHIP_FEE',
             reference_id: item.referenceId,
             subscription_term_id: item.subscriptionTermId || null,
             unit_price_snapshot: item.actualPrice ?? item.price,
@@ -1858,6 +1923,11 @@ export const Marketplace = () => {
                                                                     <Typography variant="body2" color="text.secondary">
                                                                         {service.name}
                                                                     </Typography>
+                                                                    {service.LessonRegistrationFee !== undefined && service.LessonRegistrationFee > 0 && (
+                                                                        <Typography variant="caption" sx={{ color: 'secondary.main', fontWeight: 600, display: 'block', mt: 0.5 }}>
+                                                                            Reg. Fee: {formatCurrency(service.LessonRegistrationFee)}
+                                                                        </Typography>
+                                                                    )}
                                                                 </Box>
                                                                 <Chip
                                                                     label={service.service_type || 'Service'}
@@ -2063,9 +2133,11 @@ export const Marketplace = () => {
                                                         ? { label: 'Service', color: '#1d4ed8', bgcolor: '#dbeafe' }
                                                         : item.type === 'MEMBERSHIP'
                                                         ? { label: 'Membership Plan', color: '#15803d', bgcolor: '#dcfce7' }
-                                                        : item.type === 'BASE' 
-                                                        ? { label: 'Membership Fee', color: '#c2410c', bgcolor: '#fff7ed' }
-                                                        : { label: item.type, color: '#475569', bgcolor: '#f1f5f9' };
+                                                         : item.type === 'BASE' 
+                                                         ? { label: 'Membership Fee', color: '#c2410c', bgcolor: '#fff7ed' }
+                                                         : item.type === 'REGISTRATION_FEE'
+                                                         ? { label: 'Registration Fee', color: '#7c3aed', bgcolor: '#f5f3ff' }
+                                                         : { label: item.type, color: '#475569', bgcolor: '#f1f5f9' };
                                                     return (
                                                         <Chip
                                                             label={badge.label.toUpperCase()}
@@ -2471,11 +2543,12 @@ export const Marketplace = () => {
                         {profiles.map((profile) => {
                             let isAllowed = true;
                             let restrictionReason = '';
+                            const ageCategory = (pendingItem?.type === 'SERVICE' || pendingItem?.type === 'REGISTRATION_FEE') ? 'Service' : 'Membership';
 
                             if (pendingItem?.type === 'BASE' && pendingItem.ageGroupId) {
                                 if (profile.date_of_birth) {
-                                    const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups);
-                                    const matchedGroup = ageGroups.find((group) => group.name === ageGroupName);
+                                    const ageGroupName = getAgeGroupName(profile.date_of_birth, ageGroups, ageCategory);
+                                    const matchedGroup = ageGroups.find((group) => group.name === ageGroupName && group.age_group_category === ageCategory);
                                     if (matchedGroup?.age_group_id !== pendingItem.ageGroupId) {
                                         isAllowed = false;
                                         restrictionReason = `Requires ${ageGroups.find(g => g.age_group_id === pendingItem.ageGroupId)?.name || 'different age group'}`;
@@ -2484,10 +2557,23 @@ export const Marketplace = () => {
                                     isAllowed = false;
                                     restrictionReason = 'Date of birth missing';
                                 }
+                            } else if (pendingItem?.type === 'MEMBERSHIP' && pendingItem.membershipRange) {
+                                if (profile.date_of_birth) {
+                                    const ageGroupId = classifyAgeFromDob(profile.date_of_birth, ageGroups, ageCategory);
+                                    const range = pendingItem.membershipRange;
+                                    const maxAllowed = ageGroupId ? range[ageGroupId]?.max : 0;
+                                    if (maxAllowed === 0) {
+                                        isAllowed = false;
+                                        restrictionReason = 'This profile is not eligible for this membership plan';
+                                    }
+                                } else {
+                                    isAllowed = false;
+                                    restrictionReason = 'Date of birth missing';
+                                }
                             }
 
                             // Rule: Disable if profile is already assigned a BASE or MEMBERSHIP plan in cart or active subscriptions
-                            if (isAllowed && pendingItem?.type === 'BASE') {
+                            if (isAllowed && (pendingItem?.type === 'BASE' || pendingItem?.type === 'MEMBERSHIP')) {
                                 const profileInCart = cart.some(item => 
                                     (item.type === 'BASE' || item.type === 'MEMBERSHIP') && 
                                     item.coverage?.some(c => c.profile_id === profile.profile_id) && 
@@ -2544,7 +2630,7 @@ export const Marketplace = () => {
                                                     )}
                                                 </Typography>
                                                 <Chip
-                                                    label={profile.date_of_birth ? getAgeGroupName(profile.date_of_birth, ageGroups) : 'Unknown'}
+                                                    label={profile.date_of_birth ? getAgeGroupName(profile.date_of_birth, ageGroups, ageCategory) : 'Unknown'}
                                                     size="small"
                                                     sx={{ 
                                                         height: 18, 

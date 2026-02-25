@@ -15,17 +15,20 @@ import {
   Chip,
   CircularProgress,
   Typography,
-  Tooltip
+  Tooltip,
+  Badge
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SyncIcon from '@mui/icons-material/Sync';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import { useNavigate } from 'react-router-dom';
 import { ClientOnboardingModal } from './ClientOnboarding/ClientOnboardingModal';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { crmService } from '../../services/crmService';
+import { cartService } from '../../services/cartService';
 import { Account } from '../../types';
 
 import { useAuth } from '../../context/AuthContext';
@@ -41,6 +44,7 @@ export const Accounts = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [cartCounts, setCartCounts] = useState<Record<string, number>>({});
   
   // Query State
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,6 +80,22 @@ export const Accounts = () => {
   useEffect(() => {
     fetchAccounts();
   }, [page, rowsPerPage, currentLocationId]);
+
+  useEffect(() => {
+    if (currentLocationId) {
+      cartService.getItems(currentLocationId)
+        .then(items => {
+          const counts: Record<string, number> = {};
+          items.forEach(item => {
+            if (item.account_id) {
+               counts[item.account_id] = (counts[item.account_id] || 0) + 1;
+            }
+          });
+          setCartCounts(counts);
+        })
+        .catch(console.error);
+    }
+  }, [currentLocationId, page, reindexing]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,6 +243,7 @@ export const Accounts = () => {
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Status</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Created Date</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Profiles</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="center">Cart</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -270,6 +291,19 @@ export const Accounts = () => {
                             </TableCell>
                             <TableCell>
                                 <Chip label={account.profiles?.length || 0} size="small" />
+                            </TableCell>
+                            <TableCell align="center">
+                                {(cartCounts[account.account_id] || 0) > 0 ? (
+                                    <Tooltip title={`${cartCounts[account.account_id]} item(s) in cart`}>
+                                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/admin/accounts/${account.account_id}/marketplace`); }}>
+                                            <Badge badgeContent={cartCounts[account.account_id]} color="error">
+                                                <ShoppingCartIcon color="action" />
+                                            </Badge>
+                                        </IconButton>
+                                    </Tooltip>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary">-</Typography>
+                                )}
                             </TableCell>
                             <TableCell align="right">
                                 <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/admin/accounts/${account.account_id}`); }}>

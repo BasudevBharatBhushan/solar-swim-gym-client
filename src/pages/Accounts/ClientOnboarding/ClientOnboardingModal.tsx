@@ -80,7 +80,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     heard_about_us: '',
     notify_primary_member: true,
     notify_guardian: true,
-    // ... other fields
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
   });
 
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
@@ -204,7 +205,15 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                   case_manager_email: m.case_manager_email || undefined,
                   guardian_name: m.guardian_name || undefined,
                   guardian_mobile: m.guardian_mobile || undefined,
-                  emergency_contact_phone: m.emergency_phone || undefined,
+                  emergency_contact_name: m.emergency_contact_name || undefined,
+                  emergency_contact_phone: m.emergency_contact_phone || undefined,
+                  address_line1: m.address_line1 || undefined,
+                  address_line2: m.address_line2 || undefined,
+                  city: m.city || undefined,
+                  state: m.state || undefined,
+                  zip_code: m.zip_code || undefined,
+                  country: m.country || undefined,
+                  mobile: m.mobile || undefined,
                   signed_waiver_id: signedWaivers[`family_${idx}`]
               }))
           };
@@ -247,6 +256,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       heard_about_us: '',
       notify_primary_member: true,
       notify_guardian: true,
+      emergency_contact_name: '',
+      emergency_contact_phone: '',
     });
     setFamilyMembers([]);
     setSignedWaivers({});
