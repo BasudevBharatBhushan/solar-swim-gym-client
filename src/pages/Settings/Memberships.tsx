@@ -247,6 +247,7 @@ export const Memberships = () => {
                   {
                       name: 'Individual',
                       is_active: true,
+                      min_18_plus_allowed: 0,
                       fees: [
                           { fee_type: 'JOINING', billing_cycle: 'ONE_TIME', amount: 0, is_active: true },
                           { fee_type: 'ANNUAL', billing_cycle: 'YEARLY', amount: 0, is_active: true }
@@ -319,6 +320,7 @@ export const Memberships = () => {
       const newCategory: MembershipCategory = {
           name: "New Category",
           is_active: true,
+          min_18_plus_allowed: 0,
           fees: [
               { fee_type: 'JOINING', billing_cycle: 'ONE_TIME', amount: 0, is_active: true },
               { fee_type: 'ANNUAL', billing_cycle: 'YEARLY', amount: 0, is_active: true }
@@ -369,8 +371,15 @@ export const Memberships = () => {
           return;
       }
 
-      // Validation: sum(min_i) must be <= members_allowed
+      // Validation: min_18_plus_allowed cannot exceed total members allowed
+      const min18Plus = Number(draftCategory.min_18_plus_allowed || 0);
       const totalAllowed = Number(draftCategory.members_allowed);
+      if (min18Plus > totalAllowed) {
+          setError(`Min 18+ members required (${min18Plus}) exceed total members allowed (${totalAllowed}) for this plan.`);
+          return;
+      }
+
+      // Validation: sum(min_i) must be <= members_allowed
       const rule = draftCategory.rules[0];
       let minSum = 0;
       let hasEmptyRule = false;
@@ -827,7 +836,8 @@ export const Memberships = () => {
                       <TextField
                         size="small"
                         type="number"
-                        value={minVal ?? ''}
+                        disabled={!readOnly && Number(categoryData.min_18_plus_allowed || 0) > 0 && (group.name.toLowerCase().includes('adult') || group.name.toLowerCase().includes('senior'))}
+                        value={(Number(categoryData.min_18_plus_allowed || 0) > 0 && (group.name.toLowerCase().includes('adult') || group.name.toLowerCase().includes('senior'))) ? 0 : (minVal ?? '')}
                         onChange={(e) => {
                           const raw = e.target.value;
                           if (raw === '') { updateDraftRule(0, minKey, ''); return; }
@@ -844,12 +854,12 @@ export const Memberships = () => {
                         sx={{
                           width: 70,
                           '& .MuiOutlinedInput-root': {
-                            bgcolor: '#f8fafc',
+                            bgcolor: (Number(categoryData.min_18_plus_allowed || 0) > 0 && (group.name.toLowerCase().includes('adult') || group.name.toLowerCase().includes('senior'))) ? '#f1f5f9' : '#f8fafc',
                             borderRadius: 2,
                             '& fieldset': { borderColor: '#cbd5e1 !important', borderWidth: '1px !important' },
                             '&:hover fieldset': { borderColor: '#94a3b8 !important' },
                             '&.Mui-focused fieldset': { borderColor: '#3b82f6 !important' },
-                            '& input': { textAlign: 'center', fontWeight: 800, fontSize: '0.9rem', py: 0.75 }
+                            '& input': { textAlign: 'center', fontWeight: 800, fontSize: '0.9rem', py: 0.75, color: (Number(categoryData.min_18_plus_allowed || 0) > 0 && (group.name.toLowerCase().includes('adult') || group.name.toLowerCase().includes('senior'))) ? '#94a3b8' : 'inherit' }
                           }
                         }}
                       />
@@ -907,41 +917,109 @@ export const Memberships = () => {
             <Typography variant="body2" sx={{ color: '#64748b' }}>
               Set the capacity and age-specific requirements for this plan.
             </Typography>
+            <Typography variant="body2" sx={{ mt: 1, color: Number(categoryData.min_18_plus_allowed || 0) > 0 ? '#1e40af' : '#64748b', fontWeight: 600 }}>
+                {Number(categoryData.min_18_plus_allowed || 0) > 0 
+                    ? `✓ Min 18+ allowed: ${categoryData.min_18_plus_allowed} (overrides adult/senior minima)` 
+                    : "ℹ No specific 18+ minimum override"}
+            </Typography>
           </Box>
 
-          {/* Total Members Allowed */}
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a', mb: 1.5 }}>
-              Total Members Allowed
-            </Typography>
-            {readOnly ? (
-              <Paper elevation={0} sx={{ px: 2, py: 1.5, borderRadius: 3, border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: 1.5, minWidth: 160 }}>
-                <Typography sx={{ fontSize: '1.1rem' }}>👥</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>{TOTAL}</Typography>
-              </Paper>
-            ) : (
-              <Box sx={{ maxWidth: 280 }}>
-                <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 3, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Typography sx={{ fontSize: '1.1rem' }}>👥</Typography>
-                  <TextField
-                    variant="standard"
-                    type="number"
-                    placeholder="e.g. 4"
-                    value={categoryData.members_allowed ?? ''}
-                    onChange={(e) => {
-                      const val = e.target.value === '' ? '' : Number(e.target.value);
-                      updateDraftField('members_allowed', val);
-                    }}
-                    InputProps={{ disableUnderline: true }}
-                    sx={{ flex: 1, '& input': { fontWeight: 800, fontSize: '1rem', color: '#0f172a' } }}
-                  />
-                </Paper>
-                <Typography variant="caption" sx={{ color: '#64748b', mt: 0.75, display: 'block', fontStyle: 'italic' }}>
-                  This defines the total seat capacity for the entire group plan.
+          {/* Total Members Allowed & Household Rules */}
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid size={{ xs: 12, md: 4 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a', mb: 1.5 }}>
+                  Total Members Allowed
                 </Typography>
-              </Box>
-            )}
-          </Box>
+                {readOnly ? (
+                  <Paper elevation={0} sx={{ px: 2, py: 1.5, borderRadius: 3, border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: 1.5, minWidth: 160 }}>
+                    <Typography sx={{ fontSize: '1.1rem' }}>👥</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a' }}>{TOTAL}</Typography>
+                  </Paper>
+                ) : (
+                  <Box>
+                    <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 3, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Typography sx={{ fontSize: '1.1rem' }}>👥</Typography>
+                      <TextField
+                        variant="standard"
+                        type="number"
+                        placeholder="e.g. 4"
+                        value={categoryData.members_allowed ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Number(e.target.value);
+                          updateDraftField('members_allowed', val);
+                        }}
+                        InputProps={{ disableUnderline: true }}
+                        sx={{ flex: 1, '& input': { fontWeight: 800, fontSize: '1rem', color: '#0f172a' } }}
+                      />
+                    </Paper>
+                  </Box>
+                )}
+            </Grid>
+
+            {/* Household Policy Fields */}
+            <Grid size={{ xs: 12, md: 4 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a', mb: 1.5 }}>
+                  Min 18+ Required
+                </Typography>
+                {readOnly ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                     <Chip 
+                        label={Number(categoryData.min_18_plus_allowed || 0) > 0 ? `${categoryData.min_18_plus_allowed}` : "NONE"} 
+                        size="small"
+                        sx={{ 
+                            fontWeight: 800, 
+                            bgcolor: Number(categoryData.min_18_plus_allowed || 0) > 0 ? '#eff6ff' : '#f8fafc',
+                            color: Number(categoryData.min_18_plus_allowed || 0) > 0 ? '#2563eb' : '#94a3b8',
+                            border: '1px solid',
+                            borderColor: Number(categoryData.min_18_plus_allowed || 0) > 0 ? '#3b82f6' : '#e2e8f0'
+                        }}
+                     />
+                     <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 500 }}>
+                        {Number(categoryData.min_18_plus_allowed || 0) > 0 ? "Bypasses Adult/Senior min" : "Standard age group scaling"}
+                     </Typography>
+                  </Box>
+                ) : (
+                  <Box>
+                    <Paper elevation={0} sx={{ px: 2, py: 1, borderRadius: 3, border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Typography sx={{ fontSize: '1.1rem' }}>🔞</Typography>
+                      <TextField
+                        variant="standard"
+                        type="number"
+                        placeholder="e.g. 1"
+                        value={categoryData.min_18_plus_allowed ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? '' : Number(e.target.value);
+                          const numVal = Number(val || 0);
+                          
+                          if (numVal > 0 && draftCategory?.rules[0]) {
+                            const rule = { ...draftCategory.rules[0] };
+                            const nextCondition = { ...rule.condition_json };
+                            
+                            ageGroups.forEach(g => {
+                                const isAdultOrSenior = (g.min_age !== undefined && g.min_age >= 18) || 
+                                                        (g.name && (g.name.toLowerCase().includes('adult') || g.name.toLowerCase().includes('senior')));
+                                if (isAdultOrSenior) {
+                                    nextCondition[`min_${g.age_group_id}`] = 0;
+                                }
+                            });
+                            
+                            setDraftCategory({
+                              ...draftCategory,
+                              min_18_plus_allowed: val,
+                              rules: [{ ...rule, condition_json: nextCondition }, ...draftCategory.rules.slice(1)]
+                            } as MembershipCategory);
+                          } else {
+                            updateDraftField('min_18_plus_allowed', val);
+                          }
+                        }}
+                        InputProps={{ disableUnderline: true }}
+                        sx={{ flex: 1, '& input': { fontWeight: 800, fontSize: '1rem', color: '#0f172a' } }}
+                      />
+                    </Paper>
+                  </Box>
+                )}
+            </Grid>
+          </Grid>
 
           {/* Age Group Cards */}
           <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -33,6 +33,7 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
     is_primary: false,
     guardian_name: '',
     guardian_mobile: '',
+    guardian_email: '',
     emergency_contact_name: '',
     emergency_contact_phone: '',
     waiver_program_id: '',
@@ -44,7 +45,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
     city: '',
     state: '',
     zip_code: '',
-    country: 'USA'
+    country: 'USA',
+    relationship: ''
   });
 
   useEffect(() => {
@@ -74,6 +76,7 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         is_primary: !!profile.is_primary,
         guardian_name: profile.guardian_name || '',
         guardian_mobile: profile.guardian_mobile || '',
+        guardian_email: profile.guardian_email || '',
         emergency_contact_name: profile.emergency_contact_name || '',
         emergency_contact_phone: profile.emergency_contact_phone || '',
         waiver_program_id: profile.waiver_program_id || '',
@@ -85,7 +88,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         city: profile.city || '',
         state: profile.state || '',
         zip_code: profile.zip_code || '',
-        country: profile.country || 'USA'
+        country: profile.country || 'USA',
+        relationship: profile.relationship || ''
       });
     } else {
       setFormData({
@@ -97,6 +101,7 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         is_primary: false,
         guardian_name: '',
         guardian_mobile: '',
+        guardian_email: '',
         emergency_contact_name: '',
         emergency_contact_phone: '',
         waiver_program_id: '',
@@ -108,7 +113,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         city: '',
         state: '',
         zip_code: '',
-        country: 'USA'
+        country: 'USA',
+        relationship: ''
       });
     }
   }, [profile, open]);
@@ -238,6 +244,17 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
+              name="relationship"
+              label="Relationship to Primary"
+              placeholder="e.g. Spouse, Child, Parent"
+              fullWidth
+              value={formData.relationship}
+              onChange={handleChange}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
               name="waiver_program_id"
               select
               label="Waiver Program"
@@ -354,6 +371,17 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
               label="Guardian Mobile"
               fullWidth
               value={formData.guardian_mobile}
+              onChange={handleChange}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <TextField
+              name="guardian_email"
+              label="Guardian Email"
+              type="email"
+              fullWidth
+              value={formData.guardian_email}
               onChange={handleChange}
               slotProps={{ inputLabel: { shrink: true } }}
             />

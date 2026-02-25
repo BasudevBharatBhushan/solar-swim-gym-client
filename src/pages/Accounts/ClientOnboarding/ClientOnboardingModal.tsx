@@ -92,6 +92,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     notify_guardian: true,
     guardian_name: '',
     guardian_mobile: '',
+    guardian_email: '',
     emergency_contact_phone: '',
   });
 
@@ -373,6 +374,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
               country: (profileData as any).country || 'USA',
               guardian_name: (profileData as any).guardian_name || null,
               guardian_mobile: (profileData as any).guardian_mobile || null,
+              guardian_email: (profileData as any).guardian_email || null,
               emergency_contact_phone: (profileData as any).emergency_contact_phone || null,
               waiver_program_id: (profileData as any).waiver_program_id || null,
               case_manager_name: (profileData as any).case_manager_name || null,
@@ -390,6 +392,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                   case_manager_email: m.case_manager_email || undefined,
                   guardian_name: m.guardian_name || undefined,
                   guardian_mobile: m.guardian_mobile || undefined,
+                  guardian_email: m.guardian_email || undefined,
                   emergency_contact_phone: m.emergency_contact_phone || undefined,
                   address_line1: m.address_line1 || undefined,
                   address_line2: m.address_line2 || undefined,
@@ -442,6 +445,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       notify_guardian: true,
       guardian_name: '',
       guardian_mobile: '',
+      guardian_email: '',
       emergency_contact_phone: '',
     });
     setFamilyMembers([]);

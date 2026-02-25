@@ -165,13 +165,33 @@ export const isCategoryEligible = (
   counts: HouseholdCounts, 
   range: RuleRange, 
   ageGroups: AgeGroup[],
-  membersAllowed?: number
+  membersAllowed?: number,
+  min18PlusAllowed?: number
 ): boolean => {
   // 1. Check total members against category limit if defined
   if (membersAllowed !== undefined && membersAllowed > 0) {
     const totalMembers = Object.values(counts).reduce((sum, count) => sum + count, 0);
     if (totalMembers > membersAllowed) {
       return false;
+    }
+  }
+
+  // Check min_18_plus_allowed constraint
+  if (min18PlusAllowed !== undefined && min18PlusAllowed > 0) {
+    let adultPlusCount = 0;
+    Object.keys(counts).forEach(ageGroupId => {
+      const g = ageGroups.find(ag => ag.age_group_id === ageGroupId);
+      if (g) {
+        const isAdultOrSenior = (g.min_age !== undefined && g.min_age >= 18) || 
+                                (g.name && (g.name.toLowerCase().includes('adult') || g.name.toLowerCase().includes('senior')));
+        if (isAdultOrSenior) {
+            adultPlusCount += counts[ageGroupId];
+        }
+      }
+    });
+
+    if (adultPlusCount < min18PlusAllowed) {
+        return false;
     }
   }
 
@@ -218,6 +238,10 @@ export const getAllCategoriesWithEligibility = (
             ? parseInt(category.members_allowed, 10)
             : category.members_allowed;
 
+          const min18PlusAllowed = typeof category.min_18_plus_allowed === 'string'
+            ? parseInt(category.min_18_plus_allowed, 10)
+            : category.min_18_plus_allowed;
+
           const range = extractCategoryRange(category, ageGroups);
 
           const candidate: CategoryCandidate = {
@@ -233,7 +257,7 @@ export const getAllCategoriesWithEligibility = (
 
           results.push({
             candidate,
-            eligible: isCategoryEligible(counts, range, ageGroups, membersAllowed),
+            eligible: isCategoryEligible(counts, range, ageGroups, membersAllowed, min18PlusAllowed),
             specificityScore: getSpecificityScore(range, ageGroups),
             totalFee: totalFeeForSort(candidate),
           });

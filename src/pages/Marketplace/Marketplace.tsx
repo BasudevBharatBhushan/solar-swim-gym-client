@@ -69,11 +69,9 @@ import {
 } from './membershipSuggestion';
 import { cartService } from '../../services/cartService';
 import { PaymentDialog } from './PaymentDialog';
-import { ContractsSigningDialog } from './ContractsSigningDialog';
 import { ServicePackSelectionDialog } from './ServicePackSelectionDialog';
 import { ManagerPasscodeDialog } from '../../components/Common/ManagerPasscodeDialog';
 import { ServicePackSelection, CartItem, CoverageProfile, AccountProfile } from '../../types/marketplace';
-import { waiverService, WaiverTemplate } from '../../services/waiverService';
 
 // Removed local CoverageProfile interface - using CartItem's structure or just relying on inference
 // Removed local AccountProfile interface - using shared types
@@ -196,9 +194,6 @@ export const Marketplace = () => {
     const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
     const [pendingServiceSelection, setPendingServiceSelection] = useState<ServicePackSelection | null>(null);
 
-    // Contract Signing State
-    const [contractsOpen, setContractsOpen] = useState(false);
-    const [activeTemplates, setActiveTemplates] = useState<WaiverTemplate[]>([]);
 
 
     const [itemDiscounts, setItemDiscounts] = useState<Record<string, ItemDiscountState>>({});
@@ -1552,37 +1547,53 @@ export const Marketplace = () => {
 
         setSubmitting(true);
         try {
-            // Collect unique service IDs and membership category IDs from the cart
-            const serviceIds = new Set<string>();
-            const membershipIds = new Set<string>();
-
-            cart.forEach(item => {
-                if (item.type === 'SERVICE' && item.serviceId) {
-                    serviceIds.add(item.serviceId);
-                } else if (item.type === 'MEMBERSHIP' && item.membershipCategoryId) {
-                    membershipIds.add(item.membershipCategoryId);
-                }
-            });
-
-            // Fetch all active waiver templates for the location
-            const response = await waiverService.getWaiverTemplates(currentLocationId);
+            // Directly create subscriptions and invoice as requested, skipping the waiver step
+            const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
             
-            // Filter templates that match the cart items
-            const requiredTemplates = response.data.filter((t: WaiverTemplate) => 
-                (t.is_active !== false) && 
-                ((t.service_id && serviceIds.has(t.service_id)) || 
-                 (t.membership_category_id && membershipIds.has(t.membership_category_id)))
-            );
+            // 1. Copy cart items to subscriptions
+            const subscriptionPromises = cart.map((item) => {
+                const payload = constructSubscriptionPayload(item);
+                return billingService.createSubscription(payload, currentLocationId || undefined);
+            });
+            
+            const subResponses = await Promise.all(subscriptionPromises);
+            
+            // Extract successfully created subscription IDs
+            const createdSubIds = subResponses
+                .map((res: any) => res?.data?.subscription_id || res?.subscription_id)
+                .filter(Boolean);
 
-            if (requiredTemplates.length > 0) {
-                setActiveTemplates(requiredTemplates);
-                setContractsOpen(true);
-            } else {
-                setPaymentOpen(true);
+            // 2. Create Invoice
+            if (createdSubIds.length > 0 && accountId && currentLocationId) {
+                try {
+                    const invoicePayload = {
+                        account_id: accountId,
+                        location_id: currentLocationId,
+                        total_amount: totalAmount,
+                        status: 'PENDING'
+                    };
+                    const invResponse = await billingService.createInvoice(invoicePayload, currentLocationId);
+                    const newInvoiceId = invResponse?.data?.invoice_id || invResponse?.invoice_id;
+                    
+                    // 3. Update Subscriptions with new invoice ID
+                    if (newInvoiceId) {
+                        await Promise.all(
+                            createdSubIds.map((subId: string) => 
+                                billingService.updateSubscriptionInvoice(subId, newInvoiceId!, currentLocationId)
+                            )
+                        );
+                    }
+                } catch (invErr) {
+                    console.error('Failed to create or link invoice:', invErr);
+                    // Non-blocking for the payment screen show
+                }
             }
+
+            // Show payment screen
+            setPaymentOpen(true);
         } catch (err) {
             console.error('Failed to prepare checkout:', err);
-            setMarketplaceError('Failed to verify required contracts. Please try again.');
+            setMarketplaceError('Failed to prepare invoice. Please try again.');
         } finally {
             setSubmitting(false);
         }
@@ -1859,7 +1870,7 @@ export const Marketplace = () => {
                                                                             onClick={() => handleStartAddBaseCard(card)}
                                                                             disabled={card.role === 'PRIMARY' && hasPrimaryInCart}
                                                                         >
-                                                                            {card.role === 'PRIMARY' && hasPrimaryInCart ? 'In Cart' : 'Add'}
+                                                                            Add
                                                                         </Button>
                                                                     </Box>
                                                                 </CardContent>
@@ -2998,20 +3009,6 @@ export const Marketplace = () => {
                 </DialogActions>
             </Dialog>
 
-            <ContractsSigningDialog 
-                open={contractsOpen}
-                onClose={() => setContractsOpen(false)}
-                cart={cart}
-                templates={activeTemplates}
-                primaryProfile={primaryMember}
-                locationId={currentLocationId!}
-                subscriptionTerms={subscriptionTerms}
-                companyConfig={{ name: 'Solar Swim Gym', address: '123 Main St' }} // Replace with actual company config if available
-                onSuccess={() => {
-                    setContractsOpen(false);
-                    setPaymentOpen(true);
-                }}
-            />
 
             <PaymentDialog
                 open={paymentOpen}
@@ -3022,48 +3019,6 @@ export const Marketplace = () => {
                 onSuccess={async () => {
                     setSubmitting(true);
                     try {
-                        const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
-                        
-                        // 1. Copy cart items to subscriptions
-                        const subscriptionPromises = cart.map((item) => {
-                            const payload = constructSubscriptionPayload(item);
-                            return billingService.createSubscription(payload, currentLocationId || undefined);
-                        });
-                        
-                        const subResponses = await Promise.all(subscriptionPromises);
-                        
-                        // Extract successfully created subscription IDs
-                        const createdSubIds = subResponses
-                            .map((res: any) => res?.data?.subscription_id || res?.subscription_id)
-                            .filter(Boolean);
-
-                        // 2. Create Invoice
-                        let newInvoiceId: string | null = null;
-                        if (createdSubIds.length > 0 && accountId && currentLocationId) {
-                            try {
-                                const invoicePayload = {
-                                    account_id: accountId,
-                                    location_id: currentLocationId,
-                                    total_amount: totalAmount,
-                                    status: 'PENDING'
-                                };
-                                const invResponse = await billingService.createInvoice(invoicePayload, currentLocationId);
-                                newInvoiceId = invResponse?.data?.invoice_id || invResponse?.invoice_id;
-                                
-                                // 3. Update Subscriptions with new invoice ID
-                                if (newInvoiceId) {
-                                    await Promise.all(
-                                        createdSubIds.map((subId: string) => 
-                                            billingService.updateSubscriptionInvoice(subId, newInvoiceId!, currentLocationId)
-                                        )
-                                    );
-                                }
-                            } catch (invErr) {
-                                console.error('Failed to create or link invoice:', invErr);
-                                // Non-blocking error for checkout
-                            }
-                        }
-
                         // 4. Clear server-side cart
                         if (accountId && currentLocationId) {
                             await cartService.clearCart(accountId, currentLocationId);
@@ -3076,8 +3031,8 @@ export const Marketplace = () => {
                         setPaymentOpen(false);
                         navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`);
                     } catch (err) {
-                        console.error('Checkout conversion failed:', err);
-                        setMarketplaceError('Payment successful, but failed to create subscriptions. Please contact staff.');
+                        console.error('Checkout finalization failed:', err);
+                        setMarketplaceError('Finalization failed. Please refresh the page.');
                         setPaymentOpen(false);
                     } finally {
                         setSubmitting(false);

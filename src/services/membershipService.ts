@@ -25,6 +25,7 @@ export interface MembershipCategory {
   name: string;
   is_active?: boolean;
   members_allowed?: number | string;
+  min_18_plus_allowed?: number | string;
   fees: MembershipFee[];
   rules: MembershipRule[];
 }
@@ -79,7 +80,17 @@ export const membershipService = {
   // Create or Update Membership Program
   saveMembershipProgram: async (programData: MembershipProgram, locationId?: string): Promise<MembershipProgram> => {
      const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-     return apiClient.post('/memberships', programData, options);
+     
+     // Sanitize categories to remove 'addon_allowed' which no longer exists in DB
+     const sanitizedData = {
+         ...programData,
+         categories: (programData.categories || []).map(cat => {
+             const { addon_allowed, ...rest } = (cat as any);
+             return rest;
+         })
+     };
+
+     return apiClient.post('/memberships', sanitizedData, options);
   },
 
   // Delete Membership Program

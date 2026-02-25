@@ -285,8 +285,8 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
       if (notifyGuardian) {
         // Guardian email: look for guardian_email on the profile or account email as fallback
         const guardianEmail =
-          (profile as any).guardian_email ||
-          (account?.profiles?.find((p: any) => p.is_primary) as any)?.guardian_email ||
+          profile.guardian_email ||
+          account?.profiles?.find((p: Profile) => p.is_primary)?.guardian_email ||
           null;
         if (guardianEmail && !recipients.includes(guardianEmail)) {
           recipients.push(guardianEmail);

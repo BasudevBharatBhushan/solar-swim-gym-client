@@ -4,7 +4,10 @@ export interface Profile {
   first_name: string;
   last_name: string;
   email: string | null;
+  phone?: string;
+  mobile?: string;
   date_of_birth?: string;
+  waiver_program_id?: string;
   waiver_program?: {
       code: string;
       name: string;
@@ -18,6 +21,13 @@ export interface Profile {
   state?: string;
   zip_code?: string;
   country?: string;
+  guardian_name?: string;
+  guardian_mobile?: string;
+  guardian_email?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  case_manager_name?: string;
+  case_manager_email?: string;
 }
 
 export interface Account {

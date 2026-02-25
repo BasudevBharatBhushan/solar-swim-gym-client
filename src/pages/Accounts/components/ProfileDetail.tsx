@@ -179,6 +179,16 @@ export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
                     faded={!na(profile.mobile)}
                 />
             </Grid>
+            {!profile.is_primary && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                    <DetailItem
+                        icon={<WcIcon fontSize="small" />}
+                        label="Relationship"
+                        value={na(profile.relationship) || 'Not specified'}
+                        faded={!na(profile.relationship)}
+                    />
+                </Grid>
+            )}
             <Grid size={{ xs: 12, sm: 6 }}>
                 <DetailItem
                     icon={<ShieldIcon fontSize="small" />}
@@ -251,6 +261,15 @@ export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
                                 icon={<ContactPhoneIcon fontSize="small" />}
                                 label="Guardian"
                                 value={`${profile.guardian_name}${profile.guardian_mobile ? ` · ${profile.guardian_mobile}` : ''}`}
+                            />
+                        </Grid>
+                    ) : null}
+                    {profile.guardian_email ? (
+                        <Grid size={{ xs: 12, sm: 6 }}>
+                            <DetailItem
+                                icon={<EmailIcon fontSize="small" />}
+                                label="Guardian Email"
+                                value={profile.guardian_email}
                             />
                         </Grid>
                     ) : null}

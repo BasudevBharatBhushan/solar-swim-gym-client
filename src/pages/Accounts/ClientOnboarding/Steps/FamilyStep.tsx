@@ -46,6 +46,7 @@ interface FamilyMember {
     // Minor Fields
     guardian_name?: string;
     guardian_mobile?: string;
+    guardian_email?: string;
     emergency_contact_phone?: string;
     use_primary_info?: boolean;
 }
@@ -114,7 +115,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
               email: primaryData.email,
               emergency_contact_phone: primaryData.emergency_contact_phone,
               guardian_name: `${primaryData.first_name} ${primaryData.last_name}`,
-              guardian_mobile: primaryData.mobile
+              guardian_mobile: primaryData.mobile,
+              guardian_email: primaryData.guardian_email
           };
       } else {
           updated[index] = {
@@ -131,6 +133,7 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
           ...updated[index],
           guardian_name: `${primaryData.first_name} ${primaryData.last_name}`,
           guardian_mobile: primaryData.mobile,
+          guardian_email: primaryData.guardian_email,
           emergency_contact_phone: primaryData.emergency_contact_phone
       };
       updateData(updated);
@@ -639,6 +642,20 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                             onChange={(e) => handleChange(index, 'guardian_mobile', e.target.value)}
                                             error={!!errors[index]?.guardian_mobile}
                                             helperText={errors[index]?.guardian_mobile}
+                                            slotProps={{ inputLabel: { shrink: true } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <TextField 
+                                            label="Guardian Email"
+                                            placeholder="guardian@example.com"
+                                            size="small"
+                                            type="email"
+                                            fullWidth
+                                            value={member.guardian_email || ''}
+                                            onChange={(e) => handleChange(index, 'guardian_email', e.target.value)}
+                                            error={!!errors[index]?.guardian_email}
+                                            helperText={errors[index]?.guardian_email}
                                             slotProps={{ inputLabel: { shrink: true } }}
                                         />
                                     </Grid>

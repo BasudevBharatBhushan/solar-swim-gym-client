@@ -10,7 +10,9 @@ import {
   MenuItem,
   IconButton,
   InputAdornment,
-  Chip
+  Chip,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import { useConfig } from '../../../../context/ConfigContext';
@@ -287,6 +289,18 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
+                label="Guardian Email"
+                size="small"
+                fullWidth
+                value={data.guardian_email || ''}
+                onChange={(e) => updateData('guardian_email', e.target.value)}
+                error={!!errors.guardian_email}
+                helperText={errors.guardian_email}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
                 label="Emergency Contact Phone"
                 size="small"
                 fullWidth
@@ -308,22 +322,40 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
           </Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel shrink>Primary Member Notifications</InputLabel>
-            <Select value={data.notify_primary_member !== false ? 'true' : 'false'} onChange={e => updateData('notify_primary_member', e.target.value === 'true')} label="Primary Member Notifications">
-              <MenuItem value="true">Enable Notifications</MenuItem>
-              <MenuItem value="false">Disable Notifications</MenuItem>
-            </Select>
-          </FormControl>
+          <Box sx={{ display: 'flex', alignItems: 'center', p: 1, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch 
+                  checked={data.notify_primary_member !== false} 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateData('notify_primary_member', e.target.checked)} 
+                />
+              }
+              label={
+                <Box>
+                  <Typography variant="body2" fontWeight={600}>Primary Member Notifications</Typography>
+                  <Typography variant="caption" color="text.secondary">Enable system notifications for primary member</Typography>
+                </Box>
+              }
+            />
+          </Box>
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
-          <FormControl fullWidth size="small">
-            <InputLabel shrink>Guardian Notifications</InputLabel>
-            <Select value={data.notify_guardian !== false ? 'true' : 'false'} onChange={e => updateData('notify_guardian', e.target.value === 'true')} label="Guardian Notifications">
-              <MenuItem value="true">Enable Notifications</MenuItem>
-              <MenuItem value="false">Disable Notifications</MenuItem>
-            </Select>
-          </FormControl>
+          <Box sx={{ display: 'flex', alignItems: 'center', p: 1, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch 
+                  checked={data.notify_guardian === true} 
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateData('notify_guardian', e.target.checked)} 
+                />
+              }
+              label={
+                <Box>
+                  <Typography variant="body2" fontWeight={600}>Guardian Notifications</Typography>
+                  <Typography variant="caption" color="text.secondary">Enable system notifications for guardian</Typography>
+                </Box>
+              }
+            />
+          </Box>
         </Grid>
 
         {/* Family count */}
