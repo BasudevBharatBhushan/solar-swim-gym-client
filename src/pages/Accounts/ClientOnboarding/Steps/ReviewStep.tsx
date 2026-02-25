@@ -43,7 +43,8 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMe
       const group = ageGroups.find(g => {
           const min = g.min_age ?? 0;
           const max = g.max_age ?? 999;
-          return age >= min && age <= max;
+          const categoryMatch = g.age_group_category ? g.age_group_category === 'Membership' : true;
+          return age >= min && age <= max && categoryMatch;
       });
       return group?.name || null;
   };
@@ -103,6 +104,26 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMe
                   <Typography variant="caption" display="block" color="text.secondary" sx={{ fontWeight: 700, mb: 0.5 }}>DATE OF BIRTH</Typography>
                   <Typography variant="body2" fontWeight={600} sx={{ color: '#334155' }}>{primaryProfile.date_of_birth || '-'}</Typography>
               </Grid>
+
+              {primaryProfile.guardian_name && (
+                <>
+                  <Grid size={{ xs: 12 }}>
+                    <Typography variant="caption" display="block" color="text.secondary" sx={{ fontWeight: 700, mt: 1 }}>GUARDIAN & EMERGENCY</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <Typography variant="caption" display="block" color="text.secondary">Guardian</Typography>
+                    <Typography variant="body2" fontWeight={600}>{primaryProfile.guardian_name}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <Typography variant="caption" display="block" color="text.secondary">Guardian Mobile</Typography>
+                    <Typography variant="body2" fontWeight={600}>{primaryProfile.guardian_mobile || 'N/A'}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <Typography variant="caption" display="block" color="text.secondary">Emergency Phone</Typography>
+                    <Typography variant="body2" fontWeight={600}>{primaryProfile.emergency_contact_phone || 'N/A'}</Typography>
+                  </Grid>
+                </>
+              )}
 
               {/* Primary Waiver/Case Manager */}
               {primaryProfile.waiver_program_id && (
@@ -168,15 +189,6 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMe
                                                 sx={{ height: 20, fontWeight: 800, fontSize: '0.6rem', bgcolor: '#f1f5f9', color: '#475569', textTransform: 'uppercase' }} 
                                             />
                                         )}
-                                        {isMinor && (
-                                            <Chip 
-                                                label="MINOR" 
-                                                size="small" 
-                                                color="info"
-                                                variant="outlined"
-                                                sx={{ height: 20, fontWeight: 800, fontSize: '0.6rem' }} 
-                                            />
-                                        )}
                                     </Stack>
                                 </Box>
 
@@ -227,7 +239,7 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({ primaryProfile, familyMe
                                                     </Grid>
                                                     <Grid size={{ xs: 12, sm: 4 }}>
                                                         <Typography variant="caption" color="text.secondary">Emergency Phone</Typography>
-                                                        <Typography variant="body2" fontWeight={600}>{member.emergency_phone}</Typography>
+                                                        <Typography variant="body2" fontWeight={600}>{member.emergency_contact_phone || 'N/A'}</Typography>
                                                     </Grid>
                                                 </Grid>
                                             </Box>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     Alert,
@@ -24,14 +24,12 @@ import {
     Radio,
     RadioGroup,
     Stack,
-    Tab,
     Table,
     TableBody,
     TableCell,
     TableContainer,
     TableHead,
     TableRow,
-    Tabs,
     Tooltip,
     TextField,
     Typography,
@@ -45,6 +43,8 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import StarIcon from '@mui/icons-material/Star';
 import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import RemoveShoppingCartIcon from '@mui/icons-material/RemoveShoppingCart';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { InputAdornment, MenuItem, Select, OutlinedInput } from '@mui/material';
 
 import { PageHeader } from '../../components/Common/PageHeader';
@@ -297,7 +297,12 @@ export const Marketplace = () => {
                             return {
                                 id: metadata.id || `CART-${i.cart_id}`,
                                 cart_id: i.cart_id,
-                                type: metadata.type || (i.subscription_type === 'SERVICE' ? 'SERVICE' : (i.subscription_type === 'LESSON_REGISTRATION_FEE' ? 'REGISTRATION_FEE' : 'MEMBERSHIP')),
+                                type: metadata.type || (
+                                    i.subscription_type === 'SERVICE' ? 'SERVICE' : 
+                                    i.subscription_type === 'LESSON_REGISTRATION_FEE' ? 'REGISTRATION_FEE' : 
+                                    i.subscription_type === 'MEMBERSHIP_FEE' ? 'BASE' :
+                                    'MEMBERSHIP'
+                                ),
                                 referenceId: i.reference_id,
                                 name: metadata.name || 'Unknown Item',
                                 price: i.total_amount,
@@ -318,12 +323,46 @@ export const Marketplace = () => {
                                 billing_period_end: i.billing_period_end,
                             };
                         });
-                        setCart(mappedCart);
+
+                        // Deduplicate Membership and Primary Base items from server if they exist
+                        const membershipItems = mappedCart.filter(i => i.type === 'MEMBERSHIP');
+                        const primaryBaseItems = mappedCart.filter(i => i.type === 'BASE' && (i.metadata?.role === 'PRIMARY' || i.name.includes('(PRIMARY)')));
+                        
+                        let deduplicatedCart = mappedCart;
+
+                        // 1. Deduplicate Membership Plans
+                        if (membershipItems.length > 1) {
+                            const STABLE_MEMBERSHIP_ID = 'MEMBERSHIP-PLAN-HOUSEHOLD';
+                            const bestItem = membershipItems.find(i => i.id === STABLE_MEMBERSHIP_ID) || membershipItems[0];
+                            deduplicatedCart = deduplicatedCart.filter(i => i.type !== 'MEMBERSHIP' || i.cart_id === bestItem.cart_id);
+                            membershipItems.forEach(item => {
+                                if (item.cart_id && item.cart_id !== bestItem.cart_id) {
+                                    cartService.removeItem(item.cart_id).catch(console.error);
+                                }
+                            });
+                        }
+
+                        // 2. Deduplicate Primary Base Fees
+                        if (primaryBaseItems.length > 1) {
+                            const bestItem = primaryBaseItems[0]; // Keep one
+                            deduplicatedCart = deduplicatedCart.filter(i => 
+                                !(i.type === 'BASE' && (i.metadata?.role === 'PRIMARY' || i.name.includes('(PRIMARY)'))) || 
+                                i.cart_id === bestItem.cart_id
+                            );
+                            primaryBaseItems.forEach((item, idx) => {
+                                if (idx > 0 && item.cart_id) {
+                                    cartService.removeItem(item.cart_id).catch(console.error);
+                                }
+                            });
+                        }
+
+                        setCart(deduplicatedCart);
 
                         // Populate itemDiscounts state from fetched items
                         const initialDiscounts: Record<string, ItemDiscountState> = {};
                         mappedCart.forEach(item => {
-                            if (item.discountCode || item.actualPrice !== undefined) {
+                            const hasRealDiscount = item.actualPrice !== undefined && Math.abs(item.actualPrice - item.price) > 0.01;
+                            if (item.discountCode || hasRealDiscount) {
                                 initialDiscounts[item.id] = {
                                     code: item.discountCode || '',
                                     codeStatus: item.discountCode ? 'valid' : 'idle',
@@ -527,6 +566,8 @@ export const Marketplace = () => {
 
                 const originalPrice = item.actualPrice ?? item.price;
                 const { amount, percentage } = parseDiscountValue(disc.value, originalPrice);
+                if (amount < 0.01) return item; // Don't apply $0 discounts
+                
                 const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
 
                 changed = true;
@@ -646,14 +687,19 @@ export const Marketplace = () => {
         return getSpecificityScore(suggestedCandidate.range, ageGroups);
     }, [suggestedCandidate, ageGroups]);
 
+    const syncInProgress = useRef(false);
     // Auto-add or updated suggested membership plan
     useEffect(() => {
         const syncMembership = async () => {
-            if (manualMembershipOverride || !suggestedCandidate || baseCartItems.length === 0 || missingDobProfileIds.length > 0) {
+            if (manualMembershipOverride || !suggestedCandidate || baseCartItems.length === 0 || missingDobProfileIds.length > 0 || syncInProgress.current) {
                 return;
             }
 
-            const existingMembershipItem = cart.find(item => item.type === 'MEMBERSHIP');
+            syncInProgress.current = true;
+            try {
+                // We use a stable ID for the household membership plan to prevent duplicates
+                const STABLE_MEMBERSHIP_ID = 'MEMBERSHIP-PLAN-HOUSEHOLD';
+                const existingMembershipItem = cart.find(item => item.type === 'MEMBERSHIP' || item.id === STABLE_MEMBERSHIP_ID);
             
             // Helper to get a stable comparison string for coverage
             const getCoverageSig = (coverage?: CoverageProfile[]) => 
@@ -661,10 +707,9 @@ export const Marketplace = () => {
 
             const aggregatedSig = getCoverageSig(aggregatedBaseCoverage);
 
-            // If no membership fee item in cart, add the suggested one
             if (!existingMembershipItem) {
                 const membershipItem: CartItem = {
-                    id: `MEMBERSHIP-${suggestedCandidate.categoryId}-JOINING-${Date.now()}`,
+                    id: STABLE_MEMBERSHIP_ID,
                     type: 'MEMBERSHIP',
                     referenceId: suggestedCandidate.categoryId,
                     membershipCategoryId: suggestedCandidate.categoryId,
@@ -687,7 +732,11 @@ export const Marketplace = () => {
                     }
                 }
                 
-                setCart(prev => [...prev, membershipItem]);
+                setCart(prev => {
+                    // Final check inside setCart to avoid race conditions
+                    if (prev.some(item => item.type === 'MEMBERSHIP' || item.id === STABLE_MEMBERSHIP_ID)) return prev;
+                    return [...prev, membershipItem];
+                });
             } else {
                 // Update existing membership fee if it's different from suggested (and not manually overridden)
                 // or if the coverage is out of sync
@@ -700,7 +749,7 @@ export const Marketplace = () => {
                     
                     const updatedItem: CartItem = {
                         ...existingMembershipItem,
-                        id: needsCategoryUpdate ? `MEMBERSHIP-${suggestedCandidate.categoryId}-${feeType}-${Date.now()}` : existingMembershipItem.id,
+                        id: STABLE_MEMBERSHIP_ID, // Ensure it stays stable
                         referenceId: suggestedCandidate.categoryId,
                         membershipCategoryId: suggestedCandidate.categoryId,
                         membershipProgramId: suggestedCandidate.programId,
@@ -722,15 +771,28 @@ export const Marketplace = () => {
                         }
                     }
 
-                    setCart(prev => prev.map(item => {
-                        if (item.type === 'MEMBERSHIP') {
-                            return updatedItem;
+                    setCart(prev => {
+                        const hasOtherMembership = prev.some(item => item.type === 'MEMBERSHIP' && item.id !== STABLE_MEMBERSHIP_ID && item.id !== existingMembershipItem.id);
+                        if (hasOtherMembership) {
+                            // If somehow multiple exist, collapse them
+                            const filtered = prev.filter(item => item.type !== 'MEMBERSHIP');
+                            return [...filtered, updatedItem];
                         }
-                        return item;
-                    }));
+                        return prev.map(item => {
+                            if (item.type === 'MEMBERSHIP' || item.id === STABLE_MEMBERSHIP_ID || item.id === existingMembershipItem.id) {
+                                return updatedItem;
+                            }
+                            return item;
+                        });
+                    });
                 }
             }
-        };
+        } catch (err) {
+            console.error('Error in syncMembership:', err);
+        } finally {
+            syncInProgress.current = false;
+        }
+    };
 
         syncMembership();
     }, [suggestedCandidate, baseCartItems.length, manualMembershipOverride, aggregatedBaseCoverage, accountId, currentLocationId]);
@@ -792,6 +854,12 @@ export const Marketplace = () => {
 
         return subHasPrimary;
     }, [cart, subscriptions]);
+
+    const hasPrimaryInCart = useMemo(() => {
+        return cart.some(item => 
+            item.type === 'BASE' && (item.metadata?.role === 'PRIMARY' || item.name.includes('(PRIMARY)'))
+        );
+    }, [cart]);
 
     /** Returns the discount state for an item, initialising if absent */
     const getItemDiscount = useCallback((itemId: string): ItemDiscountState => {
@@ -1002,6 +1070,29 @@ export const Marketplace = () => {
                 amount = parseFloat((originalPrice * (percentage / 100)).toFixed(2));
             }
             const discountedPrice = Math.max(0, parseFloat((originalPrice - amount).toFixed(2)));
+
+            if (amount < 0.01) {
+                // Restore original state if discount is negligible
+                setItemDiscounts(prev => ({
+                    ...prev,
+                    [itemId]: { 
+                        ...getItemDiscount(itemId), 
+                        manualAmount: '', 
+                        manualPercentage: '',
+                        code: '',
+                        codeStatus: 'idle'
+                    }
+                }));
+                return {
+                    ...item,
+                    actualPrice: undefined,
+                    price: originalPrice,
+                    discountAmount: undefined,
+                    discountPercentage: undefined,
+                    discountCode: undefined,
+                };
+            }
+
             const updatedItem = {
                 ...item,
                 actualPrice: originalPrice,
@@ -1162,22 +1253,51 @@ export const Marketplace = () => {
         if (accountId && currentLocationId) {
             Promise.all(itemsToProcess.map(async (nextItem) => {
                 const frontendId = nextItem.id;
-                const existingItem = cart.find(i => i.id === frontendId);
+                const isPrimaryBase = nextItem.type === 'BASE' && (nextItem.metadata?.role === 'PRIMARY' || nextItem.name.includes('(PRIMARY)'));
+                
+                // For singletons, we MUST find the existing cart_id to avoid creating duplicates on the backend
+                const existingItem = nextItem.cart_id 
+                    ? nextItem 
+                    : cart.find(i => {
+                        if (i.id === frontendId) return true;
+                        if (nextItem.type === 'MEMBERSHIP' && i.type === 'MEMBERSHIP') return true;
+                        if (isPrimaryBase && i.type === 'BASE' && (i.metadata?.role === 'PRIMARY' || i.name.includes('(PRIMARY)'))) return true;
+                        return false;
+                    });
+
                 const dbPayload = cartService.transformToCartData(nextItem, accountId, currentLocationId);
                 if (existingItem?.cart_id) {
                     dbPayload.cart_id = existingItem.cart_id;
+                    nextItem.cart_id = existingItem.cart_id; // Keep it in sync
                 }
+                
                 const savedItem = await cartService.upsertItem(dbPayload, currentLocationId);
                 return { ...nextItem, cart_id: savedItem.cart_id };
             })).then((savedItems) => {
                 setCart((prev) => {
                     let nextCart = [...prev];
                     savedItems.forEach(savedItem => {
-                        const existingIndex = nextCart.findIndex((cartItem) => cartItem.id === savedItem.id);
-                        if (existingIndex >= 0) {
-                            nextCart[existingIndex] = savedItem;
+                        // For MEMBERSHIP and PRIMARY BASE items, we enforce singleton behavior
+                        const isPrimaryBase = savedItem.type === 'BASE' && (savedItem.metadata?.role === 'PRIMARY' || savedItem.name.includes('(PRIMARY)'));
+                        
+                        if (savedItem.type === 'MEMBERSHIP' || isPrimaryBase) {
+                            const existingIndex = nextCart.findIndex((cartItem) => {
+                                if (savedItem.type === 'MEMBERSHIP') return cartItem.type === 'MEMBERSHIP';
+                                return cartItem.type === 'BASE' && (cartItem.metadata?.role === 'PRIMARY' || cartItem.name.includes('(PRIMARY)'));
+                            });
+                            
+                            if (existingIndex >= 0) {
+                                nextCart[existingIndex] = savedItem;
+                            } else {
+                                nextCart.push(savedItem);
+                            }
                         } else {
-                            nextCart.push(savedItem);
+                            const existingIndex = nextCart.findIndex((cartItem) => cartItem.id === savedItem.id);
+                            if (existingIndex >= 0) {
+                                nextCart[existingIndex] = savedItem;
+                            } else {
+                                nextCart.push(savedItem);
+                            }
                         }
                     });
                     return nextCart;
@@ -1190,11 +1310,25 @@ export const Marketplace = () => {
             setCart((prev) => {
                 let nextCart = [...prev];
                 itemsToProcess.forEach(nextItem => {
-                    const existingIndex = nextCart.findIndex((cartItem) => cartItem.id === nextItem.id);
-                    if (existingIndex >= 0) {
-                        nextCart[existingIndex] = nextItem;
+                    const isPrimaryBase = nextItem.type === 'BASE' && (nextItem.metadata?.role === 'PRIMARY' || nextItem.name.includes('(PRIMARY)'));
+                    
+                    if (nextItem.type === 'MEMBERSHIP' || isPrimaryBase) {
+                        const existingIndex = nextCart.findIndex((cartItem) => {
+                            if (nextItem.type === 'MEMBERSHIP') return cartItem.type === 'MEMBERSHIP';
+                            return cartItem.type === 'BASE' && (cartItem.metadata?.role === 'PRIMARY' || cartItem.name.includes('(PRIMARY)'));
+                        });
+                        if (existingIndex >= 0) {
+                            nextCart[existingIndex] = nextItem;
+                        } else {
+                            nextCart.push(nextItem);
+                        }
                     } else {
-                        nextCart.push(nextItem);
+                        const existingIndex = nextCart.findIndex((cartItem) => cartItem.id === nextItem.id);
+                        if (existingIndex >= 0) {
+                            nextCart[existingIndex] = nextItem;
+                        } else {
+                            nextCart.push(nextItem);
+                        }
                     }
                 });
                 return nextCart;
@@ -1294,8 +1428,9 @@ export const Marketplace = () => {
             return;
         }
 
+        const STABLE_MEMBERSHIP_ID = 'MEMBERSHIP-PLAN-HOUSEHOLD';
         const membershipItem: CartItem = {
-            id: `MEMBERSHIP-${pendingMembershipCandidate.categoryId}-${selectedFeeType}-${Date.now()}`,
+            id: STABLE_MEMBERSHIP_ID,
             type: 'MEMBERSHIP',
             referenceId: pendingMembershipCandidate.categoryId,
             membershipCategoryId: pendingMembershipCandidate.categoryId,
@@ -1396,9 +1531,9 @@ export const Marketplace = () => {
             unit_price_snapshot: item.actualPrice ?? item.price,
             total_amount: item.price,
             actual_total_amount: item.actualPrice ?? item.price,
-            discount_amount: item.discountAmount ?? 0,
-            discount_percentage: item.discountPercentage ?? 0,
-            discount_code: item.discountCode ?? '',
+            discount_amount: (item.discountAmount !== undefined && Math.abs(item.discountAmount) > 0.01) ? item.discountAmount : 0,
+            discount_percentage: (item.discountPercentage !== undefined && Math.abs(item.discountPercentage) > 0.1) ? item.discountPercentage : 0,
+            discount_code: (item.discountAmount !== undefined && Math.abs(item.discountAmount) > 0.01) ? (item.discountCode ?? '') : '',
             role: topLevelRole,
             status: 'ACTIVE',
             billing_period_start: item.billing_period_start || null,
@@ -1722,8 +1857,9 @@ export const Marketplace = () => {
                                                                             variant="contained"
                                                                             size="small"
                                                                             onClick={() => handleStartAddBaseCard(card)}
+                                                                            disabled={card.role === 'PRIMARY' && hasPrimaryInCart}
                                                                         >
-                                                                            Add
+                                                                            {card.role === 'PRIMARY' && hasPrimaryInCart ? 'In Cart' : 'Add'}
                                                                         </Button>
                                                                     </Box>
                                                                 </CardContent>
@@ -2068,23 +2204,49 @@ export const Marketplace = () => {
                             bgcolor: '#f8fafc',
                         }}
                     >
-                        <Box display="flex" alignItems="center" gap={1.5} mb={2.5}>
-                            <Box
-                                sx={{
-                                    bgcolor: 'primary.main',
-                                    color: 'white',
-                                    p: 1,
-                                    borderRadius: 2,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                            >
-                                <ShoppingCartIcon fontSize="small" />
+                        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2.5}>
+                            <Box display="flex" alignItems="center" gap={1.5}>
+                                <Box
+                                    sx={{
+                                        bgcolor: 'primary.main',
+                                        color: 'white',
+                                        p: 1,
+                                        borderRadius: 2,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <ShoppingCartIcon fontSize="small" />
+                                </Box>
+                                <Typography variant="h6" fontWeight={700}>
+                                    Selection Summary
+                                </Typography>
                             </Box>
-                            <Typography variant="h6" fontWeight={700}>
-                                Selection Summary
-                            </Typography>
+
+                            {cart.length > 0 && (
+                                <Tooltip title="Clear all items from the cart" arrow>
+                                    <Button
+                                        size="small"
+                                        color="error"
+                                        variant="outlined"
+                                        startIcon={<RemoveShoppingCartIcon />}
+                                        onClick={async () => {
+                                            try {
+                                                if (accountId && currentLocationId) {
+                                                    await cartService.clearCart(accountId, currentLocationId);
+                                                }
+                                                setCart([]);
+                                            } catch (err: any) {
+                                                console.error("Failed to clear cart", err);
+                                            }
+                                        }}
+                                        sx={{ textTransform: 'none', fontWeight: 600, px: 1.5, py: 0.5, borderRadius: 2 }}
+                                    >
+                                        Clear Cart
+                                    </Button>
+                                </Tooltip>
+                            )}
                         </Box>
 
                         {cart.length === 0 ? (
@@ -2110,7 +2272,7 @@ export const Marketplace = () => {
                                 <Stack spacing={2} sx={{ mb: 3 }}>
                                     {sortedCart.map((item) => {
                                         const discState = getItemDiscount(item.id);
-                                        const hasDiscount = item.actualPrice !== undefined && item.actualPrice !== item.price;
+                                        const hasDiscount = item.actualPrice !== undefined && Math.abs(item.actualPrice - item.price) > 0.01;
                                         return (
                                         <Box
                                             key={item.id}
@@ -2123,15 +2285,32 @@ export const Marketplace = () => {
                                                 position: 'relative',
                                             }}
                                         >
-                                            <IconButton
-                                                size="small"
-                                                onClick={() => removeFromCart(item.id)}
-                                                sx={{ position: 'absolute', top: 8, right: 8, color: 'text.disabled' }}
-                                            >
-                                                <Typography variant="caption" sx={{ fontSize: '14px' }}>
-                                                    x
-                                                </Typography>
-                                            </IconButton>
+                                            {(() => {
+                                                const isMembershipPlan = item.type === 'MEMBERSHIP';
+                                                const isPrimaryFee = item.type === 'BASE' && (item.metadata?.role === 'PRIMARY' || item.name.includes('(PRIMARY)'));
+                                                
+                                                if (isMembershipPlan || isPrimaryFee) return null;
+
+                                                return (
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => removeFromCart(item.id)}
+                                                        sx={{ 
+                                                            position: 'absolute', 
+                                                            top: 12, 
+                                                            right: 12, 
+                                                            color: 'text.disabled',
+                                                            transition: 'all 0.2s',
+                                                            '&:hover': { 
+                                                                color: 'error.main',
+                                                                bgcolor: 'error.50'
+                                                            } 
+                                                        }}
+                                                    >
+                                                        <DeleteIcon sx={{ fontSize: 18 }} />
+                                                    </IconButton>
+                                                );
+                                            })()}
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, pr: 3, flexWrap: 'wrap' }}>
                                                 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                                                     {item.name}
@@ -2259,7 +2438,7 @@ export const Marketplace = () => {
                                             {/* Discount section */}
                                             <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
                                                 {/* Applied discount badge */}
-                                                {hasDiscount && (
+                                                {hasDiscount && (item.discountAmount ?? 0) > 0.01 && (
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                                         {item.discountCode === 'MEMBERSHIP' ? (
                                                             <StarIcon sx={{ fontSize: 14, color: 'success.main' }} />
@@ -2366,13 +2545,45 @@ export const Marketplace = () => {
 
                                 <Divider sx={{ mb: 2, borderStyle: 'dashed' }} />
 
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, px: 1 }}>
-                                    <Typography variant="h6" fontWeight={600}>
-                                        Total Amount
-                                    </Typography>
-                                    <Typography variant="h5" color="primary.main" fontWeight={800}>
-                                        {formatCurrency(cart.reduce((sum, item) => sum + item.price, 0))}
-                                    </Typography>
+                                <Box sx={{ mb: 3, px: 1 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography variant="body2" color="text.secondary">Subtotal</Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {formatCurrency(cart.reduce((sum, item) => sum + (item.actualPrice ?? item.price), 0))}
+                                        </Typography>
+                                    </Box>
+                                    
+                                    {(() => {
+                                        const totalDiscount = cart.reduce((sum, item) => {
+                                            if (item.actualPrice !== undefined && Math.abs(item.actualPrice - item.price) > 0.01) {
+                                                return sum + (item.actualPrice - item.price);
+                                            }
+                                            return sum;
+                                        }, 0);
+                                        
+                                        if (totalDiscount > 0.01) {
+                                            return (
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, color: 'success.main' }}>
+                                                    <Typography variant="body2">Total Savings</Typography>
+                                                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                                        -{formatCurrency(totalDiscount)}
+                                                    </Typography>
+                                                </Box>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+
+                                    <Divider sx={{ my: 1.5 }} />
+
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Typography variant="h6" fontWeight={600}>
+                                            Total Amount
+                                        </Typography>
+                                        <Typography variant="h5" color="primary.main" fontWeight={800}>
+                                            {formatCurrency(cart.reduce((sum, item) => sum + item.price, 0))}
+                                        </Typography>
+                                    </Box>
                                 </Box>
 
                                 <Button

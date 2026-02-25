@@ -46,7 +46,6 @@ interface FamilyMember {
     // Minor Fields
     guardian_name?: string;
     guardian_mobile?: string;
-    emergency_contact_name?: string;
     emergency_contact_phone?: string;
     use_primary_info?: boolean;
 }
@@ -57,9 +56,10 @@ interface FamilyStepProps {
   primaryData: any;
   updatePrimaryData: (key: string, value: any) => void;
   expectedCount: number;
+  errors?: Record<number, any>;
 }
 
-export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primaryData, updatePrimaryData, expectedCount }) => {
+export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primaryData, updatePrimaryData, expectedCount, errors = {} }) => {
     const { ageGroups, waiverPrograms } = useConfig();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -112,7 +112,6 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
               country: primaryData.country,
               mobile: primaryData.mobile,
               email: primaryData.email,
-              emergency_contact_name: primaryData.emergency_contact_name,
               emergency_contact_phone: primaryData.emergency_contact_phone,
               guardian_name: `${primaryData.first_name} ${primaryData.last_name}`,
               guardian_mobile: primaryData.mobile
@@ -131,7 +130,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
       updated[index] = {
           ...updated[index],
           guardian_name: `${primaryData.first_name} ${primaryData.last_name}`,
-          guardian_mobile: primaryData.mobile
+          guardian_mobile: primaryData.mobile,
+          emergency_contact_phone: primaryData.emergency_contact_phone
       };
       updateData(updated);
   };
@@ -389,15 +389,6 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                             }} 
                                         />
                                     )}
-                                    {memberIsMinor && (
-                                        <Chip 
-                                            label="Minor" 
-                                            size="small" 
-                                            color="info"
-                                            variant="outlined"
-                                            sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase' }} 
-                                        />
-                                    )}
                                 </Stack>
                             </Box>
                         </Box>
@@ -413,6 +404,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 required
                                 value={member.first_name || ''}
                                 onChange={(e) => handleChange(index, 'first_name', e.target.value)}
+                                error={!!errors[index]?.first_name}
+                                helperText={errors[index]?.first_name}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -425,6 +418,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 required
                                 value={member.last_name || ''}
                                 onChange={(e) => handleChange(index, 'last_name', e.target.value)}
+                                error={!!errors[index]?.last_name}
+                                helperText={errors[index]?.last_name}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -437,6 +432,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 required
                                 value={member.date_of_birth || ''}
                                 onChange={(e) => handleChange(index, 'date_of_birth', e.target.value)}
+                                error={!!errors[index]?.date_of_birth}
+                                helperText={errors[index]?.date_of_birth}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -495,6 +492,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 fullWidth
                                 value={member.mobile || ''}
                                 onChange={(e) => handleChange(index, 'mobile', e.target.value)}
+                                error={!!errors[index]?.mobile}
+                                helperText={errors[index]?.mobile}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -508,6 +507,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 fullWidth
                                 value={member.email || ''}
                                 onChange={(e) => handleChange(index, 'email', e.target.value)}
+                                error={!!errors[index]?.email}
+                                helperText={errors[index]?.email}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
@@ -529,18 +530,6 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                         </Grid>
                         <Grid size={{ xs: 12, sm: 4 }}>
                             <TextField label="Country" size="small" fullWidth value={member.country || 'USA'} onChange={(e) => handleChange(index, 'country', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-                        </Grid>
-
-                        <Grid size={{ xs: 12 }}>
-                            <Typography variant="caption" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em', textTransform: 'uppercase', mt: 1, display: 'block' }}>
-                                Emergency Contact
-                            </Typography>
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField label="Emergency Name" size="small" fullWidth value={member.emergency_contact_name || ''} onChange={(e) => handleChange(index, 'emergency_contact_name', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6 }}>
-                            <TextField label="Emergency Phone" size="small" fullWidth value={member.emergency_contact_phone || ''} onChange={(e) => handleChange(index, 'emergency_contact_phone', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
                         </Grid>
 
                         {/* Waiver Program Selection */}
@@ -626,33 +615,51 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     
                                     <Grid container spacing={2}>
                                         <Grid size={{ xs: 12, sm: 6 }}>
-                                            <TextField 
-                                                label="Guardian Name"
-                                                placeholder="Full Name"
-                                                size="small"
-                                                fullWidth
-                                                required
-                                                value={member.guardian_name || ''}
-                                                onChange={(e) => handleChange(index, 'guardian_name', e.target.value)}
-                                                slotProps={{ inputLabel: { shrink: true } }}
-                                            />
-                                        </Grid>
-                                        <Grid size={{ xs: 12, sm: 6 }}>
-                                            <TextField 
-                                                label="Guardian Mobile"
-                                                placeholder="(555) 123-4567"
-                                                size="small"
-                                                fullWidth
-                                                required
-                                                value={member.guardian_mobile || ''}
-                                                onChange={(e) => handleChange(index, 'guardian_mobile', e.target.value)}
-                                                slotProps={{ inputLabel: { shrink: true } }}
-                                            />
-                                        </Grid>
+                                        <TextField 
+                                            label="Guardian Name"
+                                            placeholder="Full Name"
+                                            size="small"
+                                            fullWidth
+                                            required
+                                            value={member.guardian_name || ''}
+                                            onChange={(e) => handleChange(index, 'guardian_name', e.target.value)}
+                                            error={!!errors[index]?.guardian_name}
+                                            helperText={errors[index]?.guardian_name}
+                                            slotProps={{ inputLabel: { shrink: true } }}
+                                        />
                                     </Grid>
-                                </Box>
-                            </Grid>
-                        )}
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <TextField 
+                                            label="Guardian Mobile"
+                                            placeholder="(555) 123-4567"
+                                            size="small"
+                                            fullWidth
+                                            required
+                                            value={member.guardian_mobile || ''}
+                                            onChange={(e) => handleChange(index, 'guardian_mobile', e.target.value)}
+                                            error={!!errors[index]?.guardian_mobile}
+                                            helperText={errors[index]?.guardian_mobile}
+                                            slotProps={{ inputLabel: { shrink: true } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, sm: 6 }}>
+                                        <TextField 
+                                            label="Emergency Contact Phone"
+                                            placeholder="(555) 123-4567"
+                                            size="small"
+                                            fullWidth
+                                            required
+                                            value={member.emergency_contact_phone || ''}
+                                            onChange={(e) => handleChange(index, 'emergency_contact_phone', e.target.value)}
+                                            error={!!errors[index]?.emergency_contact_phone}
+                                            helperText={errors[index]?.emergency_contact_phone}
+                                            slotProps={{ inputLabel: { shrink: true } }}
+                                        />
+                                    </Grid>
+                                </Grid>
+                            </Box>
+                        </Grid>
+                    )}
                     </Grid>
                 </CardContent>
             </Card>

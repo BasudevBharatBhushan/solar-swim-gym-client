@@ -18,6 +18,7 @@ export interface CategoryCandidate {
   joiningFee?: number;
   annualFee?: number;
   range: RuleRange;
+  membersAllowed?: number;
 }
 
 export interface EligibilityResult {
@@ -160,7 +161,21 @@ export const extractCategoryRange = (category: MembershipCategory, ageGroups: Ag
   return range;
 };
 
-export const isCategoryEligible = (counts: HouseholdCounts, range: RuleRange, ageGroups: AgeGroup[]): boolean => {
+export const isCategoryEligible = (
+  counts: HouseholdCounts, 
+  range: RuleRange, 
+  ageGroups: AgeGroup[],
+  membersAllowed?: number
+): boolean => {
+  // 1. Check total members against category limit if defined
+  if (membersAllowed !== undefined && membersAllowed > 0) {
+    const totalMembers = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    if (totalMembers > membersAllowed) {
+      return false;
+    }
+  }
+
+  // 2. Check per-age-group ranges
   return ageGroups.every(g => {
     const count = counts[g.age_group_id] || 0;
     const r = range[g.age_group_id];
@@ -199,7 +214,12 @@ export const getAllCategoriesWithEligibility = (
             return;
           }
 
+          const membersAllowed = typeof category.members_allowed === 'string'
+            ? parseInt(category.members_allowed, 10)
+            : category.members_allowed;
+
           const range = extractCategoryRange(category, ageGroups);
+
           const candidate: CategoryCandidate = {
             programId: program.membership_program_id,
             programName: program.name,
@@ -208,11 +228,12 @@ export const getAllCategoriesWithEligibility = (
             joiningFee: activeFeeAmount(category, 'JOINING'),
             annualFee: activeFeeAmount(category, 'ANNUAL'),
             range,
+            membersAllowed,
           };
 
           results.push({
             candidate,
-            eligible: isCategoryEligible(counts, range, ageGroups),
+            eligible: isCategoryEligible(counts, range, ageGroups, membersAllowed),
             specificityScore: getSpecificityScore(range, ageGroups),
             totalFee: totalFeeForSort(candidate),
           });

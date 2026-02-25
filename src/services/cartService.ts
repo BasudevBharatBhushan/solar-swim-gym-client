@@ -92,7 +92,9 @@ export const cartService = {
               : 'MEMBERSHIP_FEE'
           : item.type === 'SERVICE'
             ? 'SERVICE'
-            : 'MEMBERSHIP_FEE',
+            : item.type === 'REGISTRATION_FEE'
+              ? 'LESSON_REGISTRATION_FEE'
+              : 'MEMBERSHIP_FEE', // Default to fee for BASE
       discount_amount: item.discountAmount,
       discount_percentage: item.discountPercentage,
       discount_code: item.discountCode,

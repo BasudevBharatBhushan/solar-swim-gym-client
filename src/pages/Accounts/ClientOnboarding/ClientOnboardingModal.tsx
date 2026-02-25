@@ -13,7 +13,10 @@ import {
   Snackbar,
   Alert,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  DialogContentText,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
@@ -25,6 +28,13 @@ import { authService } from '../../../services/authService';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useConfig } from '../../../context/ConfigContext';
+import { 
+  calculateAge, 
+  getJuniorGroup, 
+  isFutureDate, 
+  isJuniorMembership, 
+  isUnderSixMonths 
+} from '../../../lib/ageUtils';
 
 
 interface ClientOnboardingModalProps {
@@ -47,7 +57,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
   const [activeStep, setActiveStep] = useState(0);
   const { currentLocationId, locations } = useAuth();
-  const { refreshWaiverPrograms, refreshAgeGroups, refreshWaiverTemplates } = useConfig();
+  const { ageGroups, refreshWaiverPrograms, refreshAgeGroups, refreshWaiverTemplates } = useConfig();
   
   const currentLocation = locations.find(loc => loc.location_id === currentLocationId);
   const locationName = locationNameProp || (currentLocation ? currentLocation.name : 'Zalexy');
@@ -80,7 +90,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     heard_about_us: '',
     notify_primary_member: true,
     notify_guardian: true,
-    emergency_contact_name: '',
+    guardian_name: '',
+    guardian_mobile: '',
     emergency_contact_phone: '',
   });
 
@@ -97,10 +108,68 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     message: '',
     severity: 'info'
   });
+  const [juniorConfirmOpen, setJuniorConfirmOpen] = useState(false);
+  const [juniorConfirmAcknowledged, setJuniorConfirmAcknowledged] = useState(false);
+  const [juniorConfirmed, setJuniorConfirmed] = useState(false);
+  const juniorGroup = getJuniorGroup(ageGroups);
+  const primaryAge = profileData.date_of_birth ? calculateAge(profileData.date_of_birth) : null;
+  const isPrimaryJunior = isJuniorMembership(profileData.date_of_birth || '', ageGroups);
+  const primaryFutureDob = profileData.date_of_birth ? isFutureDate(profileData.date_of_birth) : false;
+  const primaryUnderSixMonths = profileData.date_of_birth ? isUnderSixMonths(profileData.date_of_birth) : false;
+  const primaryTooYoungForPrimary = primaryAge !== null
+    ? (juniorGroup ? primaryAge < (juniorGroup.min_age ?? 13) : primaryAge < 13)
+    : false;
 
   const showToast = (message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'error') => {
     setToast({ open: true, message, severity });
   };
+
+  const normalizeDigits = (val: string) => (val || '').replace(/\D/g, '');
+  const validateMobile = (val: string): string => {
+    if (!val) return '';
+    const digits = normalizeDigits(val);
+    if (digits.length !== 10) return 'Mobile number must be 10 digits';
+    return '';
+  };
+  const validateEmailFormat = (val: string): string => {
+    if (!val) return '';
+    const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return pattern.test(val) ? '' : 'Enter a valid email address';
+  };
+
+  const handleProfileFieldBlur = (key: string, value: string) => {
+    if (key === 'mobile' || key === 'guardian_mobile' || key === 'emergency_contact_phone') {
+      const err = validateMobile(value);
+      setErrors((prev: any) => ({ ...prev, [key]: err || undefined }));
+    }
+    if (key === 'email') {
+      const err = validateEmailFormat(value);
+      setErrors((prev: any) => ({ ...prev, [key]: err || undefined }));
+    }
+    if (key === 'date_of_birth') {
+      let err = '';
+      if (!value) err = 'Date of birth is required';
+      else if (isFutureDate(value)) err = 'Date of birth cannot be in the future';
+      else if (isUnderSixMonths(value)) err = 'Age must be at least 6 months';
+      else if (primaryTooYoungForPrimary) err = 'Primary must be Junior or older';
+      setErrors((prev: any) => ({ ...prev, date_of_birth: err || undefined }));
+    }
+  };
+
+  useEffect(() => {
+    if (!isPrimaryJunior) {
+      setJuniorConfirmed(false);
+      setJuniorConfirmAcknowledged(false);
+      return;
+    }
+    // Enforce no family members for junior primary
+    if (profileData.family_count !== 1) {
+      setProfileData(prev => ({ ...prev, family_count: 1 }));
+    }
+    if (familyMembers.length > 0) {
+      setFamilyMembers([]);
+    }
+  }, [isPrimaryJunior, profileData.family_count, familyMembers.length]);
 
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const dialogContentRef = useRef<HTMLDivElement>(null);
@@ -155,16 +224,97 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     const newErrors: any = {};
     if (!profileData.first_name) newErrors.first_name = 'First name is required';
     if (!profileData.last_name) newErrors.last_name = 'Last name is required';
-    if (!profileData.email) newErrors.email = 'Email is required';
-    if (!profileData.date_of_birth) newErrors.date_of_birth = 'Date of birth is required';
+    if (!profileData.email) {
+      newErrors.email = 'Email is required';
+    } else {
+      const emailErr = validateEmailFormat(profileData.email);
+      if (emailErr) newErrors.email = emailErr;
+    }
+    if (profileData.mobile) {
+      const mobileErr = validateMobile(profileData.mobile);
+      if (mobileErr) newErrors.mobile = mobileErr;
+    }
+    if (!profileData.date_of_birth) {
+      newErrors.date_of_birth = 'Date of birth is required';
+    } else {
+      if (primaryFutureDob) newErrors.date_of_birth = 'Date of birth cannot be in the future';
+      else if (primaryUnderSixMonths) newErrors.date_of_birth = 'Age must be at least 6 months';
+      else if (primaryTooYoungForPrimary) newErrors.date_of_birth = 'Primary must be Junior or older';
+    }
+    if (isPrimaryJunior) {
+      if (!profileData.guardian_name) newErrors.guardian_name = 'Guardian name is required for junior primary';
+      if (!profileData.guardian_mobile) {
+        newErrors.guardian_mobile = 'Guardian mobile is required for junior primary';
+      } else {
+        const gMobileErr = validateMobile(profileData.guardian_mobile);
+        if (gMobileErr) newErrors.guardian_mobile = gMobileErr;
+      }
+      if (!profileData.emergency_contact_phone) {
+        newErrors.emergency_contact_phone = 'Emergency contact phone is required';
+      } else {
+        const eMobileErr = validateMobile(profileData.emergency_contact_phone);
+        if (eMobileErr) newErrors.emergency_contact_phone = eMobileErr;
+      }
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validateFamily = () => {
-      // Basic check: Ensure names are filled if a member entry exists
-      return true;
+      if (isPrimaryJunior && familyMembers.length > 0) {
+        showToast('Family members cannot be added when primary is Junior.', 'warning');
+        return false;
+      }
+
+      const familyErrors: Record<number, any> = {};
+      familyMembers.forEach((member, idx) => {
+        const hasAnyValue = member.first_name || member.last_name || member.date_of_birth;
+        if (!hasAnyValue) return;
+
+        const memberErrors: any = {};
+        if (!member.first_name) memberErrors.first_name = 'First name required';
+        if (!member.last_name) memberErrors.last_name = 'Last name required';
+        if (!member.date_of_birth) {
+          memberErrors.date_of_birth = 'Date of birth required';
+        } else {
+          if (isFutureDate(member.date_of_birth)) memberErrors.date_of_birth = 'DOB cannot be future';
+          else if (isUnderSixMonths(member.date_of_birth)) memberErrors.date_of_birth = 'Age must be at least 6 months';
+        }
+
+        const age = member.date_of_birth ? calculateAge(member.date_of_birth) : null;
+        const isMinor = age !== null ? age < 18 : false;
+        if (member.email) {
+          const err = validateEmailFormat(member.email);
+          if (err) memberErrors.email = err;
+        }
+        if (member.mobile) {
+          const err = validateMobile(member.mobile);
+          if (err) memberErrors.mobile = err;
+        }
+        if (isMinor) {
+          if (!member.guardian_name) memberErrors.guardian_name = 'Guardian name required for minors';
+          if (!member.guardian_mobile) {
+            memberErrors.guardian_mobile = 'Guardian mobile required';
+          } else {
+            const err = validateMobile(member.guardian_mobile);
+            if (err) memberErrors.guardian_mobile = err;
+          }
+          if (!member.emergency_contact_phone) {
+            memberErrors.emergency_contact_phone = 'Emergency contact phone required';
+          } else {
+            const err = validateMobile(member.emergency_contact_phone);
+            if (err) memberErrors.emergency_contact_phone = err;
+          }
+        }
+
+        if (Object.keys(memberErrors).length > 0) {
+          familyErrors[idx] = memberErrors;
+        }
+      });
+
+      setErrors((prev: any) => ({ ...prev, family: familyErrors }));
+      return Object.keys(familyErrors).length === 0;
   };
   
   const validateWaivers = () => {
@@ -176,6 +326,11 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     if (activeStep === 0) {
         if (!validateProfile()) return;
         if (!validateFamily()) return;
+        if (isPrimaryJunior && !juniorConfirmed) {
+            setJuniorConfirmAcknowledged(false);
+            setJuniorConfirmOpen(true);
+            return;
+        }
     }
     if (activeStep === 1) {
         if (!validateWaivers()) {
@@ -208,22 +363,21 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 email: profileData.email,
                 date_of_birth: profileData.date_of_birth,
                 mobile: profileData.mobile,
-                gender: (profileData as any).gender,
-                is_primary: true,
-                address_line1: (profileData as any).address_line1,
-                address_line2: (profileData as any).address_line2,
-                city: (profileData as any).city,
-                state: (profileData as any).state,
-                zip_code: (profileData as any).zip_code,
-                country: (profileData as any).country || 'USA',
-                guardian_name: (profileData as any).guardian_name || null,
-                guardian_mobile: (profileData as any).guardian_mobile || null,
-                emergency_contact_name: (profileData as any).emergency_contact_name || null,
-                emergency_contact_phone: (profileData as any).emergency_contact_phone || null,
-                waiver_program_id: (profileData as any).waiver_program_id || null,
-                case_manager_name: (profileData as any).case_manager_name || null,
-                case_manager_email: (profileData as any).case_manager_email || null,
-                signed_waiver_id: signedWaivers['primary'] || null
+              gender: (profileData as any).gender,
+              is_primary: true,
+              address_line1: (profileData as any).address_line1,
+              address_line2: (profileData as any).address_line2,
+              city: (profileData as any).city,
+              state: (profileData as any).state,
+              zip_code: (profileData as any).zip_code,
+              country: (profileData as any).country || 'USA',
+              guardian_name: (profileData as any).guardian_name || null,
+              guardian_mobile: (profileData as any).guardian_mobile || null,
+              emergency_contact_phone: (profileData as any).emergency_contact_phone || null,
+              waiver_program_id: (profileData as any).waiver_program_id || null,
+              case_manager_name: (profileData as any).case_manager_name || null,
+              case_manager_email: (profileData as any).case_manager_email || null,
+              signed_waiver_id: signedWaivers['primary'] || null
               },
               family_members: validFamilyMembers.map((m, idx) => ({
                   first_name: m.first_name,
@@ -236,7 +390,6 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                   case_manager_email: m.case_manager_email || undefined,
                   guardian_name: m.guardian_name || undefined,
                   guardian_mobile: m.guardian_mobile || undefined,
-                  emergency_contact_name: m.emergency_contact_name || undefined,
                   emergency_contact_phone: m.emergency_contact_phone || undefined,
                   address_line1: m.address_line1 || undefined,
                   address_line2: m.address_line2 || undefined,
@@ -287,12 +440,16 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       heard_about_us: '',
       notify_primary_member: true,
       notify_guardian: true,
-      emergency_contact_name: '',
+      guardian_name: '',
+      guardian_mobile: '',
       emergency_contact_phone: '',
     });
     setFamilyMembers([]);
     setSignedWaivers({});
     setCreatedAccount(null);
+    setJuniorConfirmed(false);
+    setJuniorConfirmAcknowledged(false);
+    setJuniorConfirmOpen(false);
     onClose();
   };
 
@@ -303,6 +460,20 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     handleReset();
   };
 
+  const handleJuniorConfirm = () => {
+    setJuniorConfirmed(true);
+    setJuniorConfirmOpen(false);
+    setJuniorConfirmAcknowledged(false);
+    setProfileData(prev => ({ ...prev, family_count: 1 }));
+    setFamilyMembers([]);
+    setActiveStep((prev) => prev + 1);
+  };
+
+  const handleJuniorCancel = () => {
+    setJuniorConfirmOpen(false);
+    setJuniorConfirmAcknowledged(false);
+  };
+
 
 
   const renderStepContent = (step: number) => {
@@ -310,13 +481,21 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       case 0:
         return (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <ProfileStep data={profileData} updateData={updateProfileData} errors={errors} />
+            <ProfileStep 
+              data={profileData} 
+              updateData={updateProfileData} 
+              errors={errors} 
+              isPrimaryJunior={isPrimaryJunior}
+              lockFamilyCount={isPrimaryJunior}
+              onFieldBlur={handleProfileFieldBlur}
+            />
             <FamilyStep 
                 data={familyMembers} 
                 updateData={setFamilyMembers} 
                 primaryData={profileData}
                 updatePrimaryData={(key: string, value: any) => updateProfileData(key, value)}
                 expectedCount={Math.max(1, profileData.family_count)}
+                errors={errors.family || {}}
             />
           </Box>
         );
@@ -339,6 +518,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   };
 
   return (
+    <>
     <Dialog 
       open={open} 
       onClose={isSuccess ? undefined : onClose} 
@@ -566,6 +746,34 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
         </DialogActions>
       )}
     </Dialog>
+
+    <Dialog open={juniorConfirmOpen} onClose={handleJuniorCancel} maxWidth="xs" fullWidth>
+      <DialogTitle>Junior Primary Member</DialogTitle>
+      <DialogContent>
+        <DialogContentText sx={{ mb: 2 }}>
+          The entered date of birth falls under the Junior age group. Junior primaries cannot add family members and must have guardian details on file.
+        </DialogContentText>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={juniorConfirmAcknowledged}
+              onChange={(e) => setJuniorConfirmAcknowledged(e.target.checked)}
+            />
+          }
+          label="Add as Junior primary member and proceed"
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleJuniorCancel}>Cancel</Button>
+        <Button
+          onClick={handleJuniorConfirm}
+          variant="contained"
+          disabled={!juniorConfirmAcknowledged}
+        >
+          Confirm
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 };
-

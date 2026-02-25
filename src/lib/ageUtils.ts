@@ -9,6 +9,19 @@ export const calculateAge = (dob: string | Date): number => {
   return age;
 };
 
+export const isFutureDate = (dob: string | Date): boolean => {
+  const d = new Date(dob);
+  const today = new Date();
+  return d.getTime() > today.getTime();
+};
+
+export const isUnderSixMonths = (dob: string | Date): boolean => {
+  const d = new Date(dob);
+  const today = new Date();
+  const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 6, today.getDate());
+  return d > sixMonthsAgo;
+};
+
 export const getAgeGroup = (dob: string | Date, ageGroups: any[], category?: 'Membership' | 'Service'): any | null => {
   if (!dob) return null;
   const age = calculateAge(dob);
@@ -19,6 +32,30 @@ export const getAgeGroup = (dob: string | Date, ageGroups: any[], category?: 'Me
     const categoryMatch = !category || g.age_group_category === category;
     return age >= min && age <= max && categoryMatch;
   });
+};
+
+export const getMembershipAgeGroup = (dob: string | Date, ageGroups: any[]): any | null => {
+  return getAgeGroup(dob, ageGroups, 'Membership');
+};
+
+export const getJuniorGroup = (ageGroups: any[]): any | null => {
+  if (!Array.isArray(ageGroups)) return null;
+  return ageGroups.find(
+    g => g.age_group_category === 'Membership' && typeof g.name === 'string' && g.name.toLowerCase() === 'junior'
+  ) || null;
+};
+
+export const isJuniorMembership = (dob: string | Date, ageGroups: any[]): boolean => {
+  if (!dob) return false;
+  const juniorGroup = getJuniorGroup(ageGroups);
+  const age = calculateAge(dob);
+  if (juniorGroup) {
+    const min = juniorGroup.min_age ?? 13;
+    const max = juniorGroup.max_age ?? 17;
+    return age >= min && age <= max;
+  }
+  // Fallback to 13-17 if config missing
+  return age >= 13 && age <= 17;
 };
 
 export const getAgeGroupName = (dob: string | Date, ageGroups: any[], category?: 'Membership' | 'Service'): string => {

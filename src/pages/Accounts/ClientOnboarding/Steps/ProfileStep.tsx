@@ -20,20 +20,29 @@ interface ProfileStepProps {
   data: any;
   updateData: (key: string, value: any) => void;
   errors: any;
+  isPrimaryJunior?: boolean;
+  lockFamilyCount?: boolean;
+  onFieldBlur?: (key: string, value: string) => void;
 }
 
-export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, errors }) => {
-    const { waiverPrograms, ageGroups } = useConfig();
-    const ageProfile = getAgeGroup(data.date_of_birth || '', ageGroups, 'Membership');
+export const ProfileStep: React.FC<ProfileStepProps> = ({
+  data,
+  updateData,
+  errors,
+  isPrimaryJunior = false,
+  lockFamilyCount = false,
+  onFieldBlur
+}) => {
+  const { waiverPrograms, ageGroups } = useConfig();
+  const ageProfile = getAgeGroup(data.date_of_birth || '', ageGroups, 'Membership');
 
-    const handleProgramChange = (programId: string) => {
-        updateData('waiver_program_id', programId);
-    };
+  const handleProgramChange = (programId: string) => {
+    updateData('waiver_program_id', programId);
+  };
 
-    // Safety check: ensure current value exists in loaded programs (or is empty) to avoid MUI out-of-range warning
-    const selectValue = waiverPrograms.some(p => p.waiver_program_id === data.waiver_program_id) 
-        ? data.waiver_program_id 
-        : '';
+  const selectValue = waiverPrograms.some(p => p.waiver_program_id === data.waiver_program_id)
+    ? data.waiver_program_id
+    : '';
 
   return (
     <Box>
@@ -45,6 +54,7 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
       </Typography>
 
       <Grid container spacing={3}>
+        {/* Basic Info */}
         <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             label="First Name"
@@ -71,14 +81,56 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             slotProps={{ inputLabel: { shrink: true } }}
           />
         </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            label="Date of Birth"
+            type="date"
+            fullWidth
+            value={data.date_of_birth || ''}
+            onChange={(e) => updateData('date_of_birth', e.target.value)}
+            onBlur={(e) => onFieldBlur?.('date_of_birth', e.target.value)}
+            error={!!errors.date_of_birth}
+            helperText={errors.date_of_birth}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          {ageProfile && (
+            <Chip
+              label={`${ageProfile.name} ${getAgeRangeLabel(ageProfile)}`}
+              size="small"
+              sx={{
+                mt: 1,
+                height: 24,
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                bgcolor: '#f1f5f9',
+                color: '#475569',
+                textTransform: 'uppercase',
+                '& .MuiChip-label': { px: 1 }
+              }}
+            />
+          )}
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel shrink>Gender (Optional)</InputLabel>
+            <Select value={data.gender || ''} onChange={e => updateData('gender', e.target.value)} label="Gender (Optional)" displayEmpty>
+              <MenuItem value=""><em>Prefer not to say</em></MenuItem>
+              <MenuItem value="Male">Male</MenuItem>
+              <MenuItem value="Female">Female</MenuItem>
+              <MenuItem value="Other">Other</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
 
-        <Grid size={{ xs: 12 }}>
+        {/* Contact */}
+        <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             label="Email Address"
             fullWidth
             type="email"
             value={data.email || ''}
             onChange={(e) => updateData('email', e.target.value)}
+            onBlur={(e) => onFieldBlur?.('email', e.target.value)}
             error={!!errors.email}
             helperText={errors.email}
             placeholder="john.doe@example.com"
@@ -86,222 +138,226 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({ data, updateData, erro
             slotProps={{ inputLabel: { shrink: true } }}
           />
         </Grid>
-
-
-
         <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
             label="Mobile Number"
             fullWidth
             value={data.mobile || ''}
             onChange={(e) => updateData('mobile', e.target.value)}
+            onBlur={(e) => onFieldBlur?.('mobile', e.target.value)}
             error={!!errors.mobile}
             helperText={errors.mobile}
             placeholder="(555) 123-4567"
             slotProps={{ inputLabel: { shrink: true } }}
           />
         </Grid>
-
         <Grid size={{ xs: 12, sm: 6 }}>
-             <TextField
-                label="Date of Birth"
-                type="date"
-                fullWidth
-                value={data.date_of_birth || ''}
-                onChange={(e) => updateData('date_of_birth', e.target.value)}
-                error={!!errors.date_of_birth}
-                helperText={errors.date_of_birth}
-                slotProps={{ inputLabel: { shrink: true } }}
-            />
-            {ageProfile && (
-                <Chip 
-                    label={`${ageProfile.name} ${getAgeRangeLabel(ageProfile)}`} 
-                    size="small" 
-                    sx={{ 
-                        mt: 1, 
-                        height: 24, 
-                        fontSize: '0.75rem', 
-                        fontWeight: 700, 
-                        bgcolor: '#f1f5f9', 
-                        color: '#475569',
-                        textTransform: 'uppercase',
-                        '& .MuiChip-label': { px: 1 }
-                    }} 
-                />
-            )}
+          <TextField
+            label="How did you hear about us? (Optional)"
+            size="small"
+            fullWidth
+            value={data.heard_about_us || ''}
+            onChange={e => updateData('heard_about_us', e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            placeholder="e.g. Google, Social Media, Friend"
+          />
         </Grid>
 
+        {/* Address */}
         <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
-                Additional Details
-            </Typography>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6 }}>
-             <FormControl fullWidth size="small">
-                <InputLabel shrink>Gender (Optional)</InputLabel>
-                <Select value={data.gender || ''} onChange={e => updateData('gender', e.target.value)} label="Gender (Optional)" displayEmpty>
-                    <MenuItem value=""><em>Prefer not to say</em></MenuItem>
-                    <MenuItem value="Male">Male</MenuItem>
-                    <MenuItem value="Female">Female</MenuItem>
-                    <MenuItem value="Other">Other</MenuItem>
-                </Select>
-            </FormControl>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="How did you hear about us? (Optional)" size="small" fullWidth value={data.heard_about_us || ''} onChange={e => updateData('heard_about_us', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} placeholder="e.g. Google, Social Media, Friend" />
-        </Grid>
-
-        <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
-                Emergency Contact
-            </Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
+            Address Information
+          </Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="Emergency Name" size="small" fullWidth value={data.emergency_contact_name || ''} onChange={e => updateData('emergency_contact_name', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="Address Line 1" size="small" fullWidth value={data.address_line1 || ''} onChange={e => updateData('address_line1', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="Emergency Phone" size="small" fullWidth value={data.emergency_contact_phone || ''} onChange={e => updateData('emergency_contact_phone', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-        </Grid>
-
-        <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
-                Address Information
-            </Typography>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="Address Line 1" size="small" fullWidth value={data.address_line1 || ''} onChange={e => updateData('address_line1', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField label="Address Line 2" placeholder="Apt, Suite, etc." size="small" fullWidth value={data.address_line2 || ''} onChange={e => updateData('address_line2', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="Address Line 2" placeholder="Apt, Suite, etc." size="small" fullWidth value={data.address_line2 || ''} onChange={e => updateData('address_line2', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField label="City" size="small" fullWidth value={data.city || ''} onChange={e => updateData('city', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="City" size="small" fullWidth value={data.city || ''} onChange={e => updateData('city', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField label="State/Province" size="small" fullWidth value={data.state || ''} onChange={e => updateData('state', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="State/Province" size="small" fullWidth value={data.state || ''} onChange={e => updateData('state', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField label="Zip/Postal Code" size="small" fullWidth value={data.zip_code || ''} onChange={e => updateData('zip_code', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="Zip/Postal Code" size="small" fullWidth value={data.zip_code || ''} onChange={e => updateData('zip_code', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
-            <TextField label="Country" size="small" fullWidth value={data.country || 'USA'} onChange={e => updateData('country', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="Country" size="small" fullWidth value={data.country || 'USA'} onChange={e => updateData('country', e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
         </Grid>
 
+        {/* Program */}
         <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" sx={{ mb: 0, mt: 1, fontWeight: 600, color: '#334155' }}>
-                Program Info & Preferences
-            </Typography>
+          <Typography variant="subtitle2" sx={{ mb: 0, mt: 1, fontWeight: 600, color: '#334155' }}>
+            Program Info & Preferences
+          </Typography>
         </Grid>
-
         <Grid size={{ xs: 12, sm: 6 }}>
-             <TextField
-                select
-                fullWidth
-                size="small"
-                label="State Waiver Program (Optional)"
-                value={selectValue}
-                onChange={(e) => handleProgramChange(e.target.value)}
-                slotProps={{ 
-                    inputLabel: { shrink: true },
-                    select: { displayEmpty: true }
-                }}
-                helperText="Select a government or partner-funded program if applicable."
-            >
-                <MenuItem value="">
-                    <em>None / Private Pay</em>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            label="State Waiver Program (Optional)"
+            value={selectValue}
+            onChange={(e) => handleProgramChange(e.target.value)}
+            slotProps={{
+              inputLabel: { shrink: true },
+              select: { displayEmpty: true }
+            }}
+            helperText="Select a government or partner-funded program if applicable."
+          >
+            <MenuItem value="">
+              <em>None / Private Pay</em>
+            </MenuItem>
+            {waiverPrograms
+              .filter((p: any) => p.is_active)
+              .map((program: any) => (
+                <MenuItem key={program.waiver_program_id} value={program.waiver_program_id}>
+                  {program.name} ({program.code})
                 </MenuItem>
-                {waiverPrograms
-                    .filter((p: any) => p.is_active)
-                    .map((program: any) => (
-                    <MenuItem key={program.waiver_program_id} value={program.waiver_program_id}>
-                        {program.name} ({program.code})
-                    </MenuItem>
-                ))}
-            </TextField>
+            ))}
+          </TextField>
         </Grid>
 
         {data.waiver_program_id && (
-            <>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                        label="Case Manager Name"
-                        fullWidth
-                        size="small"
-                        value={data.case_manager_name || ''}
-                        onChange={(e) => updateData('case_manager_name', e.target.value)}
-                        required
-                        error={!!errors.case_manager_name}
-                        helperText={errors.case_manager_name}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                    />
-                </Grid>
-                 <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                        label="Case Manager Email"
-                        fullWidth
-                        size="small"
-                        value={data.case_manager_email || ''}
-                        onChange={(e) => updateData('case_manager_email', e.target.value)}
-                        required
-                        error={!!errors.case_manager_email}
-                        helperText={errors.case_manager_email}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                    />
-                </Grid>
-            </>
+          <>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Case Manager Name"
+                fullWidth
+                size="small"
+                value={data.case_manager_name || ''}
+                onChange={(e) => updateData('case_manager_name', e.target.value)}
+                required
+                error={!!errors.case_manager_name}
+                helperText={errors.case_manager_name}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Case Manager Email"
+                fullWidth
+                size="small"
+                value={data.case_manager_email || ''}
+                onChange={(e) => updateData('case_manager_email', e.target.value)}
+                required
+                error={!!errors.case_manager_email}
+                helperText={errors.case_manager_email}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+          </>
         )}
 
-        <Grid size={{ xs: 12, sm: 6 }}>
-            <FormControl fullWidth size="small">
-                <InputLabel shrink>Primary Member Notifications</InputLabel>
-                <Select value={data.notify_primary_member !== false ? 'true' : 'false'} onChange={e => updateData('notify_primary_member', e.target.value === 'true')} label="Primary Member Notifications">
-                    <MenuItem value="true">Enable Notifications</MenuItem>
-                    <MenuItem value="false">Disable Notifications</MenuItem>
-                </Select>
-            </FormControl>
+        {/* Guardian for Junior */}
+        {isPrimaryJunior && (
+          <>
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
+                Guardian Information (Required for Junior Primary)
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Guardian Name"
+                size="small"
+                fullWidth
+                value={data.guardian_name || ''}
+                onChange={(e) => updateData('guardian_name', e.target.value)}
+                error={!!errors.guardian_name}
+                helperText={errors.guardian_name}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Guardian Mobile"
+                size="small"
+                fullWidth
+                value={data.guardian_mobile || ''}
+                onChange={(e) => updateData('guardian_mobile', e.target.value)}
+                onBlur={(e) => onFieldBlur?.('guardian_mobile', e.target.value)}
+                error={!!errors.guardian_mobile}
+                helperText={errors.guardian_mobile}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Emergency Contact Phone"
+                size="small"
+                fullWidth
+                value={data.emergency_contact_phone || ''}
+                onChange={(e) => updateData('emergency_contact_phone', e.target.value)}
+                onBlur={(e) => onFieldBlur?.('emergency_contact_phone', e.target.value)}
+                error={!!errors.emergency_contact_phone}
+                helperText={errors.emergency_contact_phone}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+          </>
+        )}
+
+        {/* Notifications */}
+        <Grid size={{ xs: 12 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
+            Notification Preferences
+          </Typography>
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
-            <FormControl fullWidth size="small">
-                <InputLabel shrink>Guardian Notifications</InputLabel>
-                <Select value={data.notify_guardian !== false ? 'true' : 'false'} onChange={e => updateData('notify_guardian', e.target.value === 'true')} label="Guardian Notifications">
-                    <MenuItem value="true">Enable Notifications</MenuItem>
-                    <MenuItem value="false">Disable Notifications</MenuItem>
-                </Select>
-            </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel shrink>Primary Member Notifications</InputLabel>
+            <Select value={data.notify_primary_member !== false ? 'true' : 'false'} onChange={e => updateData('notify_primary_member', e.target.value === 'true')} label="Primary Member Notifications">
+              <MenuItem value="true">Enable Notifications</MenuItem>
+              <MenuItem value="false">Disable Notifications</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel shrink>Guardian Notifications</InputLabel>
+            <Select value={data.notify_guardian !== false ? 'true' : 'false'} onChange={e => updateData('notify_guardian', e.target.value === 'true')} label="Guardian Notifications">
+              <MenuItem value="true">Enable Notifications</MenuItem>
+              <MenuItem value="false">Disable Notifications</MenuItem>
+            </Select>
+          </FormControl>
         </Grid>
 
+        {/* Family count */}
         <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: '#334155' }}>
-                Number of Family Members to Enroll (including yourself)
-            </Typography>
-             <TextField
-                type="number"
-                value={data.family_count || ''}
-                onChange={(e) => {
-                    const val = e.target.value === '' ? '' : parseInt(e.target.value);
-                    updateData('family_count', val);
-                }}
-                slotProps={{ 
-                    htmlInput: { min: 1 },
-                    input: {
-                        endAdornment: data.family_count > 1 ? (
-                            <InputAdornment position="end">
-                                <IconButton 
-                                    size="small" 
-                                    onClick={() => updateData('family_count', 1)}
-                                    edge="end"
-                                    title="Reset to 1"
-                                >
-                                    <ClearIcon sx={{ fontSize: 18 }} />
-                                </IconButton>
-                            </InputAdornment>
-                        ) : null
-                    }
-                }}
-                sx={{ width: 120 }}
-             />
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: '#334155' }}>
+            Number of Family Members to Enroll (including yourself)
+          </Typography>
+          <TextField
+            type="number"
+            value={data.family_count || ''}
+            onChange={(e) => {
+              const val = e.target.value === '' ? '' : parseInt(e.target.value);
+              updateData('family_count', val);
+            }}
+            disabled={lockFamilyCount}
+            slotProps={{
+              htmlInput: { min: 1 },
+              input: {
+                endAdornment: !lockFamilyCount && data.family_count > 1 ? (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      onClick={() => updateData('family_count', 1)}
+                      edge="end"
+                      title="Reset to 1"
+                    >
+                      <ClearIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null
+              }
+            }}
+            sx={{ width: 160 }}
+          />
         </Grid>
       </Grid>
     </Box>
