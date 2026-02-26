@@ -265,15 +265,25 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 </FormControl>
                             </Grid>
                              <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField 
-                                    label="Mobile Number"
-                                    placeholder="(555) 123-4567"
-                                    size="small"
-                                    fullWidth
-                                    value={primaryData.mobile || ''}
-                                    onChange={(e) => updatePrimaryData('mobile', e.target.value)}
-                                    slotProps={{ inputLabel: { shrink: true } }}
-                                />
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    <TextField 
+                                        label="Country"
+                                        value="+1"
+                                        disabled
+                                        size="small"
+                                        sx={{ width: '70px', flexShrink: 0 }}
+                                        slotProps={{ inputLabel: { shrink: true } }}
+                                    />
+                                    <TextField 
+                                        label="Mobile Number"
+                                        placeholder="(555) 123-4567"
+                                        size="small"
+                                        fullWidth
+                                        value={primaryData.mobile || ''}
+                                        onChange={(e) => updatePrimaryData('mobile', e.target.value)}
+                                        slotProps={{ inputLabel: { shrink: true } }}
+                                    />
+                                </Box>
                             </Grid>
                              <Grid size={{ xs: 12, sm: 6 }}>
                                 <TextField 
@@ -490,17 +500,27 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                         </Grid>
 
                         <Grid size={{ xs: 12, sm: 6 }}>
-                             <TextField 
-                                label="Mobile (Optional)"
-                                placeholder="(555) 123-4567"
-                                size="small"
-                                fullWidth
-                                value={member.mobile || ''}
-                                onChange={(e) => handleChange(index, 'mobile', e.target.value)}
-                                error={!!errors[index]?.mobile}
-                                helperText={errors[index]?.mobile}
-                                slotProps={{ inputLabel: { shrink: true } }}
-                            />
+                             <Box sx={{ display: 'flex', gap: 1 }}>
+                                 <TextField 
+                                     label="Country"
+                                     value="+1"
+                                     disabled
+                                     size="small"
+                                     sx={{ width: '70px', flexShrink: 0 }}
+                                     slotProps={{ inputLabel: { shrink: true } }}
+                                 />
+                                 <TextField 
+                                     label="Mobile (Optional)"
+                                     placeholder="(555) 123-4567"
+                                     size="small"
+                                     fullWidth
+                                     value={member.mobile || ''}
+                                     onChange={(e) => handleChange(index, 'mobile', e.target.value)}
+                                     error={!!errors[index]?.mobile}
+                                     helperText={errors[index]?.mobile}
+                                     slotProps={{ inputLabel: { shrink: true } }}
+                                 />
+                             </Box>
                         </Grid>
 
                         <Grid size={{ xs: 12, sm: 6 }}>
@@ -635,19 +655,29 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                             slotProps={{ inputLabel: { shrink: true } }}
                                         />
                                     </Grid>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <TextField 
-                                            label="Guardian Mobile"
-                                            placeholder="(555) 123-4567"
-                                            size="small"
-                                            fullWidth
-                                            required
-                                            value={member.guardian_mobile || ''}
-                                            onChange={(e) => handleChange(index, 'guardian_mobile', e.target.value)}
-                                            error={!!errors[index]?.guardian_mobile}
-                                            helperText={errors[index]?.guardian_mobile}
-                                            slotProps={{ inputLabel: { shrink: true } }}
-                                        />
+                                     <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                            <TextField 
+                                                label="Country"
+                                                value="+1"
+                                                disabled
+                                                size="small"
+                                                sx={{ width: '70px', flexShrink: 0 }}
+                                                slotProps={{ inputLabel: { shrink: true } }}
+                                            />
+                                            <TextField 
+                                                label="Guardian Mobile"
+                                                placeholder="(555) 123-4567"
+                                                size="small"
+                                                fullWidth
+                                                required
+                                                value={member.guardian_mobile || ''}
+                                                onChange={(e) => handleChange(index, 'guardian_mobile', e.target.value)}
+                                                error={!!errors[index]?.guardian_mobile}
+                                                helperText={errors[index]?.guardian_mobile}
+                                                slotProps={{ inputLabel: { shrink: true } }}
+                                            />
+                                        </Box>
                                     </Grid>
                                     <Grid size={{ xs: 12, sm: 6 }}>
                                         <TextField 
@@ -663,19 +693,29 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                             slotProps={{ inputLabel: { shrink: true } }}
                                         />
                                     </Grid>
-                                    <Grid size={{ xs: 12, sm: 6 }}>
-                                        <TextField 
-                                            label="Emergency Contact Phone"
-                                            placeholder="(555) 123-4567"
-                                            size="small"
-                                            fullWidth
-                                            required
-                                            value={member.emergency_contact_phone || ''}
-                                            onChange={(e) => handleChange(index, 'emergency_contact_phone', e.target.value)}
-                                            error={!!errors[index]?.emergency_contact_phone}
-                                            helperText={errors[index]?.emergency_contact_phone}
-                                            slotProps={{ inputLabel: { shrink: true } }}
-                                        />
+                                     <Grid size={{ xs: 12, sm: 6 }}>
+                                        <Box sx={{ display: 'flex', gap: 1 }}>
+                                            <TextField 
+                                                label="Country"
+                                                value="+1"
+                                                disabled
+                                                size="small"
+                                                sx={{ width: '70px', flexShrink: 0 }}
+                                                slotProps={{ inputLabel: { shrink: true } }}
+                                            />
+                                            <TextField 
+                                                label="Emergency Contact Phone"
+                                                placeholder="(555) 123-4567"
+                                                size="small"
+                                                fullWidth
+                                                required
+                                                value={member.emergency_contact_phone || ''}
+                                                onChange={(e) => handleChange(index, 'emergency_contact_phone', e.target.value)}
+                                                error={!!errors[index]?.emergency_contact_phone}
+                                                helperText={errors[index]?.emergency_contact_phone}
+                                                slotProps={{ inputLabel: { shrink: true } }}
+                                            />
+                                        </Box>
                                     </Grid>
                                 </Grid>
                             </Box>

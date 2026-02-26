@@ -145,17 +145,26 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
-          <TextField
-            label="Mobile Number"
-            fullWidth
-            value={data.mobile || ''}
-            onChange={(e) => updateData('mobile', e.target.value)}
-            onBlur={(e) => onFieldBlur?.('mobile', e.target.value)}
-            error={!!errors.mobile}
-            helperText={errors.mobile}
-            placeholder="(555) 123-4567"
-            slotProps={{ inputLabel: { shrink: true } }}
-          />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              label="Country"
+              value="+1"
+              disabled
+              sx={{ width: '70px', flexShrink: 0 }}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label="Mobile Number"
+              fullWidth
+              value={data.mobile || ''}
+              onChange={(e) => updateData('mobile', e.target.value)}
+              onBlur={(e) => onFieldBlur?.('mobile', e.target.value)}
+              error={!!errors.mobile}
+              helperText={errors.mobile}
+              placeholder="(555) 123-4567"
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Box>
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
           <TextField
@@ -328,17 +337,27 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                label="Guardian Mobile"
-                size="small"
-                fullWidth
-                value={data.guardian_mobile || ''}
-                onChange={(e) => updateData('guardian_mobile', e.target.value)}
-                onBlur={(e) => onFieldBlur?.('guardian_mobile', e.target.value)}
-                error={!!errors.guardian_mobile}
-                helperText={errors.guardian_mobile}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  label="Country"
+                  value="+1"
+                  disabled
+                  size="small"
+                  sx={{ width: '70px', flexShrink: 0 }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+                <TextField
+                  label="Guardian Mobile"
+                  size="small"
+                  fullWidth
+                  value={data.guardian_mobile || ''}
+                  onChange={(e) => updateData('guardian_mobile', e.target.value)}
+                  onBlur={(e) => onFieldBlur?.('guardian_mobile', e.target.value)}
+                  error={!!errors.guardian_mobile}
+                  helperText={errors.guardian_mobile}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Box>
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
@@ -353,17 +372,27 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                label="Emergency Contact Phone"
-                size="small"
-                fullWidth
-                value={data.emergency_contact_phone || ''}
-                onChange={(e) => updateData('emergency_contact_phone', e.target.value)}
-                onBlur={(e) => onFieldBlur?.('emergency_contact_phone', e.target.value)}
-                error={!!errors.emergency_contact_phone}
-                helperText={errors.emergency_contact_phone}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <TextField
+                  label="Country"
+                  value="+1"
+                  disabled
+                  size="small"
+                  sx={{ width: '70px', flexShrink: 0 }}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+                <TextField
+                  label="Emergency Contact Phone"
+                  size="small"
+                  fullWidth
+                  value={data.emergency_contact_phone || ''}
+                  onChange={(e) => updateData('emergency_contact_phone', e.target.value)}
+                  onBlur={(e) => onFieldBlur?.('emergency_contact_phone', e.target.value)}
+                  error={!!errors.emergency_contact_phone}
+                  helperText={errors.emergency_contact_phone}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Box>
             </Grid>
           </>
         )}

@@ -269,16 +269,25 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="mobile"
-              label="Mobile"
-              fullWidth
-              value={formData.mobile}
-              onChange={handleChange}
-              error={!!errors.mobile}
-              helperText={errors.mobile}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                label="Country"
+                value="+1"
+                disabled
+                sx={{ width: '70px', flexShrink: 0 }}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+              <TextField
+                name="mobile"
+                label="Mobile"
+                fullWidth
+                value={formData.mobile}
+                onChange={handleChange}
+                error={!!errors.mobile}
+                helperText={errors.mobile}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Box>
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
             <DobField
@@ -458,16 +467,25 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    name="guardian_mobile"
-                    label="Guardian Mobile"
-                    fullWidth
-                    value={formData.guardian_mobile}
-                    onChange={handleChange}
-                    error={!!errors.guardian_mobile}
-                    helperText={errors.guardian_mobile}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                  />
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      label="Country"
+                      value="+1"
+                      disabled
+                      sx={{ width: '70px', flexShrink: 0 }}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                    <TextField
+                      name="guardian_mobile"
+                      label="Guardian Mobile"
+                      fullWidth
+                      value={formData.guardian_mobile}
+                      onChange={handleChange}
+                      error={!!errors.guardian_mobile}
+                      helperText={errors.guardian_mobile}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                  </Box>
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <TextField
@@ -493,16 +511,25 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    name="emergency_contact_phone"
-                    label="Emergency Phone"
-                    fullWidth
-                    value={formData.emergency_contact_phone}
-                    onChange={handleChange}
-                    error={!!errors.emergency_contact_phone}
-                    helperText={errors.emergency_contact_phone}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                  />
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      label="Country"
+                      value="+1"
+                      disabled
+                      sx={{ width: '70px', flexShrink: 0 }}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                    <TextField
+                      name="emergency_contact_phone"
+                      label="Emergency Phone"
+                      fullWidth
+                      value={formData.emergency_contact_phone}
+                      onChange={handleChange}
+                      error={!!errors.emergency_contact_phone}
+                      helperText={errors.emergency_contact_phone}
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                  </Box>
                 </Grid>
               </>
             );

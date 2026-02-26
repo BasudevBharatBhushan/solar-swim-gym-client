@@ -175,7 +175,7 @@ export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
                 <DetailItem
                     icon={<PhoneIcon fontSize="small" />}
                     label="Mobile Number"
-                    value={na(profile.mobile) || 'Not provided'}
+                    value={na(profile.mobile) ? `+1 ${na(profile.mobile)}` : 'Not provided'}
                     faded={!na(profile.mobile)}
                 />
             </Grid>
@@ -250,7 +250,7 @@ export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
                             <DetailItem
                                 icon={<ContactPhoneIcon fontSize="small" />}
                                 label="Guardian"
-                                value={`${profile.guardian_name}${profile.guardian_mobile ? ` · ${profile.guardian_mobile}` : ''}`}
+                                value={`${profile.guardian_name}${profile.guardian_mobile ? ` · +1 ${profile.guardian_mobile}` : ''}`}
                             />
                         </Grid>
                     ) : null}
@@ -268,7 +268,7 @@ export const ProfileDetail = ({ profile, onEdit }: ProfileDetailProps) => {
                             <DetailItem
                                 icon={<ContactPhoneIcon fontSize="small" />}
                                 label="Emergency Contact"
-                                value={`${profile.emergency_contact_name}${profile.emergency_contact_phone ? ` · ${profile.emergency_contact_phone}` : ''}`}
+                                value={`${profile.emergency_contact_name}${profile.emergency_contact_phone ? ` · +1 ${profile.emergency_contact_phone}` : ''}`}
                             />
                         </Grid>
                     ) : null}
