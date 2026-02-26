@@ -20,6 +20,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LockIcon from '@mui/icons-material/Lock';
+import { useAuth } from '../../context/AuthContext';
 import { paymentService, SavedCardResponse } from '../../services/paymentService';
 
 interface PaymentDialogProps {
@@ -34,6 +35,8 @@ interface PaymentDialogProps {
 }
 
 export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountId, invoiceId, onSuccess }: PaymentDialogProps) => {
+    const { loginId, userParams } = useAuth();
+    const staffName = `${userParams?.first_name || ''} ${userParams?.last_name || ''}`.trim();
     const [savedCards, setSavedCards] = useState<SavedCardResponse[]>([]);
     const [selectedCardId, setSelectedCardId] = useState<string>('NEW');
     
@@ -129,6 +132,8 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                 accountId,
                 invoiceId,
                 paymentMethodId,
+                staff_id: loginId || null,
+                staff_name: staffName || null,
             });
 
             if (paymentResult.status === 'APPROVED') {

@@ -27,6 +27,8 @@ export interface PayInvoicePayload {
   invoiceId: string;
   accountId: string;
   paymentMethodId: string; // Must be a tokenized card ID
+  staff_id?: string | null;
+  staff_name?: string | null;
 }
 
 export interface PaymentTransactionResponse {

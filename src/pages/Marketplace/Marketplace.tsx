@@ -153,7 +153,7 @@ interface ItemDiscountState {
 export const Marketplace = () => {
     const { accountId: paramAccountId } = useParams<{ accountId: string }>();
     const navigate = useNavigate();
-    const { currentLocationId, userParams, role } = useAuth();
+    const { currentLocationId, userParams, role, loginId } = useAuth();
     const { ageGroups, subscriptionTerms, waiverPrograms } = useConfig();
 
     const accountId = paramAccountId || userParams?.account_id || userParams?.account?.account_id;
@@ -1511,6 +1511,7 @@ export const Marketplace = () => {
     };
 
     const constructSubscriptionPayload = (item: CartItem) => {
+        const staffName = `${userParams?.first_name || ''} ${userParams?.last_name || ''}`.trim();
         const coverage = getCoveragePayload(item);
         const topLevelRole = coverage.find(c => c.role === 'PRIMARY') ? 'PRIMARY' : 'ADD_ON';
 
@@ -1546,12 +1547,16 @@ export const Marketplace = () => {
             billing_period_end: item.billing_period_end || null,
             session_id: sessionId,
             coverage,
+            staff_id: loginId || null,
+            staff_name: staffName || null,
         };
 
         return payload;
     };
 
     const handleCheckout = async () => {
+        const staffName = `${userParams?.first_name || ''} ${userParams?.last_name || ''}`.trim();
+
         if (!accountId || !currentLocationId || marketplaceError || cart.length === 0) {
             return;
         }
@@ -1581,7 +1586,9 @@ export const Marketplace = () => {
                         account_id: accountId,
                         location_id: currentLocationId,
                         total_amount: totalAmount,
-                        status: 'PENDING'
+                        status: 'PENDING',
+                        staff_id: loginId || null,
+                        staff_name: staffName || null,
                     };
                     const invResponse = await billingService.createInvoice(invoicePayload, currentLocationId);
                     const newInvoiceId = invResponse?.data?.invoice_id || invResponse?.invoice_id;

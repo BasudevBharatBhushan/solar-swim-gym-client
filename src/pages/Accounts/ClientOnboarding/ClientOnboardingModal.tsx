@@ -56,7 +56,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
   const [activeStep, setActiveStep] = useState(0);
-  const { login, setCurrentLocationId, currentLocationId, locations } = useAuth();
+  const { login, setCurrentLocationId, currentLocationId, locations, loginId, userParams } = useAuth();
   const { ageGroups, refreshWaiverPrograms, refreshAgeGroups, refreshWaiverTemplates } = useConfig();
   
   const currentLocation = locations.find(loc => loc.location_id === currentLocationId);
@@ -439,6 +439,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
   const handleFinish = async () => {
       setLoading(true);
+      const staffName = `${userParams?.first_name || ''} ${userParams?.last_name || ''}`.trim();
       try {
           // Filter out empty family members if any
           const validFamilyMembers = familyMembers.filter(m => m.first_name && m.last_name);
@@ -448,6 +449,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
               heard_about_us: (profileData as any).heard_about_us,
               notify_primary_member: (profileData as any).notify_primary_member,
               notify_guardian: (profileData as any).notify_guardian,
+              staff_id: loginId || null,
+              staff_name: staffName || null,
               primary_profile: {
                 first_name: profileData.first_name,
                 last_name: profileData.last_name,

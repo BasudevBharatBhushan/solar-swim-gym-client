@@ -119,12 +119,13 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Invoice ID</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Amount</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Staff</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredInvoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     {searchQuery ? 'No invoices match your search.' : 'No invoices found for this account.'}
                   </Typography>
@@ -175,6 +176,11 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
                       color={getStatusColor(invoice.status || 'PENDING') as any}
                       sx={{ fontWeight: 600, fontSize: '0.75rem' }}
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ color: '#64748b' }}>
+                      {invoice.staff_name || '-'}
+                    </Typography>
                   </TableCell>
                 </TableRow>
               ))

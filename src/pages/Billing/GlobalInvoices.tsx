@@ -114,13 +114,14 @@ export const GlobalInvoices = () => {
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Invoice ID</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Amount</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Staff</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="center">Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredInvoices.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">
                         {searchQuery ? 'No invoices match your search.' : 'No invoices found.'}
                       </Typography>
@@ -181,6 +182,11 @@ export const GlobalInvoices = () => {
                           color={getStatusColor(inv.status || '') as any}
                           sx={{ fontWeight: 600, fontSize: '0.75rem' }}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ color: '#64748b' }}>
+                          {inv.staff_name || '-'}
+                        </Typography>
                       </TableCell>
                       <TableCell align="center">
                         <Button 

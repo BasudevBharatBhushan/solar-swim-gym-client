@@ -123,13 +123,14 @@ export const TransactionsTab = ({ accountId }: TransactionsTabProps) => {
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Transaction ID</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Amount</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Staff</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="center">Details</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     {searchQuery ? 'No transactions match your search.' : 'No transactions found for this account.'}
                   </Typography>
@@ -182,6 +183,11 @@ export const TransactionsTab = ({ accountId }: TransactionsTabProps) => {
                       color={getStatusColor(tx.status || '') as any}
                       sx={{ fontWeight: 600, fontSize: '0.75rem' }}
                     />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ color: '#64748b' }}>
+                      {tx.staff_name || '-'}
+                    </Typography>
                   </TableCell>
                   <TableCell align="center">
                     <Tooltip

@@ -19,7 +19,9 @@ interface SubscriptionCreationModalProps {
 }
 
 export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId, onSuccess }: SubscriptionCreationModalProps) => {
-    const { currentLocationId } = useAuth();
+    const { currentLocationId, loginId, userParams } = useAuth();
+    const staffName = `${userParams?.first_name || ''} ${userParams?.last_name || ''}`.trim();
+
     const [activeTab, setActiveTab] = useState(0);
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -83,7 +85,9 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                         subscription_term_id: bp.subscription_term_id,
                         unit_price_snapshot: bp.price,
                         total_amount: bp.price,
-                        coverage: [{ profile_id: profileId, role: 'PRIMARY' }] 
+                        coverage: [{ profile_id: profileId, role: 'PRIMARY' }],
+                        staff_id: loginId || null,
+                        staff_name: staffName || null
                     }));
                 }
             }
@@ -100,7 +104,9 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                         reference_id: cat.category_id,
                         unit_price_snapshot: totalFees,
                         total_amount: totalFees,
-                         coverage: [{ profile_id: profileId, role: 'PRIMARY' }]
+                        coverage: [{ profile_id: profileId, role: 'PRIMARY' }],
+                        staff_id: loginId || null,
+                        staff_name: staffName || null
                     }));
                 }
             });
@@ -164,7 +170,7 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                                     </Grid>
                                 ))}
                                 {basePrices.length === 0 && (
-                                    <Grid size={12}>
+                                    <Grid size={{ xs: 12 }}>
                                         <Typography color="text.secondary" align="center">No Base Plans configured.</Typography>
                                     </Grid>
                                 )}
@@ -193,7 +199,7 @@ export const SubscriptionCreationModal = ({ open, onClose, accountId, profileId,
                                     </Grid>
                                 ))}
                                 {membershipPrograms.length === 0 && (
-                                    <Grid size={12}>
+                                    <Grid size={{ xs: 12 }}>
                                         <Typography color="text.secondary" align="center">No Membership Programs found.</Typography>
                                     </Grid>
                                 )}
