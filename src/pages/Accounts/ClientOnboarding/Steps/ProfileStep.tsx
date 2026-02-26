@@ -418,11 +418,13 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
           </Typography>
           <TextField
             type="number"
-            value={data.family_count || ''}
+            value={data.family_count ?? ''}
             onChange={(e) => {
               const val = e.target.value === '' ? '' : parseInt(e.target.value);
               updateData('family_count', val);
             }}
+            error={!!errors.family_count}
+            helperText={errors.family_count}
             disabled={lockFamilyCount}
             slotProps={{
               htmlInput: { min: 1 },

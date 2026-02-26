@@ -287,6 +287,10 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       }
     }
     
+    if (!profileData.family_count || profileData.family_count < 1) {
+      newErrors.family_count = 'Family count must be at least 1';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };

@@ -365,7 +365,7 @@ export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', lo
         onSuccess={() => {
             // Success state is handled inside the modal for 'user' mode
         }}
-        onboardingType={searchParams.get('tabuser') === 'true' ? 'tab_user' : 'user'}
+        onboardingType="tab_user" // Temporarily using tab_user to disable autologin during onboarding
         locationNameProp={companyName}
       />
     </Box>
