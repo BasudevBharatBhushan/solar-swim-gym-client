@@ -773,7 +773,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                                     width: isMobile ? '100%' : 'auto'
                                 }}
                             >
-                                {isAutoLoggingIn ? 'Logging in...' : `[Buy Membership and Services] (${countdown}s)`}
+                                {isAutoLoggingIn ? 'Logging in...' : `Sign up for Memebership and services (${countdown}s)`}
                             </Button>
                             <Button 
                                 variant="outlined" 

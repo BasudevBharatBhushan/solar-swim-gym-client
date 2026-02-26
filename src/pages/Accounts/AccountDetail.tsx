@@ -635,7 +635,7 @@ export const AccountDetail = () => {
         </Grid>
 
         {/* Right Panel: Tabs */}
-        <Grid size={{ xs: 12, md: 8 }}>
+        <Grid size={{ xs: 12, md: 8 }} sx={{ minWidth: 0 }}>
             <Paper 
                 elevation={0}
                 sx={{ 
@@ -647,12 +647,16 @@ export const AccountDetail = () => {
                     overflow: 'hidden'
                 }}
             >
-                <Box sx={{ borderBottom: 1, borderColor: '#f1f5f9', px: 1, bgcolor: '#f8fafc' }}>
+                <Box sx={{ borderBottom: 1, borderColor: '#f1f5f9', px: 1, bgcolor: '#f8fafc', width: '100%', overflow: 'hidden' }}>
                     <Tabs 
                         value={tabValue} 
                         onChange={handleTabChange} 
                         aria-label="account detail tabs"
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        allowScrollButtonsMobile
                         sx={{
+                            width: '100%',
                             '& .MuiTab-root': {
                                 textTransform: 'none',
                                 fontWeight: 700,
