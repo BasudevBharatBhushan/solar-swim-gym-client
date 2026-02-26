@@ -36,7 +36,7 @@ export const UserPortalLayout = () => {
                             onClick={() => navigate('/portal/marketplace')}
                             sx={{ color: 'text.primary', textTransform: 'none', fontWeight: 600 }}
                         >
-                            Shop
+                            Store
                         </Button>
                         <Button 
                             color="inherit" 

@@ -60,6 +60,12 @@ export interface Subscription {
       profile?: any;
   }[];
   plan_name?: string; 
+  invoice?: {
+    invoice_id: string;
+    status: string;
+    total_amount: number;
+    created_at: string;
+  };
 }
 
 export interface Session {

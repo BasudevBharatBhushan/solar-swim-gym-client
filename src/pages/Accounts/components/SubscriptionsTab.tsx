@@ -118,6 +118,16 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
       }
   };
 
+  const getInvoiceStatusColor = (status: string) => {
+      switch (status) {
+          case 'PAID': return 'success';
+          case 'PENDING': return 'warning';
+          case 'CANCELLED': 
+          case 'VOID': return 'error';
+          default: return 'default';
+      }
+  };
+
   const getCoverage = (sub: any) => {
       return sub.subscription_coverage || sub.coverage || [];
   };
@@ -198,12 +208,23 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                                       Ref: {sub.reference_id ? sub.reference_id.substring(0, 8) : 'N/A'}...
                                                   </Typography>
                                               </Box>
-                                              <Chip 
-                                                  label={sub.status} 
-                                                  size="small" 
-                                                  color={getStatusColor(sub.status) as any} 
-                                                  sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }}
-                                              />
+                                               <Stack direction="row" spacing={1} alignItems="center">
+                                                  {sub.invoice && (
+                                                      <Chip 
+                                                          label={`INV: ${sub.invoice.status}`} 
+                                                          size="small" 
+                                                          variant="outlined"
+                                                          color={getInvoiceStatusColor(sub.invoice.status) as any} 
+                                                          sx={{ fontWeight: 700, fontSize: '0.6rem', height: 20 }}
+                                                      />
+                                                  )}
+                                                  <Chip 
+                                                      label={sub.status} 
+                                                      size="small" 
+                                                      color={getStatusColor(sub.status) as any} 
+                                                      sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }}
+                                                  />
+                                               </Stack>
                                           </Box>
 
                                           <Stack spacing={1} sx={{ mt: 1 }}>
@@ -279,10 +300,11 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                 <Table>
                     <TableHead sx={{ bgcolor: '#f8fafc' }}>
                         <TableRow>
-                            <TableCell>Type</TableCell>
+                             <TableCell>Type</TableCell>
                             <TableCell>Plan Name</TableCell>
                             <TableCell>Billing Period</TableCell>
-                            <TableCell>Status</TableCell>
+                            <TableCell>Sub Status</TableCell>
+                            <TableCell>Invoice Status</TableCell>
                             <TableCell>Coverage</TableCell>
                         </TableRow>
                     </TableHead>
@@ -335,13 +357,26 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                             <Typography variant="body2" color="text.secondary">N/A</Typography>
                                         )}
                                     </TableCell>
-                                    <TableCell>
+                                     <TableCell>
                                         <Chip 
                                             label={sub.status} 
                                             size="small" 
                                             color={getStatusColor(sub.status) as any} 
                                             sx={{ fontWeight: 600, fontSize: '0.7rem' }}
                                         />
+                                    </TableCell>
+                                    <TableCell>
+                                        {sub.invoice ? (
+                                            <Chip 
+                                                label={sub.invoice.status} 
+                                                size="small" 
+                                                variant="outlined"
+                                                color={getInvoiceStatusColor(sub.invoice.status) as any} 
+                                                sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                                            />
+                                        ) : (
+                                            <Typography variant="caption" color="text.secondary">N/A</Typography>
+                                        )}
                                     </TableCell>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>

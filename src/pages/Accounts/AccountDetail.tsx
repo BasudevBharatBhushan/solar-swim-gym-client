@@ -25,6 +25,7 @@ import { WaiversTab } from './components/WaiversTab';
 import { InvoicesTab } from './components/InvoicesTab';
 import { TransactionsTab } from './components/TransactionsTab';
 import { ProfileUpsertDialog } from './components/ProfileUpsertDialog';
+import { SavedCardsTab } from './components/SavedCardsTab';
 import { useAuth } from '../../context/AuthContext';
 
 interface WaiverComposeDraft {
@@ -45,15 +46,25 @@ export const AccountDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   
-  // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers, 3=Invoices, 4=Transactions
+  // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers, 3=Invoices, 4=Transactions, 5=Saved Cards
   const [tabValue, setTabValue] = useState(0);
   const [searchParams] = useSearchParams();
 
   // Auto-switch tabs / pre-select profile based on URL params
   useEffect(() => {
-    if (searchParams.get('tab') === 'waivers') {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'waivers') {
       setTabValue(2);
+    } else if (tabParam === 'invoices') {
+      setTabValue(3);
+    } else if (tabParam === 'transactions') {
+      setTabValue(4);
+    } else if (tabParam === 'cards') {
+      setTabValue(5);
+    } else if (tabParam === 'purchases') {
+      setTabValue(1);
     }
+
     const profileIdParam = searchParams.get('profileId');
     if (profileIdParam) {
       setSelectedProfileId(profileIdParam);
@@ -665,6 +676,7 @@ export const AccountDetail = () => {
                         <Tab label="Waivers" />
                         <Tab label="Invoices" />
                         <Tab label="Transactions" />
+                        <Tab label="Saved Cards" />
                     </Tabs>
                 </Box>
                 <Box sx={{ p: 4 }}>
@@ -697,6 +709,9 @@ export const AccountDetail = () => {
                     )}
                     {tabValue === 4 && (
                         <TransactionsTab accountId={account.account_id} />
+                    )}
+                    {tabValue === 5 && (
+                        <SavedCardsTab accountId={account.account_id} />
                     )}
                 </Box>
             </Paper>

@@ -73,7 +73,7 @@ interface PendingWaiver {
 }
 
 export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: WaiversTabProps) => {
-  const { currentLocationId } = useAuth();
+  const { currentLocationId, role } = useAuth();
   const [signedWaivers, setSignedWaivers] = useState<SignedWaiver[]>([]);
   const [pendingWaivers, setPendingWaivers] = useState<PendingWaiver[]>([]);
   const [loading, setLoading] = useState(false);
@@ -650,20 +650,22 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Button
-                          startIcon={<EmailIcon />}
-                          size="small"
-                          variant="outlined"
-                          onClick={() => preparePublicWaiverEmailDraft(pw)}
-                          disabled={sendingWaiverId === pw.profile.profile_id}
-                          sx={{ 
-                            textTransform: 'none', 
-                            fontWeight: 600,
-                            mr: 1
-                          }}
-                        >
-                          {sendingWaiverId === pw.profile.profile_id ? 'Wait...' : 'Email Link'}
-                        </Button>
+                        {role !== 'MEMBER' && (
+                          <Button
+                            startIcon={<EmailIcon />}
+                            size="small"
+                            variant="outlined"
+                            onClick={() => preparePublicWaiverEmailDraft(pw)}
+                            disabled={sendingWaiverId === pw.profile.profile_id}
+                            sx={{ 
+                              textTransform: 'none', 
+                              fontWeight: 600,
+                              mr: 1
+                            }}
+                          >
+                            {sendingWaiverId === pw.profile.profile_id ? 'Wait...' : 'Email Link'}
+                          </Button>
+                        )}
                         <Button
                           startIcon={<DrawIcon />}
                           size="small"
@@ -735,15 +737,17 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
                         )}
                       </TableCell>
                       <TableCell align="right">
-                        <Button
-                          startIcon={<EmailIcon />}
-                          size="small"
-                          onClick={() => prepareWaiverEmailDraft(waiver)}
-                          disabled={sendingWaiverId === waiver.signed_waiver_id}
-                          sx={{ mr: 1 }}
-                        >
-                          {sendingWaiverId === waiver.signed_waiver_id ? 'Sending...' : 'Email'}
-                        </Button>
+                        {role !== 'MEMBER' && (
+                          <Button
+                            startIcon={<EmailIcon />}
+                            size="small"
+                            onClick={() => prepareWaiverEmailDraft(waiver)}
+                            disabled={sendingWaiverId === waiver.signed_waiver_id}
+                            sx={{ mr: 1 }}
+                          >
+                            {sendingWaiverId === waiver.signed_waiver_id ? 'Sending...' : 'Email'}
+                          </Button>
+                        )}
                         <Button 
                           startIcon={<VisibilityIcon />} 
                           size="small" 
@@ -811,14 +815,16 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
         </DialogContent>
         <DialogActions>
             <Button onClick={handleCloseDialog}>Close</Button>
-            <Button
-                onClick={() => selectedWaiver && prepareWaiverEmailDraft(selectedWaiver)}
-                color="primary"
-                startIcon={<EmailIcon />}
-                disabled={!selectedWaiver || sendingWaiverId === selectedWaiver.signed_waiver_id}
-            >
-                {selectedWaiver && sendingWaiverId === selectedWaiver.signed_waiver_id ? 'Preparing...' : 'Compose Email'}
-            </Button>
+            {role !== 'MEMBER' && (
+                <Button
+                    onClick={() => selectedWaiver && prepareWaiverEmailDraft(selectedWaiver)}
+                    color="primary"
+                    startIcon={<EmailIcon />}
+                    disabled={!selectedWaiver || sendingWaiverId === selectedWaiver.signed_waiver_id}
+                >
+                    {selectedWaiver && sendingWaiverId === selectedWaiver.signed_waiver_id ? 'Preparing...' : 'Compose Email'}
+                </Button>
+            )}
             <Button onClick={() => window.print()} color="primary">Print</Button>
         </DialogActions>
       </Dialog>

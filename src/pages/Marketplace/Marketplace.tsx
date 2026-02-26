@@ -3040,7 +3040,7 @@ export const Marketplace = () => {
                         setItemDiscounts({});
 
                         setPaymentOpen(false);
-                        navigate(isMember ? '/portal' : `/admin/accounts/${accountId}`);
+                        navigate(isMember ? '/portal?tab=invoices' : `/admin/accounts/${accountId}?tab=invoices`);
                     } catch (err) {
                         console.error('Checkout finalization failed:', err);
                         setMarketplaceError('Finalization failed. Please refresh the page.');

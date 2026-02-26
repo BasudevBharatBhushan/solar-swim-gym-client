@@ -68,4 +68,9 @@ export const billingService = {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.get(`/payments/transactions/accounts/${accountId}`, {}, options);
   },
+
+  getSavedCards: async (accountId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/payments/saved-cards?account_id=${accountId}`, {}, options);
+  },
 };

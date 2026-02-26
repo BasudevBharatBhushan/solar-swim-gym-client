@@ -1,29 +1,47 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Box, Grid, CircularProgress, Typography, Paper, Tabs, Tab } from '@mui/material';
 import { crmService } from '../../services/crmService';
+import { cartService } from '../../services/cartService';
 import { AccountSummary } from '../Accounts/components/AccountSummary';
 import { ProfileList } from '../Accounts/components/ProfileList';
 import { ProfileDetail } from '../Accounts/components/ProfileDetail';
 import { SubscriptionsTab } from '../Accounts/components/SubscriptionsTab';
 import { WaiversTab } from '../Accounts/components/WaiversTab';
+import { InvoicesTab } from '../Accounts/components/InvoicesTab';
+import { TransactionsTab } from '../Accounts/components/TransactionsTab';
+import { SavedCardsTab } from '../Accounts/components/SavedCardsTab';
+import { ProfileUpsertDialog } from '../Accounts/components/ProfileUpsertDialog';
 import { useAuth } from '../../context/AuthContext';
 
 export const MyAccount = () => {
     const { userParams, currentLocationId } = useAuth();
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const [account, setAccount] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+    const [cartCount, setCartCount] = useState(0);
+    const [profileToEdit, setProfileToEdit] = useState<any>(null);
+    const [openProfileUpsert, setOpenProfileUpsert] = useState(false);
     
-    // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers
+    // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers, 3=Invoices, 4=Transactions, 5=Saved Cards
     const [tabValue, setTabValue] = useState(0);
 
-    // Auto-switch to Waivers tab if redirected from waiver signing flow
+    // Auto-switch tabs based on URL params
     useEffect(() => {
-        if (searchParams.get('tab') === 'waivers') {
+        const tabParam = searchParams.get('tab');
+        if (tabParam === 'waivers') {
             setTabValue(2);
+        } else if (tabParam === 'invoices') {
+            setTabValue(3);
+        } else if (tabParam === 'transactions') {
+            setTabValue(4);
+        } else if (tabParam === 'cards') {
+            setTabValue(5);
+        } else if (tabParam === 'subscriptions') {
+            setTabValue(1);
         }
     }, [searchParams]);
 
@@ -33,23 +51,6 @@ export const MyAccount = () => {
             
             setLoading(true);
             try {
-                // Use the account_id from the logged-in user's context
-                // locationId logic might need adjustment if users can be across locations, 
-                // but usually they belong to the location they registered with.
-                // Assuming crmService.getAccountDetails works for members too, 
-                // OR we might need a specific endpoint like `/portal/my-account` if RLS blocks `crmService` usage.
-                // For now, let's try using `crmService` but we might need to rely on the backend being lenient or valid RLS.
-                // NOTE: Staff APIs might be protected by "Staff Only" middleware. 
-                // If so, we'll need to create a `memberService` or similar.
-                // For this task, I'll assume RLS allows users to see their OWN account if `getAccountDetails` is generic.
-                
-                // Correction: `crmService` likely uses `/api/v1/crm/...` which might be Staff only.
-                // The snippet provided: `to test out the services, u can use the mcp tool to look into what data already present in the db`
-                // doesn't give me the backend code to check middleware.
-                // I will try to use `crmService`. If it fails (403), I might need to use a different approach or assume the user wants UI first.
-                // However, `crmService.getAccountDetails` fetches `/crm/accounts/:id`.
-                // Let's assume for now.
-                
                 const response = await crmService.getAccountDetails(userParams.account_id, currentLocationId || undefined);
                 const data = response.data || response;
                 
@@ -63,9 +64,7 @@ export const MyAccount = () => {
 
             } catch (err: any) {
                 console.error("Failed to fetch account details", err);
-                
-                // Fallback: If fetch fails (likely permission), verify if we can show partial data from userParams
-                if (userParams && userParams.account_id === userParams.account_id) {
+                if (userParams && userParams.account_id) {
                      const fallbackData = {
                         account_id: userParams.account_id,
                         profiles: [{
@@ -78,7 +77,6 @@ export const MyAccount = () => {
                         }]
                      };
                      setAccount(fallbackData);
-                     // Don't show error if we have fallback
                 } else {
                     setError("Failed to load your account. " + (err.message || ''));
                 }
@@ -87,7 +85,19 @@ export const MyAccount = () => {
             }
         };
 
+        const fetchCartCount = async () => {
+            if (!userParams?.account_id || !currentLocationId) return;
+            try {
+              const items = await cartService.getItems(currentLocationId);
+              const count = items.filter(i => i.account_id === userParams.account_id).length;
+              setCartCount(count);
+            } catch (err) {
+              console.error("Failed to fetch cart count", err);
+            }
+          };
+
         fetchAccount();
+        fetchCartCount();
     }, [userParams, currentLocationId]);
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -97,6 +107,47 @@ export const MyAccount = () => {
     const handleProfileSelect = (profileId: string) => {
         setSelectedProfileId(profileId);
     };
+
+
+    
+    const handleAddMember = () => {
+        setProfileToEdit(null);
+        setOpenProfileUpsert(true);
+    };
+
+    const handleEditMember = (profile: any) => {
+        setProfileToEdit(profile);
+        setOpenProfileUpsert(true);
+    };
+
+    const handleUpsertSuccess = () => {
+        // Refresh account details
+        if (userParams?.account_id) {
+            crmService.getAccountDetails(userParams.account_id, currentLocationId || undefined)
+                .then(response => {
+                    const data = response.data || response;
+                    setAccount({
+                        ...data,
+                        profiles: data.profiles || data.profile || []
+                    });
+                });
+        }
+        setOpenProfileUpsert(false);
+    };
+
+    const handleAddSubscription = () => {
+        navigate('/portal/marketplace');
+    };
+
+    const handleClearCart = async () => {
+        if (!userParams?.account_id || !currentLocationId) return;
+        try {
+          await cartService.clearCart(userParams.account_id, currentLocationId);
+          setCartCount(0);
+        } catch (err: any) {
+          console.error("Failed to clear cart", err);
+        }
+      };
 
     if (loading) {
         return (
@@ -127,7 +178,12 @@ export const MyAccount = () => {
                </Typography>
             </Box>
 
-            <AccountSummary account={account} />
+            <AccountSummary 
+                account={account} 
+                onStoreClick={handleAddSubscription}
+                cartCount={cartCount}
+                onClearCart={handleClearCart}
+            />
 
             <Grid container spacing={3} sx={{ mt: 1 }}>
                 {/* Left Panel: Profile List */}
@@ -136,6 +192,7 @@ export const MyAccount = () => {
                         profiles={account.profiles || []} 
                         selectedProfileId={selectedProfileId} 
                         onSelectProfile={handleProfileSelect} 
+                        onAddMember={handleAddMember}
                     />
                 </Grid>
 
@@ -147,11 +204,18 @@ export const MyAccount = () => {
                                 <Tab label="Profile Details" />
                                 <Tab label="Subscriptions" />
                                 <Tab label="Waivers" />
+                                <Tab label="Invoices" />
+                                <Tab label="Transactions" />
+                                <Tab label="Saved Cards" />
                             </Tabs>
                         </Box>
                         <Box sx={{ p: 3 }}>
                             {tabValue === 0 && (
-                                <ProfileDetail profile={selectedProfile} accountId={account.account_id} />
+                                <ProfileDetail 
+                                    profile={selectedProfile} 
+                                    accountId={account.account_id} 
+                                    onEdit={() => handleEditMember(selectedProfile)}
+                                />
                             )}
                             {tabValue === 1 && (
                                 <SubscriptionsTab accountId={account.account_id} selectedProfileId={selectedProfileId} />
@@ -163,10 +227,29 @@ export const MyAccount = () => {
                                     accountId={account.account_id}
                                 />
                             )}
+                            {tabValue === 3 && (
+                                <InvoicesTab accountId={account.account_id} />
+                            )}
+                            {tabValue === 4 && (
+                                <TransactionsTab accountId={account.account_id} />
+                            )}
+                            {tabValue === 5 && (
+                                <SavedCardsTab accountId={account.account_id} />
+                            )}
                         </Box>
                     </Paper>
                 </Grid>
             </Grid>
+
+            {account && (
+                <ProfileUpsertDialog
+                    open={openProfileUpsert}
+                    onClose={() => setOpenProfileUpsert(false)}
+                    onSuccess={handleUpsertSuccess}
+                    account_id={account.account_id}
+                    profile={profileToEdit}
+                />
+            )}
         </Box>
     );
 };
