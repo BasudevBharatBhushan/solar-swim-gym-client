@@ -231,5 +231,12 @@ export const theme = createTheme({
             }
         }
     },
+  MuiInputBase: {
+      styleOverrides: {
+        input: {
+          fontSize: '16px', // Prevents iOS Safari auto-zoom on focus
+        },
+      },
+    },
   },
 });

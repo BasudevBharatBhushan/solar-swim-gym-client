@@ -463,6 +463,10 @@ export const Marketplace = () => {
                 );
 
                 setServices(enrichedServices);
+                
+                // Pre-select all filter sections by default
+                const allSectionIds = ['MEMBERSHIP', ...enrichedServices.map(s => s.service_id)];
+                setActiveSections(allSectionIds);
             } catch (error) {
                 console.error('Failed to load marketplace data', error);
                 setMarketplaceError('Failed to load marketplace data. Please try again.');
@@ -1366,11 +1370,12 @@ export const Marketplace = () => {
         let endDateStr = '';
         if (selectedBaseStartDate && selectedTermId) {
             const termInfo = subscriptionTermMap.get(selectedTermId);
-            if (termInfo) {
+            const effectiveTerm = termInfo || selectedTerm as any;
+            if (effectiveTerm) {
                 const start = new Date(selectedBaseStartDate);
                 // Handle different recurrence units
-                const unit = (termInfo.recurrence_unit || 'MONTH').toUpperCase();
-                const value = termInfo.recurrence_unit_value || termInfo.duration_months || 1;
+                const unit = (effectiveTerm.recurrence_unit || 'MONTH').toUpperCase();
+                const value = effectiveTerm.recurrence_unit_value || effectiveTerm.duration_months || 1;
                 
                 if (unit === 'DAY') {
                     start.setDate(start.getDate() + value);
@@ -1818,10 +1823,10 @@ export const Marketplace = () => {
                                                                             const inCart = term.base_price_id ? isInCart(`BASE-${term.base_price_id}`) : false;
                                                                             const termName = subscriptionTermNameMap.get(term.subscription_term_id) || term.term_name || 'Term';
                                                                             const termInfo = subscriptionTermMap.get(term.subscription_term_id);
-                                                                            const billingText =
-                                                                                termInfo?.payment_mode === 'RECURRING'
-                                                                                    ? `Recurring every ${termInfo.recurrence_unit_value || 1} ${(termInfo.recurrence_unit || 'Month').toLowerCase()}${(termInfo.recurrence_unit_value || 1) > 1 ? 's' : ''}`
-                                                                                    : 'Pay in Full';
+                                                                             const billingText =
+                                                                                 (termInfo?.payment_mode === 'RECURRING' || term.payment_mode === 'RECURRING')
+                                                                                     ? `Recurring every ${termInfo?.recurrence_unit_value || term.recurrence_unit_value || 1} ${(termInfo?.recurrence_unit || term.recurrence_unit || 'Month').toLowerCase()}${(termInfo?.recurrence_unit_value || term.recurrence_unit_value || 1) > 1 ? 's' : ''}`
+                                                                                     : 'Pay in Full';
 
                                                                             return (
                                                                                 <Box
@@ -2655,10 +2660,10 @@ export const Marketplace = () => {
                             {(pendingBaseCard?.terms || []).map((term) => {
                                 const termName = subscriptionTermNameMap.get(term.subscription_term_id) || term.term_name || 'Term';
                                 const termInfo = subscriptionTermMap.get(term.subscription_term_id);
-                                const billingText =
-                                    termInfo?.payment_mode === 'RECURRING'
-                                        ? `Recurring every ${termInfo.recurrence_unit_value || 1} ${(termInfo.recurrence_unit || 'Month').toLowerCase()}${(termInfo.recurrence_unit_value || 1) > 1 ? 's' : ''}`
-                                        : 'Pay in Full';
+                                            const billingText =
+                                                (termInfo?.payment_mode === 'RECURRING' || term.payment_mode === 'RECURRING')
+                                                    ? `Recurring every ${termInfo?.recurrence_unit_value || term.recurrence_unit_value || 1} ${(termInfo?.recurrence_unit || term.recurrence_unit || 'Month').toLowerCase()}${(termInfo?.recurrence_unit_value || term.recurrence_unit_value || 1) > 1 ? 's' : ''}`
+                                                    : 'Pay in Full';
                                 return (
                                     <Paper key={term.base_price_id || term.subscription_term_id} variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
                                         <FormControlLabel

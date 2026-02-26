@@ -8,8 +8,9 @@ import {
 import { crmService } from '../../../services/crmService';
 import { configService } from '../../../services/configService';
 import { useAuth } from '../../../context/AuthContext';
-import { getAgeGroup, getAgeRangeLabel } from '../../../lib/ageUtils';
+import { getAgeGroup, getAgeRangeLabel, calculateAge, isFutureDate, isUnderSixMonths } from '../../../lib/ageUtils';
 import { Chip } from '@mui/material';
+import { DobField } from '../ClientOnboarding/components/DobField';
 
 interface ProfileUpsertDialogProps {
   open: boolean;
@@ -20,10 +21,15 @@ interface ProfileUpsertDialogProps {
 }
 
 export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, profile }: ProfileUpsertDialogProps) => {
-  const { currentLocationId } = useAuth();
+  const { currentLocationId, locations } = useAuth();
   const [loading, setLoading] = useState(false);
   const [waiverPrograms, setWaiverPrograms] = useState<any[]>([]);
   const [ageGroups, setAgeGroups] = useState<any[]>([]);
+  const [errors, setErrors] = useState<any>({});
+
+  const locationName = locations.find(l => l.location_id === currentLocationId)?.name || '';
+  const isGlasscourt = locationName.toLowerCase().includes('glasscourt') || locationName.toLowerCase().includes('glass court');
+
   const [formData, setFormData] = useState<any>({
     first_name: '',
     last_name: '',
@@ -45,8 +51,7 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
     city: '',
     state: '',
     zip_code: '',
-    country: 'USA',
-    relationship: ''
+    country: 'USA'
   });
 
   useEffect(() => {
@@ -88,8 +93,7 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         city: profile.city || '',
         state: profile.state || '',
         zip_code: profile.zip_code || '',
-        country: profile.country || 'USA',
-        relationship: profile.relationship || ''
+        country: profile.country || 'USA'
       });
     } else {
       setFormData({
@@ -113,10 +117,10 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
         city: '',
         state: '',
         zip_code: '',
-        country: 'USA',
-        relationship: ''
+        country: 'USA'
       });
     }
+    setErrors({});
   }, [profile, open]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,9 +129,81 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    if (errors[name]) {
+      setErrors((prev: any) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const validateMobile = (val: string): string => {
+    if (!val) return '';
+    const digits = val.replace(/\D/g, '');
+    if (digits.length !== 10) return 'Mobile number must be 10 digits';
+    return '';
+  };
+
+  const validateEmailFormat = (val: string): string => {
+    if (!val) return '';
+    const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return pattern.test(val) ? '' : 'Enter a valid email address';
+  };
+
+  const validateForm = () => {
+    const newErrors: any = {};
+    if (!formData.first_name) newErrors.first_name = 'First name is required';
+    if (!formData.last_name) newErrors.last_name = 'Last name is required';
+
+    if (formData.email) {
+      const emailErr = validateEmailFormat(formData.email);
+      if (emailErr) newErrors.email = emailErr;
+    }
+
+    if (formData.mobile) {
+      const mobileErr = validateMobile(formData.mobile);
+      if (mobileErr) newErrors.mobile = mobileErr;
+    }
+
+    if (!formData.date_of_birth) {
+      newErrors.date_of_birth = 'Date of birth is required';
+    } else {
+      if (isFutureDate(formData.date_of_birth)) newErrors.date_of_birth = 'Date of birth cannot be in the future';
+      else if (isUnderSixMonths(formData.date_of_birth)) newErrors.date_of_birth = 'Age must be at least 6 months';
+    }
+
+    const age = formData.date_of_birth ? calculateAge(formData.date_of_birth) : null;
+    const isMinor = age !== null ? age < 18 : false;
+
+    if (isMinor) {
+      if (!formData.guardian_name) newErrors.guardian_name = 'Guardian name required for minors';
+      if (!formData.guardian_mobile) {
+        newErrors.guardian_mobile = 'Guardian mobile required';
+      } else {
+        const err = validateMobile(formData.guardian_mobile);
+        if (err) newErrors.guardian_mobile = err;
+      }
+      if (!formData.emergency_contact_phone) {
+        newErrors.emergency_contact_phone = 'Emergency contact phone required';
+      } else {
+        const err = validateMobile(formData.emergency_contact_phone);
+        if (err) newErrors.emergency_contact_phone = err;
+      }
+    }
+
+    if (!isGlasscourt && formData.waiver_program_id) {
+      if (!formData.case_manager_name) newErrors.case_manager_name = 'Case manager name required';
+      if (!formData.case_manager_email) {
+        newErrors.case_manager_email = 'Case manager email required';
+      } else {
+        const err = validateEmailFormat(formData.case_manager_email);
+        if (err) newErrors.case_manager_email = err;
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
+    if (!validateForm()) return;
     setLoading(true);
     try {
       const payload = {
@@ -162,6 +238,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
               required
               value={formData.first_name}
               onChange={handleChange}
+              error={!!errors.first_name}
+              helperText={errors.first_name}
               slotProps={{ inputLabel: { shrink: true } }}
             />
           </Grid>
@@ -173,6 +251,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
               required
               value={formData.last_name}
               onChange={handleChange}
+              error={!!errors.last_name}
+              helperText={errors.last_name}
               slotProps={{ inputLabel: { shrink: true } }}
             />
           </Grid>
@@ -183,6 +263,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
               fullWidth
               value={formData.email}
               onChange={handleChange}
+              error={!!errors.email}
+              helperText={errors.email}
               slotProps={{ inputLabel: { shrink: true } }}
             />
           </Grid>
@@ -193,18 +275,23 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
               fullWidth
               value={formData.mobile}
               onChange={handleChange}
+              error={!!errors.mobile}
+              helperText={errors.mobile}
               slotProps={{ inputLabel: { shrink: true } }}
             />
           </Grid>
           <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="date_of_birth"
+            <DobField
               label="Date of Birth"
-              type="date"
-              fullWidth
-              slotProps={{ inputLabel: { shrink: true } }}
               value={formData.date_of_birth}
-              onChange={handleChange}
+              onChange={(val) => {
+                setFormData((prev: any) => ({ ...prev, date_of_birth: val }));
+                if (errors.date_of_birth) setErrors((prev: any) => ({ ...prev, date_of_birth: undefined }));
+              }}
+              error={!!errors.date_of_birth}
+              helperText={errors.date_of_birth}
+              required
+              fullWidth
             />
             {(() => {
               const ageProfile = getAgeGroup(formData.date_of_birth, ageGroups, 'Membership');
@@ -236,43 +323,34 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
               onChange={handleChange}
               slotProps={{ inputLabel: { shrink: true } }}
             >
-              <MenuItem value=""><em>None</em></MenuItem>
+              <MenuItem value=""><em>Prefer not to say</em></MenuItem>
               <MenuItem value="Male">Male</MenuItem>
               <MenuItem value="Female">Female</MenuItem>
               <MenuItem value="Other">Other</MenuItem>
             </TextField>
           </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="relationship"
-              label="Relationship to Primary"
-              placeholder="e.g. Spouse, Child, Parent"
-              fullWidth
-              value={formData.relationship}
-              onChange={handleChange}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="waiver_program_id"
-              select
-              label="Waiver Program"
-              fullWidth
-              value={formData.waiver_program_id}
-              onChange={handleChange}
-              slotProps={{ inputLabel: { shrink: true } }}
-            >
-              <MenuItem value="">None</MenuItem>
-              {waiverPrograms.map((p) => (
-                <MenuItem key={p.waiver_program_id} value={p.waiver_program_id}>
-                  {p.name} ({p.code})
-                </MenuItem>
-              ))}
-            </TextField>
-          </Grid>
+          {!isGlasscourt && (
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                name="waiver_program_id"
+                select
+                label="Waiver Program"
+                fullWidth
+                value={formData.waiver_program_id}
+                onChange={handleChange}
+                slotProps={{ inputLabel: { shrink: true } }}
+              >
+                <MenuItem value="">None</MenuItem>
+                {waiverPrograms.map((p) => (
+                  <MenuItem key={p.waiver_program_id} value={p.waiver_program_id}>
+                    {p.name} ({p.code})
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          )}
 
-          {formData.waiver_program_id && (
+          {!isGlasscourt && formData.waiver_program_id && (
             <>
               <Grid size={{ xs: 12 }}>
                 <Typography variant="overline" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
@@ -287,6 +365,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
                   required
                   value={formData.case_manager_name}
                   onChange={handleChange}
+                  error={!!errors.case_manager_name}
+                  helperText={errors.case_manager_name}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
@@ -298,6 +378,8 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
                   required
                   value={formData.case_manager_email}
                   onChange={handleChange}
+                  error={!!errors.case_manager_email}
+                  helperText={errors.case_manager_email}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
@@ -347,65 +429,84 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
             />
           </Grid>
 
-          <Grid size={12}>
-            <Box sx={{ mt: 1, mb: 0 }}>
-              <Typography variant="overline" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
-                Guardian & Emergency Contact
-              </Typography>
-            </Box>
-          </Grid>
+          {(() => {
+            const age = formData.date_of_birth ? calculateAge(formData.date_of_birth) : null;
+            const isMinor = age !== null ? age < 18 : false;
 
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="guardian_name"
-              label="Guardian Name"
-              fullWidth
-              value={formData.guardian_name}
-              onChange={handleChange}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="guardian_mobile"
-              label="Guardian Mobile"
-              fullWidth
-              value={formData.guardian_mobile}
-              onChange={handleChange}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="guardian_email"
-              label="Guardian Email"
-              type="email"
-              fullWidth
-              value={formData.guardian_email}
-              onChange={handleChange}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="emergency_contact_name"
-              label="Emergency Name"
-              fullWidth
-              value={formData.emergency_contact_name}
-              onChange={handleChange}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              name="emergency_contact_phone"
-              label="Emergency Phone"
-              fullWidth
-              value={formData.emergency_contact_phone}
-              onChange={handleChange}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Grid>
+            if (!isMinor) return null;
+
+            return (
+              <>
+                <Grid size={12}>
+                  <Box sx={{ mt: 1, mb: 0 }}>
+                    <Typography variant="overline" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
+                      Guardian & Emergency Contact
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    name="guardian_name"
+                    label="Guardian Name"
+                    fullWidth
+                    value={formData.guardian_name}
+                    onChange={handleChange}
+                    error={!!errors.guardian_name}
+                    helperText={errors.guardian_name}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    name="guardian_mobile"
+                    label="Guardian Mobile"
+                    fullWidth
+                    value={formData.guardian_mobile}
+                    onChange={handleChange}
+                    error={!!errors.guardian_mobile}
+                    helperText={errors.guardian_mobile}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    name="guardian_email"
+                    label="Guardian Email"
+                    type="email"
+                    fullWidth
+                    value={formData.guardian_email}
+                    onChange={handleChange}
+                    error={!!errors.guardian_email}
+                    helperText={errors.guardian_email}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    name="emergency_contact_name"
+                    label="Emergency Name"
+                    fullWidth
+                    value={formData.emergency_contact_name}
+                    onChange={handleChange}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    name="emergency_contact_phone"
+                    label="Emergency Phone"
+                    fullWidth
+                    value={formData.emergency_contact_phone}
+                    onChange={handleChange}
+                    error={!!errors.emergency_contact_phone}
+                    helperText={errors.emergency_contact_phone}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+              </>
+            );
+          })()}
         </Grid>
       </DialogContent>
       <DialogActions sx={{ p: 3, pt: 2 }}>

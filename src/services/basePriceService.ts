@@ -11,9 +11,12 @@ export interface BasePrice {
   discount?: string; // "10" or "10%"
   is_active: boolean;
   
-  // Resolved names
+  // Resolved names and metadata
   age_group_name?: string;
   term_name?: string;
+  payment_mode?: 'RECURRING' | 'PAY_IN_FULL';
+  recurrence_unit?: string;
+  recurrence_unit_value?: number;
 }
 
 export interface BasePlanResponse {
