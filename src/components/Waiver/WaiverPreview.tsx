@@ -76,7 +76,8 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
       }
     };
 
-    const QuillViewer = ({ value }: { value: string }) => (
+    // Render logic using direct JSX to avoid unmounting sub-components on re-render
+    const renderQuill = (value: string) => (
       <Box sx={editorStyles}>
         <ReactQuill
           value={value}
@@ -87,7 +88,7 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
       </Box>
     );
 
-    const SignatureBlock = () => (
+    const renderSignature = (
       <Box sx={{ 
         my: 4, 
         p: { xs: 2, md: 3 }, 
@@ -120,14 +121,14 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
       >
         {parts.length > 1 && signatureComponent ? (
           <>
-            <QuillViewer value={parts[0]} />
-            <SignatureBlock />
-            <QuillViewer value={parts[1]} />
+            {renderQuill(parts[0])}
+            {renderSignature}
+            {renderQuill(parts[1])}
           </>
         ) : (
           <>
-            <QuillViewer value={html} />
-            {signatureComponent && <SignatureBlock />}
+            {renderQuill(html)}
+            {signatureComponent && renderSignature}
           </>
         )}
       </Box>

@@ -171,8 +171,16 @@ export const EmailSettings = () => {
                                     <TextField 
                                         fullWidth 
                                         variant="outlined" 
-                                        value={config.smtp_port || ''}
-                                        onChange={(e) => handleChange('smtp_port', parseInt(e.target.value))}
+                                        value={config.smtp_port ?? ''}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            if (val === '') {
+                                                handleChange('smtp_port', undefined);
+                                            } else {
+                                                const parsed = parseInt(val);
+                                                if (!isNaN(parsed)) handleChange('smtp_port', parsed);
+                                            }
+                                        }}
                                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                                     />
                                 </Grid>
@@ -217,11 +225,12 @@ export const EmailSettings = () => {
                                             onChange={(e) => handleChange('is_secure', e.target.value === "SSL")}
                                             sx={{ borderRadius: 1.5 }}
                                         >
-                                            <MenuItem value="STARTTLS">STARTTLS</MenuItem>
-                                            <MenuItem value="SSL">SSL / Secure</MenuItem>
-                                            <MenuItem value="TLS">TLS</MenuItem>
-                                            <MenuItem value="NONE">None</MenuItem>
+                                            <MenuItem value="SSL">SSL / TLS (Secure)</MenuItem>
+                                            <MenuItem value="NONE">None / Plain</MenuItem>
                                         </Select>
+                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, px: 1 }}>
+                                            Select "SSL / TLS" if your SMTP server requires encryption (usually port 465 or 587 with STARTTLS).
+                                        </Typography>
                                     </FormControl>
                                 </Grid>
                                 <Grid size={{ xs: 12, md: 6 }}>

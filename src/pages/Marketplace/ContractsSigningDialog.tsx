@@ -423,7 +423,7 @@ export const ContractsSigningDialog = ({
                                                     return next;
                                                  });
                                             }} 
-                                            width={isMobile ? Math.min(window.innerWidth - 64, 500) : 500}
+                                            width={isMobile ? 340 : 500}
                                             height={150}
                                         />
                                     ) : currentContract.signatureUrl ? (

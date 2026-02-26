@@ -433,7 +433,7 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                                             key={activeTab} 
                                             ref={signaturePadRef}
                                             onEnd={() => updateMemberState(activeTab, { error: null })} 
-                                            width={isMobile ? (Math.min(window.innerWidth - 64, 500)) : 500}
+                                            width={isMobile ? 340 : 500}
                                             height={150}
                                         />
                                     ) : currentMember.signatureUrl ? (

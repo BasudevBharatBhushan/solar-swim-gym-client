@@ -71,12 +71,10 @@ export const DobField: React.FC<DobFieldProps> = ({
 
     setDisplayValue(masked);
     
-    const parsed = parseDobInput(masked);
-    if (parsed.iso) {
-      onChange(parsed.iso);
-    } else {
-        onChange(''); 
-    }
+const parsed = parseDobInput(masked);
+if (parsed.iso) {
+  onChange(parsed.iso);
+}
   };
 
   const handleBlur = () => {

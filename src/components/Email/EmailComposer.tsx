@@ -22,6 +22,7 @@ import {
     Paper
 } from '@mui/material';
 import { Send, AttachFile, Delete, OpenInNew, Visibility, VisibilityOff } from '@mui/icons-material';
+import { useRef } from 'react';
 import { emailService, EmailTemplate } from '../../services/emailService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -76,17 +77,31 @@ export const EmailComposer = ({
     const [success, setSuccess] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
 
+    // Robust syncing: only update state when prop value ACTUALLY changes from parent
+    const prevInitialRef = useRef({ to: initialTo, cc: initialCc, bcc: initialBcc, subject: initialSubject, body: initialBody });
+
     useEffect(() => {
-        // Only update local state if props change and they are different from current local state
-        // This prevents resetting state while typing if parent re-renders with same values
-        if (initialTo !== undefined && initialTo !== to) setTo(initialTo);
-        if (initialCc !== undefined && initialCc !== cc) setCc(initialCc);
-        if (initialBcc !== undefined && initialBcc !== bcc) setBcc(initialBcc);
-        if (initialSubject !== undefined && initialSubject !== subject) setSubject(initialSubject);
-        if (initialBody !== undefined && initialBody !== body) setBody(initialBody);
-        if (initialTemplateId !== undefined) setSelectedTemplateId(initialTemplateId);
-        if (initialAttachments !== undefined) setAttachments(initialAttachments);
-    }, [initialTo, initialCc, initialBcc, initialSubject, initialBody, initialTemplateId, initialAttachments]);
+        if (initialTo !== prevInitialRef.current.to) {
+            setTo(initialTo || '');
+            prevInitialRef.current.to = initialTo;
+        }
+        if (initialCc !== prevInitialRef.current.cc) {
+            setCc(initialCc || '');
+            prevInitialRef.current.cc = initialCc;
+        }
+        if (initialBcc !== prevInitialRef.current.bcc) {
+            setBcc(initialBcc || '');
+            prevInitialRef.current.bcc = initialBcc;
+        }
+        if (initialSubject !== prevInitialRef.current.subject) {
+            setSubject(initialSubject || '');
+            prevInitialRef.current.subject = initialSubject;
+        }
+        if (initialBody !== prevInitialRef.current.body) {
+            setBody(initialBody || '');
+            prevInitialRef.current.body = initialBody;
+        }
+    }, [initialTo, initialCc, initialBcc, initialSubject, initialBody]);
 
     useEffect(() => {
         if (currentLocationId) {

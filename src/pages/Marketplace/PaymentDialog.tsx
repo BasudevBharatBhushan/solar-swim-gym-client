@@ -46,6 +46,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
     
     const [loadingCards, setLoadingCards] = useState(false);
     const [processing, setProcessing] = useState(false);
+    const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Form field validation helper
@@ -87,6 +88,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
             setCvv('');
             setZip('');
             setError(null);
+            setSuccess(false);
         }
     }, [open, accountId]);
 
@@ -130,7 +132,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
             });
 
             if (paymentResult.status === 'APPROVED') {
-                onSuccess();
+                setSuccess(true);
             } else {
                 // If it wasn't approved, but didn't throw a standard error, handle it here
                 setError(`Payment declined: ${paymentResult.status}`);
@@ -182,7 +184,39 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
             </DialogTitle>
             
             <DialogContent sx={{ p: 0 }}>
-                <Grid container>
+                {success ? (
+                    <Box sx={{ p: 6, textAlign: 'center' }}>
+                        <Box sx={{ 
+                            width: 80, 
+                            height: 80, 
+                            borderRadius: '50%', 
+                            bgcolor: '#dcfce7', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            margin: '0 auto 24px',
+                            color: '#16a34a'
+                        }}>
+                            <LockIcon sx={{ fontSize: 40 }} />
+                        </Box>
+                        <Typography variant="h5" fontWeight={800} gutterBottom>
+                            Payment Successful!
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                            Your enrollment has been completed successfully. The invoice has been marked as paid.
+                        </Typography>
+                        <Button 
+                            variant="contained" 
+                            fullWidth 
+                            size="large" 
+                            onClick={onSuccess}
+                            sx={{ py: 1.5, borderRadius: 2, fontWeight: 800 }}
+                        >
+                            Continue to Invoice
+                        </Button>
+                    </Box>
+                ) : (
+                    <Grid container>
                     {/* Summary Section */}
                     <Grid size={{ xs: 12, md: 5 }} sx={{ 
                         p: 3, 
@@ -416,6 +450,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                         )}
                     </Grid>
                 </Grid>
+                )}
             </DialogContent>
         </Dialog>
     );
