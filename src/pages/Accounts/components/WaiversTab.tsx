@@ -307,19 +307,20 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
       );
 
       // Fetch waiver email template
-      const templateName = 'Waiver to Join Glass Court Swim and Fitness Membership';
-      let subject = `Signed Waiver – ${profile.first_name} ${profile.last_name}`;
+      const templateName = 'Welcome to Glass Court Swim & Fitness – Waiver Confirmation';
+      let subject = `Signed Waiver Confirmation – ${profile.first_name} ${profile.last_name}`;
       let body = `Please find attached the signed registration waiver for ${profile.first_name} ${profile.last_name}.`;
       let templateId: string | undefined;
 
       try {
         const templates = await emailService.getTemplates(currentLocationId);
         const template = templates.find(
-          (t) => t.subject === templateName || t.subject.includes('Waiver')
+          (t) => t.subject === templateName || t.subject.includes('Waiver Confirmation')
         );
         if (template) {
           subject = template.subject;
-          body = template.body_content;
+          const fullName = `${profile.first_name} ${profile.last_name}`;
+          body = (template.body_content || '').replace(/\[fullname\]/gi, fullName);
           templateId = template.email_template_id;
         }
       } catch {
@@ -507,17 +508,18 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
     try {
       const pdfFile = await createWaiverPdfAttachment(profile, waiver);
 
-      const templateName = 'Waiver to Join Glass Court Swim and Fitness Membership';
-      let subject = templateName;
+      const templateName = 'Welcome to Glass Court Swim & Fitness – Waiver Confirmation';
+      let subject = `Signed Waiver Confirmation – ${profile.first_name} ${profile.last_name}`;
       let body = `Please find attached the signed waiver for ${profile.first_name} ${profile.last_name}.`;
       let templateId: string | undefined;
 
       try {
         const templates = await emailService.getTemplates(currentLocationId);
-        const template = templates.find(t => t.subject === templateName || t.subject.includes('Waiver'));
+        const template = templates.find(t => t.subject === templateName || t.subject.includes('Waiver Confirmation'));
         if (template) {
           subject = template.subject;
-          body = template.body_content;
+          const fullName = `${profile.first_name} ${profile.last_name}`;
+          body = (template.body_content || '').replace(/\[fullname\]/gi, fullName);
           templateId = template.email_template_id;
         }
       } catch (templateError) {
