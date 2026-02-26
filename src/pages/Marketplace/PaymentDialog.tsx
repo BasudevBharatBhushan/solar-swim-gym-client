@@ -443,7 +443,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                                         }
                                     }}
                                 >
-                                    Skip Payment (Demo)
+                                    Pay Later
                                 </Button>
                             </Box>
                         </Stack>
