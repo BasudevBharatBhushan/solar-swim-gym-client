@@ -109,6 +109,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   const [errors, setErrors] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [countdown, setCountdown] = useState(5);
+  const [isAutoLoggingIn, setIsAutoLoggingIn] = useState(false);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'error' | 'success' | 'warning' | 'info' }>({
     open: false,
     message: '',
@@ -208,6 +210,17 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       const timer = setTimeout(checkScroll, 500);
       return () => clearTimeout(timer);
   }, [activeStep, open, profileData.family_count, familyMembers.length]);
+
+  // Handle countdown for tab_user redirect
+  useEffect(() => {
+    let timer: any;
+    if (isSuccess && onboardingType === 'tab_user' && countdown > 0 && !isAutoLoggingIn) {
+      timer = setTimeout(() => setCountdown(prev => prev - 1), 1000);
+    } else if (isSuccess && onboardingType === 'tab_user' && countdown === 0 && !isAutoLoggingIn) {
+      window.location.reload();
+    }
+    return () => clearTimeout(timer);
+  }, [isSuccess, onboardingType, countdown, isAutoLoggingIn]);
 
   const handleCloseToast = () => {
     setToast(prev => ({ ...prev, open: false }));
@@ -402,6 +415,28 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
+  const performAutoLogin = async () => {
+    setIsAutoLoggingIn(true);
+    try {
+      const loginResponse = await authService.loginUser(profileData.email, profileData.password);
+      const userObj = loginResponse.user || loginResponse.staff || loginResponse.profile;
+      if (userObj) {
+        login(loginResponse.token, 'MEMBER', userObj.profile_id, userObj);
+        if (userObj.location_id) {
+          setCurrentLocationId(userObj.location_id);
+        } else if (userObj.account?.location_id) {
+          setCurrentLocationId(userObj.account.location_id);
+        }
+        navigate('/portal');
+        onClose();
+      }
+    } catch (loginErr) {
+      console.error('Auto-login failed', loginErr);
+      showToast('Automatic login failed. Please sign in.', 'error');
+      setIsAutoLoggingIn(false);
+    }
+  };
+
   const handleFinish = async () => {
       setLoading(true);
       try {
@@ -472,18 +507,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           
           if (onboardingType === 'user') {
               try {
-                  const loginResponse = await authService.loginUser(profileData.email, profileData.password);
-                  const userObj = loginResponse.user || loginResponse.staff || loginResponse.profile;
-                  if (userObj) {
-                      login(loginResponse.token, 'MEMBER', userObj.profile_id, userObj);
-                      if (userObj.location_id) {
-                          setCurrentLocationId(userObj.location_id);
-                      } else if (userObj.account?.location_id) {
-                          setCurrentLocationId(userObj.account.location_id);
-                      }
-                      navigate('/portal');
-                      onClose();
-                  }
+                  await performAutoLogin();
               } catch (loginErr) {
                   // Fallback to login route if auto-login fails
                   console.error('Auto-login failed', loginErr);
@@ -493,9 +517,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                   }, 2000);
               }
           } else if (onboardingType === 'tab_user') {
-              setTimeout(() => {
-                  window.location.reload(); // Quick redirect keeping queries
-              }, 3000);
+              // The countdown useEffect handles the 5s timer for tab_user
           }
       } catch (error: any) {
           console.error("Registration failed", error);
@@ -730,11 +752,47 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                     <Typography variant="body1" sx={{ color: '#475569', mb: 4, lineHeight: 1.6 }}>
                         {onboardingType === 'tab_user' ? 
-                            "Account created. Redirecting to login on this device..." : 
+                            "Account created successfully. Would you like to buy membership now?" : 
                             "Registration is complete. You will be redirected shortly."
                         }
                     </Typography>
-                    {onboardingType !== 'tab_user' && (
+                    {onboardingType === 'tab_user' ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                            <Button 
+                                variant="contained" 
+                                onClick={performAutoLogin}
+                                disabled={isAutoLoggingIn}
+                                sx={{ 
+                                    bgcolor: '#2563eb', 
+                                    '&:hover': { bgcolor: '#1d4ed8' },
+                                    px: 8,
+                                    py: 1.5,
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    width: isMobile ? '100%' : 'auto'
+                                }}
+                            >
+                                {isAutoLoggingIn ? 'Logging in...' : `[Buy Membership and Services] (${countdown}s)`}
+                            </Button>
+                            <Button 
+                                variant="outlined" 
+                                onClick={() => window.location.reload()}
+                                sx={{ 
+                                    px: 8,
+                                    py: 1.5,
+                                    borderRadius: 2,
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    width: isMobile ? '100%' : 'auto',
+                                    borderColor: '#e2e8f0',
+                                    color: '#64748b'
+                                }}
+                            >
+                                Back to Login
+                            </Button>
+                        </Box>
+                    ) : (
                         <Button 
                             variant="contained" 
                             onClick={handleReset}
