@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Box, Typography, Button, Alert, Grid, List, ListItem, ListItemButton, Checkbox, FormControlLabel, useTheme, useMediaQuery, Stack, Chip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // For signed status
 import { useAuth } from '../../../../context/AuthContext';
@@ -8,9 +8,14 @@ import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../../../../com
 import { waiverService, WaiverTemplate } from '../../../../services/waiverService';
 import { getAgeGroup } from '../../../../lib/ageUtils';
 
+export interface WaiverSigningStepRef {
+    advanceToNextUnsigned: () => boolean;
+}
+
 interface WaiverSigningStepProps {
   primaryProfile: any;
   familyMembers: any[];
+  signedWaivers: Record<string, string>;
   onWaiversSigned: (signedWaiversMap: Record<string, string>) => void;
   onAllSigned: (isSigned: boolean) => void;
 }
@@ -30,7 +35,7 @@ interface MemberState {
     guardianName?: string;
 }
 
-export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryProfile, familyMembers, onWaiversSigned, onAllSigned }) => {
+export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningStepProps>(({ primaryProfile, familyMembers, signedWaivers, onWaiversSigned, onAllSigned }, ref) => {
     const { currentLocationId } = useAuth();
     const { waiverTemplates, ageGroups } = useConfig();
     const [activeTab, setActiveTab] = useState(0);
@@ -39,6 +44,22 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+    useImperativeHandle(ref, () => ({
+        advanceToNextUnsigned: () => {
+            const nextIdx = memberStates.findIndex((m, idx) => !m.isSigned && idx > activeTab);
+            if (nextIdx !== -1) {
+                setActiveTab(nextIdx);
+                return true;
+            }
+            const firstIdx = memberStates.findIndex(m => !m.isSigned);
+            if (firstIdx !== -1 && firstIdx !== activeTab) {
+                setActiveTab(firstIdx);
+                return true;
+            }
+            return false;
+        }
+    }));
 
     // Initial Setup
     useEffect(() => {
@@ -94,10 +115,10 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                         ageProfileId: group?.age_group_id || '',
                         ageGroupName: group?.name || 'Unknown',
                         waiverTemplate: matchedTemplate || null,
-                        isSigned: false,
-                        signedWaiverId: null,
+                        isSigned: !!signedWaivers[m.id],
+                        signedWaiverId: signedWaivers[m.id] || null,
                         signatureUrl: null,
-                        agreed: false,
+                        agreed: !!signedWaivers[m.id],
                         loading: false,
                         error: matchedTemplate ? null : `No waiver template found for ${group?.name || 'this age group'}.`,
                         guardianName: m.guardianName
@@ -173,6 +194,14 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                     signedWaiverId: signedId,
                     signatureUrl: sigResponse.signature_url
                 });
+
+                // Auto-advance to next unsigned member after signing
+                setTimeout(() => {
+                    const nextUnsignedIdx = memberStates.findIndex((m, idx) => !m.isSigned && idx !== activeTab);
+                    if (nextUnsignedIdx !== -1) {
+                        setActiveTab(nextUnsignedIdx);
+                    }
+                }, 1000);
             };
 
         } catch (err: any) {
@@ -229,7 +258,11 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
                 maxHeight: isMobile ? 'none' : '100%', 
                 bgcolor: '#f8fafc',
                 display: 'flex',
-                flexDirection: isMobile ? 'row' : 'column'
+                flexDirection: isMobile ? 'row' : 'column',
+                position: isMobile ? 'sticky' : 'relative',
+                top: isMobile ? 0 : 'auto',
+                zIndex: isMobile ? 100 : 1,
+                boxShadow: isMobile ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
             }}>
                 {!isMobile && (
                     <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
@@ -481,4 +514,4 @@ export const WaiverSigningStep: React.FC<WaiverSigningStepProps> = ({ primaryPro
             </Grid>
         </Grid>
     );
-};
+});

@@ -25,6 +25,7 @@ interface ProfileStepProps {
   isPrimaryJunior?: boolean;
   lockFamilyCount?: boolean;
   onFieldBlur?: (key: string, value: string) => void;
+  onboardingType?: string;
 }
 
 export const ProfileStep: React.FC<ProfileStepProps> = ({
@@ -33,7 +34,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
   errors,
   isPrimaryJunior = false,
   lockFamilyCount = false,
-  onFieldBlur
+  onFieldBlur,
+  onboardingType
 }) => {
   const { waiverPrograms, ageGroups } = useConfig();
   const ageProfile = getAgeGroup(data.date_of_birth || '', ageGroups, 'Membership');
@@ -92,7 +94,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
             onChange={(e) => updateData('date_of_birth', e.target.value)}
             onBlur={(e) => onFieldBlur?.('date_of_birth', e.target.value)}
             error={!!errors.date_of_birth}
-            helperText={errors.date_of_birth}
+            helperText={errors.date_of_birth || 'Format: mm/dd/yyyy'}
+            required
             slotProps={{ inputLabel: { shrink: true } }}
           />
           {ageProfile && (
@@ -164,6 +167,51 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
             placeholder="e.g. Google, Social Media, Friend"
           />
         </Grid>
+
+        {/* Password block */}
+        <Grid size={{ xs: 12 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, mt: 1, fontWeight: 600, color: '#334155' }}>
+            Account Security
+          </Typography>
+        </Grid>
+        {onboardingType === 'staff_assisted' ? (
+          <Grid size={{ xs: 12 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', bgcolor: '#f1f5f9', p: 1.5, borderRadius: 1 }}>
+              Password setup is skipped for staff-assisted onboarding; account activation/reset link will be sent.
+            </Typography>
+          </Grid>
+        ) : (
+          <>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Password"
+                type="password"
+                size="small"
+                fullWidth
+                value={data.password || ''}
+                onChange={(e) => updateData('password', e.target.value)}
+                error={!!errors.password}
+                helperText={errors.password || 'Minimum 8 characters'}
+                required
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                label="Confirm Password"
+                type="password"
+                size="small"
+                fullWidth
+                value={data.confirm_password || ''}
+                onChange={(e) => updateData('confirm_password', e.target.value)}
+                error={!!errors.confirm_password}
+                helperText={errors.confirm_password}
+                required
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            </Grid>
+          </>
+        )}
 
         {/* Address */}
         <Grid size={{ xs: 12 }}>

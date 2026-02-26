@@ -23,7 +23,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { ProfileStep } from './Steps/ProfileStep';
 import { FamilyStep } from './Steps/FamilyStep';
 import { ReviewStep } from './Steps/ReviewStep';
-import { WaiverSigningStep } from './Steps/WaiverSigningStep';
+import { WaiverSigningStep, WaiverSigningStepRef } from './Steps/WaiverSigningStep';
 import { authService } from '../../../services/authService';
 import { useAuth } from '../../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -41,7 +41,7 @@ interface ClientOnboardingModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  mode?: 'staff' | 'user';
+  onboardingType?: 'staff_assisted' | 'user' | 'tab_user';
   locationNameProp?: string;
 }
 
@@ -49,14 +49,14 @@ const steps = ['Account & Profiles', 'Waiver Signing', 'Review'];
 
 
 
-export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, mode = 'staff', locationNameProp }) => {
+export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ open, onClose, onSuccess, onboardingType = 'staff_assisted', locationNameProp }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
   const fullScreen = useMediaQuery(theme.breakpoints.down('md'));
 
   const [activeStep, setActiveStep] = useState(0);
-  const { currentLocationId, locations } = useAuth();
+  const { login, setCurrentLocationId, currentLocationId, locations } = useAuth();
   const { ageGroups, refreshWaiverPrograms, refreshAgeGroups, refreshWaiverTemplates } = useConfig();
   
   const currentLocation = locations.find(loc => loc.location_id === currentLocationId);
@@ -76,6 +76,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     first_name: '',
     last_name: '',
     email: '',
+    password: '',
+    confirm_password: '',
     mobile: '',
     date_of_birth: null,
     family_count: 1,
@@ -174,6 +176,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const dialogContentRef = useRef<HTMLDivElement>(null);
+  const waiverStepRef = useRef<WaiverSigningStepRef>(null);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -230,6 +233,18 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     } else {
       const emailErr = validateEmailFormat(profileData.email);
       if (emailErr) newErrors.email = emailErr;
+    }
+    if (onboardingType !== 'staff_assisted') {
+        if (!profileData.password) {
+            newErrors.password = 'Password is required';
+        } else if (profileData.password.length < 8) {
+            newErrors.password = 'Password must be at least 8 characters';
+        }
+        if (!profileData.confirm_password) {
+            newErrors.confirm_password = 'Confirm Password is required';
+        } else if (profileData.password !== profileData.confirm_password) {
+            newErrors.confirm_password = 'Passwords must match';
+        }
     }
     if (profileData.mobile) {
       const mobileErr = validateMobile(profileData.mobile);
@@ -325,8 +340,14 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
 
   const handleNext = () => {
     if (activeStep === 0) {
-        if (!validateProfile()) return;
-        if (!validateFamily()) return;
+        const isProfileValid = validateProfile();
+        const isFamilyValid = validateFamily();
+        
+        if (!isProfileValid || !isFamilyValid) {
+            showToast('Please complete all required fields correctly.', 'error');
+            return;
+        }
+
         if (isPrimaryJunior && !juniorConfirmed) {
             setJuniorConfirmAcknowledged(false);
             setJuniorConfirmOpen(true);
@@ -335,7 +356,12 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     }
     if (activeStep === 1) {
         if (!validateWaivers()) {
-            showToast("Please sign all waivers to proceed.", "warning");
+            const advanced = waiverStepRef.current?.advanceToNextUnsigned();
+            if (advanced) {
+                showToast("Please sign the remaining waivers to proceed.", "info");
+            } else {
+                showToast("Please sign all waivers to proceed.", "warning");
+            }
             return;
         }
     }
@@ -362,6 +388,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 first_name: profileData.first_name,
                 last_name: profileData.last_name,
                 email: profileData.email,
+                ...(onboardingType !== 'staff_assisted' && profileData.password ? { password: profileData.password } : {}),
                 date_of_birth: profileData.date_of_birth,
                 mobile: profileData.mobile,
               gender: (profileData as any).gender,
@@ -413,6 +440,34 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           
           onSuccess();
           setIsSuccess(true);
+          
+          if (onboardingType === 'user') {
+              try {
+                  const loginResponse = await authService.loginUser(profileData.email, profileData.password);
+                  const userObj = loginResponse.user || loginResponse.staff || loginResponse.profile;
+                  if (userObj) {
+                      login(loginResponse.token, 'MEMBER', userObj.profile_id, userObj);
+                      if (userObj.location_id) {
+                          setCurrentLocationId(userObj.location_id);
+                      } else if (userObj.account?.location_id) {
+                          setCurrentLocationId(userObj.account.location_id);
+                      }
+                      navigate('/portal');
+                      onClose();
+                  }
+              } catch (loginErr) {
+                  // Fallback to login route if auto-login fails
+                  console.error('Auto-login failed', loginErr);
+                  showToast('Account created, but automatic login failed. Please sign in.', 'warning');
+                  setTimeout(() => {
+                      onClose();
+                  }, 2000);
+              }
+          } else if (onboardingType === 'tab_user') {
+              setTimeout(() => {
+                  window.location.reload(); // Quick redirect keeping queries
+              }, 3000);
+          }
       } catch (error: any) {
           console.error("Registration failed", error);
           showToast(error.message || "Failed to create account. Please try again.", "error");
@@ -429,6 +484,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       first_name: '',
       last_name: '',
       email: '',
+      password: '',
+      confirm_password: '',
       mobile: '',
       date_of_birth: null,
       family_count: 1,
@@ -492,6 +549,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
               isPrimaryJunior={isPrimaryJunior}
               lockFamilyCount={isPrimaryJunior}
               onFieldBlur={handleProfileFieldBlur}
+              onboardingType={onboardingType}
             />
             <FamilyStep 
                 data={familyMembers} 
@@ -508,8 +566,10 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           const validMembers = familyMembers.filter(m => m.first_name && m.last_name);
           return (
             <WaiverSigningStep 
+                ref={waiverStepRef}
                 primaryProfile={profileData}
                 familyMembers={validMembers}
+                signedWaivers={signedWaivers}
                 onWaiversSigned={setSignedWaivers}
                 onAllSigned={setAllSigned}
             />
@@ -550,7 +610,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
             </Box>
             <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a', fontSize: isMobile ? '1.25rem' : '1.5rem' }}>Account Created Successfully!</Typography>
             <Typography variant="body2" color="text.secondary">
-                {mode === 'staff' 
+                {onboardingType === 'staff_assisted' 
                     ? "Client details have been saved and the account is now active."
                     : "Your registration is complete."
                 }
@@ -600,7 +660,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           </>
         ) : (
           <Box sx={{ py: 4 }}>
-            {mode === 'staff' ? (
+            {onboardingType === 'staff_assisted' ? (
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                     <Button
                         variant="contained"
@@ -636,25 +696,29 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
             ) : (
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                     <Typography variant="body1" sx={{ color: '#475569', mb: 4, lineHeight: 1.6 }}>
-                        An account activation link has been sent to your email. 
-                        Kindly use it to reset your password and login to your new account.
+                        {onboardingType === 'tab_user' ? 
+                            "Account created. Redirecting to login on this device..." : 
+                            "Registration is complete. You will be redirected shortly."
+                        }
                     </Typography>
-                    <Button 
-                        variant="contained" 
-                        onClick={handleReset}
-                        sx={{ 
-                            bgcolor: '#2563eb', 
-                            '&:hover': { bgcolor: '#1d4ed8' },
-                            px: 8,
-                            py: 1.5,
-                            borderRadius: 2,
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            width: isMobile ? '100%' : 'auto'
-                        }}
-                    >
-                        Back to Login
-                    </Button>
+                    {onboardingType !== 'tab_user' && (
+                        <Button 
+                            variant="contained" 
+                            onClick={handleReset}
+                            sx={{ 
+                                bgcolor: '#2563eb', 
+                                '&:hover': { bgcolor: '#1d4ed8' },
+                                px: 8,
+                                py: 1.5,
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                width: isMobile ? '100%' : 'auto'
+                            }}
+                        >
+                            Back to Login
+                        </Button>
+                    )}
                 </Box>
             )}
           </Box>
@@ -685,7 +749,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
             Back
           </Button>
           <Box sx={{ display: 'flex', gap: 1.5, width: isMobile ? '100%' : 'auto', flexDirection: isMobile ? 'column' : 'row' }}>
-              {activeStep === 1 && mode === 'staff' && (
+              {activeStep === 1 && onboardingType === 'staff_assisted' && (
                   <Button 
                       variant="outlined" 
                       onClick={() => setActiveStep(2)}

@@ -361,7 +361,7 @@ export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', lo
         onSuccess={() => {
             // Success state is handled inside the modal for 'user' mode
         }}
-        mode="user"
+        onboardingType={searchParams.get('tabuser') === 'true' ? 'tab_user' : 'user'}
         locationNameProp={companyName}
       />
     </Box>

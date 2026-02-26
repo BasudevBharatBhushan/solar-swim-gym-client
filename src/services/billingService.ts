@@ -14,6 +14,11 @@ export const billingService = {
   },
 
   // Invoices & Payments
+  getInvoices: async (locationId?: string) => {
+    const params = locationId ? { location_id: locationId } : {};
+    return apiClient.get('/invoices', params);
+  },
+
   createInvoice: async (invoiceData: any, locationId?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/invoices', invoiceData, options);

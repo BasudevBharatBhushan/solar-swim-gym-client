@@ -248,6 +248,8 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                     required
                                     value={primaryData.date_of_birth || ''}
                                     onChange={(e) => updatePrimaryData('date_of_birth', e.target.value)}
+                                    error={!!(errors as any)?.primary?.date_of_birth} // Quick fallback assuming errors is primarily for members
+                                    helperText={(errors as any)?.primary?.date_of_birth || 'Format: mm/dd/yyyy'}
                                     slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
@@ -436,7 +438,7 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 value={member.date_of_birth || ''}
                                 onChange={(e) => handleChange(index, 'date_of_birth', e.target.value)}
                                 error={!!errors[index]?.date_of_birth}
-                                helperText={errors[index]?.date_of_birth}
+                                helperText={errors[index]?.date_of_birth || 'Format: mm/dd/yyyy'}
                                 slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
