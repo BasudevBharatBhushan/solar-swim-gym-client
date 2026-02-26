@@ -195,18 +195,18 @@ export const AccountDetail = () => {
           }
 
           const profileNames = profiles.map((p: any) => `${p.first_name} ${p.last_name}`).join(', ');
-          const templateName = 'Waiver to Join Glass Court Swim and Fitness Membership';
+          const templateName = 'Welcome to Glass Court Swim & Fitness – Waiver Confirmation';
           
-          let subject = templateName;
+          let subject = `Signed Waiver Confirmation – ${profileNames}`;
           let body = `Please find attached the signed waivers for: ${profileNames}.`;
           let templateId: string | undefined = undefined;
 
           try {
               const templates = await emailService.getTemplates(currentLocationId);
-              const template = templates.find(t => t.subject === templateName || t.subject.includes('Waiver'));
+              const template = templates.find(t => t.subject === templateName || t.subject.includes('Waiver Confirmation'));
               if (template) {
                   subject = template.subject;
-                  body = template.body_content;
+                  body = (template.body_content || '').replace(/\[fullname\]/gi, profileNames);
                   templateId = template.email_template_id;
               }
           } catch (e) {

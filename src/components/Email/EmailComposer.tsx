@@ -75,7 +75,7 @@ export const EmailComposer = ({
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [showPreview, setShowPreview] = useState(false);
+    const [showPreview, setShowPreview] = useState(true);
 
     // Robust syncing: only update state when prop value ACTUALLY changes from parent
     const prevInitialRef = useRef({ to: initialTo, cc: initialCc, bcc: initialBcc, subject: initialSubject, body: initialBody });
