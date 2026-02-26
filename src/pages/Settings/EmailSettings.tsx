@@ -10,7 +10,6 @@ import {
   MenuItem,
   FormControl,
   InputAdornment,
-  Chip,
   IconButton,
   Divider,
   Alert,
@@ -43,6 +42,15 @@ export const EmailSettings = () => {
         is_active: false
     };
 
+    // Test Email State
+    const [testEmail, setTestEmail] = useState({
+        to: '',
+        cc: '',
+        bcc: '',
+        subject: 'Test Email from Glass Court Swim and Fitness',
+        body: 'This is a test email to verify your SMTP configuration.'
+    });
+
     // Config State
     const [config, setConfig] = useState<Partial<EmailConfig>>(INITIAL_CONFIG);
 
@@ -65,6 +73,11 @@ export const EmailSettings = () => {
                     // keep password field empty or masked if not provided
                     smtp_password: data.smtp_password || '' 
                 });
+                // Initialize test recipient if not set
+                setTestEmail(prev => ({
+                    ...prev,
+                    to: prev.to || data.sender_email || ''
+                }));
             } else {
                 setConfig(INITIAL_CONFIG);
             }
@@ -137,16 +150,6 @@ export const EmailSettings = () => {
                                 </Box>
                                 <Typography variant="h6" fontWeight="bold">SMTP Configuration</Typography>
                             </Box>
-                            <Chip 
-                                label={config.is_active ? "STATUS: CONNECTED" : "STATUS: INACTIVE"} 
-                                sx={{ 
-                                    bgcolor: config.is_active ? '#E8F5E9' : '#ECEFF1', 
-                                    color: config.is_active ? '#2E7D32' : '#78909C', 
-                                    fontWeight: 700,
-                                    borderRadius: 1,
-                                    fontSize: '0.75rem'
-                                }} 
-                            />
                         </Box>
                         
                         <Divider sx={{ mb: 4 }} />
@@ -233,7 +236,70 @@ export const EmailSettings = () => {
                                 </Grid>
                             </Grid>
 
-                            <Box sx={{ mt: 5, display: 'flex', gap: 2 }}>
+                            <Box sx={{ mt: 5, pt: 3, borderTop: '1px dashed #E0E0E0' }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#546E7A', mb: 2, textTransform: 'uppercase' }}>
+                                    Test Send Configuration
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>RECIPIENT (TO)</Typography>
+                                        <TextField 
+                                            fullWidth 
+                                            size="small"
+                                            value={testEmail.to}
+                                            onChange={(e) => setTestEmail({ ...testEmail, to: e.target.value })}
+                                            placeholder="test@example.com"
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>CC</Typography>
+                                        <TextField 
+                                            fullWidth 
+                                            size="small"
+                                            value={testEmail.cc}
+                                            onChange={(e) => setTestEmail({ ...testEmail, cc: e.target.value })}
+                                            placeholder="cc@example.com"
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>BCC</Typography>
+                                        <TextField 
+                                            fullWidth 
+                                            size="small"
+                                            value={testEmail.bcc}
+                                            onChange={(e) => setTestEmail({ ...testEmail, bcc: e.target.value })}
+                                            placeholder="bcc@example.com"
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>SUBJECT</Typography>
+                                        <TextField 
+                                            fullWidth 
+                                            size="small"
+                                            value={testEmail.subject}
+                                            onChange={(e) => setTestEmail({ ...testEmail, subject: e.target.value })}
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                                        />
+                                    </Grid>
+                                    <Grid size={{ xs: 12 }}>
+                                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>BODY</Typography>
+                                        <TextField 
+                                            fullWidth 
+                                            size="small"
+                                            multiline
+                                            rows={3}
+                                            value={testEmail.body}
+                                            onChange={(e) => setTestEmail({ ...testEmail, body: e.target.value })}
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                                        />
+                                    </Grid>
+                                </Grid>
+                            </Box>
+
+                            <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
                                 <Button 
                                     variant="contained" 
                                     size="large"
@@ -308,9 +374,11 @@ export const EmailSettings = () => {
                 <DialogContent>
                     <EmailComposer 
                         onClose={() => setOpenTestEmail(false)} 
-                        initialTo={config.sender_email || ''} // Default to sender email for testing
-                        initialSubject="Test Email from Glass Court Swim and Fitness"
-                        initialBody="This is a test email to verify your SMTP configuration."
+                        initialTo={testEmail.to}
+                        initialCc={testEmail.cc}
+                        initialBcc={testEmail.bcc}
+                        initialSubject={testEmail.subject}
+                        initialBody={testEmail.body}
                     />
                 </DialogContent>
             </Dialog>

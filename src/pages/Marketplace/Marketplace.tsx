@@ -190,6 +190,7 @@ export const Marketplace = () => {
     const [pendingMembershipCandidate, setPendingMembershipCandidate] = useState<CategoryCandidate | null>(null);
     const [selectedFeeType, setSelectedFeeType] = useState<'JOINING' | 'ANNUAL' | ''>('');
     const [paymentOpen, setPaymentOpen] = useState(false);
+    const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(null);
 
     const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
     const [pendingServiceSelection, setPendingServiceSelection] = useState<ServicePackSelection | null>(null);
@@ -1245,7 +1246,7 @@ export const Marketplace = () => {
             };
         });
 
-        let itemsToProcess: CartItem[] = [{
+        const itemsToProcess: CartItem[] = [{
             ...pendingItem,
             coverage,
         }];
@@ -1275,7 +1276,7 @@ export const Marketplace = () => {
                 return { ...nextItem, cart_id: savedItem.cart_id };
             })).then((savedItems) => {
                 setCart((prev) => {
-                    let nextCart = [...prev];
+                    const nextCart = [...prev];
                     savedItems.forEach(savedItem => {
                         // For MEMBERSHIP and PRIMARY BASE items, we enforce singleton behavior
                         const isPrimaryBase = savedItem.type === 'BASE' && (savedItem.metadata?.role === 'PRIMARY' || savedItem.name.includes('(PRIMARY)'));
@@ -1308,7 +1309,7 @@ export const Marketplace = () => {
             });
         } else {
             setCart((prev) => {
-                let nextCart = [...prev];
+                const nextCart = [...prev];
                 itemsToProcess.forEach(nextItem => {
                     const isPrimaryBase = nextItem.type === 'BASE' && (nextItem.metadata?.role === 'PRIMARY' || nextItem.name.includes('(PRIMARY)'));
                     
@@ -1582,6 +1583,7 @@ export const Marketplace = () => {
                     
                     // 3. Update Subscriptions with new invoice ID
                     if (newInvoiceId) {
+                        setPendingInvoiceId(newInvoiceId);
                         await Promise.all(
                             createdSubIds.map((subId: string) => 
                                 billingService.updateSubscriptionInvoice(subId, newInvoiceId!, currentLocationId)
@@ -1938,7 +1940,7 @@ export const Marketplace = () => {
                                             {baseCartItems.length > 0 && missingDobProfileIds.length === 0 && suggestedCandidate && (
                                                 <Paper sx={{ p: 2, bgcolor: '#ede9fe', borderRadius: 2 }}>
                                                     <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
-                                                        Suggested: {suggestedCandidate.programName} - {suggestedCandidate.categoryName}
+                                                        Suggested: {suggestedCandidate?.programName} - {suggestedCandidate?.categoryName}
                                                     </Typography>
                                                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
                                                         Specificity score: {suggestedSpecificity}
@@ -1946,16 +1948,16 @@ export const Marketplace = () => {
                                                     <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
                                                         <Chip
                                                             label={
-                                                                typeof suggestedCandidate.joiningFee === 'number'
-                                                                    ? `Joining ${formatCurrency(suggestedCandidate.joiningFee)}`
+                                                                typeof suggestedCandidate?.joiningFee === 'number'
+                                                                    ? `Joining ${formatCurrency(suggestedCandidate!.joiningFee!)}`
                                                                     : 'Joining not configured'
                                                             }
                                                             size="small"
                                                         />
                                                         <Chip
                                                             label={
-                                                                typeof suggestedCandidate.annualFee === 'number'
-                                                                    ? `Annual ${formatCurrency(suggestedCandidate.annualFee)}`
+                                                                typeof suggestedCandidate?.annualFee === 'number'
+                                                                    ? `Annual ${formatCurrency(suggestedCandidate!.annualFee!)}`
                                                                     : 'Annual not configured'
                                                             }
                                                             size="small"
@@ -1963,7 +1965,7 @@ export const Marketplace = () => {
                                                     </Stack>
                                                     <Button
                                                         variant="contained"
-                                                        onClick={() => handleOpenFeeDialog(suggestedCandidate)}
+                                                        onClick={() => handleOpenFeeDialog(suggestedCandidate!)}
                                                     >
                                                         Add Suggested Plan
                                                     </Button>
@@ -3023,6 +3025,8 @@ export const Marketplace = () => {
                 total={cart.reduce((sum, item) => sum + item.price, 0)}
                 itemCount={cart.length}
                 items={cart.map(i => ({ name: i.name, price: i.price }))}
+                accountId={accountId}
+                invoiceId={pendingInvoiceId}
                 onSuccess={async () => {
                     setSubmitting(true);
                     try {

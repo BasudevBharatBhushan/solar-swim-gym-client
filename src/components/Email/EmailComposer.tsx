@@ -74,17 +74,18 @@ export const EmailComposer = ({
     const [sending, setSending] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
-    const [showPreview, setShowPreview] = useState(true);
+    const [showPreview, setShowPreview] = useState(false);
 
     useEffect(() => {
-        setTo(initialTo);
-        setCc(initialCc);
-        setBcc(initialBcc);
-        setSubject(initialSubject);
-        setBody(initialBody);
-        setSelectedTemplateId(initialTemplateId);
-        setAttachments(initialAttachments);
-        setSelectedAttachmentIndex(initialAttachments.length > 0 ? 0 : -1);
+        // Only update local state if props change and they are different from current local state
+        // This prevents resetting state while typing if parent re-renders with same values
+        if (initialTo !== undefined && initialTo !== to) setTo(initialTo);
+        if (initialCc !== undefined && initialCc !== cc) setCc(initialCc);
+        if (initialBcc !== undefined && initialBcc !== bcc) setBcc(initialBcc);
+        if (initialSubject !== undefined && initialSubject !== subject) setSubject(initialSubject);
+        if (initialBody !== undefined && initialBody !== body) setBody(initialBody);
+        if (initialTemplateId !== undefined) setSelectedTemplateId(initialTemplateId);
+        if (initialAttachments !== undefined) setAttachments(initialAttachments);
     }, [initialTo, initialCc, initialBcc, initialSubject, initialBody, initialTemplateId, initialAttachments]);
 
     useEffect(() => {

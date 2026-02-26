@@ -272,7 +272,6 @@ const WAIVER_PDF_STYLES = `
   }
   .waiver-pdf-root p {
     margin: 0 0 0.75em 0;
-    hyphens: auto;
   }
   .waiver-pdf-root h1, .waiver-pdf-root h2, .waiver-pdf-root h3,
   .waiver-pdf-root h4, .waiver-pdf-root h5, .waiver-pdf-root h6 {
@@ -319,7 +318,7 @@ const WAIVER_PDF_STYLES = `
   .waiver-pdf-root .ql-align-right  { text-align: right  !important; }
   .waiver-pdf-root .ql-align-justify { 
     text-align: justify !important; 
-    text-justify: inter-word !important;
+    text-align-last: left !important;
   }
   /* Quill indent overrides */
   .waiver-pdf-root .ql-indent-1 { padding-left: 3em !important; }
