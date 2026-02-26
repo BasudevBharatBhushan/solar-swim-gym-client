@@ -309,7 +309,7 @@ export const EmailSettings = () => {
                     <EmailComposer 
                         onClose={() => setOpenTestEmail(false)} 
                         initialTo={config.sender_email || ''} // Default to sender email for testing
-                        initialSubject="Test Email from Solar Swim Gym"
+                        initialSubject="Test Email from Glass Court Swim and Fitness"
                         initialBody="This is a test email to verify your SMTP configuration."
                     />
                 </DialogContent>

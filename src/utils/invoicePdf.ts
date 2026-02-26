@@ -75,11 +75,11 @@ const buildInvoiceHtml = (
       <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px;">
         <div>
           <h1 style="margin: 0; color: #2563eb; font-size: 28px; font-weight: 800; letter-spacing: -0.025em;">
-            ${location?.name || 'Solar Swim'}
+            ${location?.name || 'Glass Court Swim and Fitness'}
           </h1>
           <div style="margin-top: 8px; color: #64748b; font-size: 14px; line-height: 1.5;">
             ${location?.address || ''}<br/>
-            Contact: support@solarswim.com
+            Contact: support@glasscourt.com
           </div>
         </div>
         <div style="text-align: right;">

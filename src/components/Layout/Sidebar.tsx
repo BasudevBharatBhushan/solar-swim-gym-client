@@ -69,7 +69,7 @@ const menuItems: MenuItem[] = [
         icon: <Loyalty />,
         children: [
           { text: 'Member Pricing', icon: <MonetizationOn />, path: '/admin/settings/base-plan' },
-          { text: 'Household Rules', icon: <Assignment />, path: '/admin/memberships' },
+          { text: 'Annual Fees', icon: <Assignment />, path: '/admin/memberships' },
         ]
       },
       { text: 'Waiver Programs', icon: <Description />, path: '/admin/settings/waiver-programs' },

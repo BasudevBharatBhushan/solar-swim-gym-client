@@ -23,7 +23,8 @@ import {
 import { Person, ChildCare, ContentCopy, Star, ContactEmergency }
 from '@mui/icons-material';
 import { useConfig } from '../../../../context/ConfigContext';
-import { getAgeGroup, getAgeRangeLabel, calculateAge } from '../../../../lib/ageUtils';
+import { getAgeGroup, calculateAge, getAgeRangeLabel } from '../../../../lib/ageUtils';
+import { DobField } from '../components/DobField';
 
 interface FamilyMember {
     first_name: string;
@@ -240,17 +241,15 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                                 />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 4 }}>
-                                <TextField 
+                                <DobField
                                     label="Date of Birth"
-                                    type="date"
+                                    required
+                                    value={primaryData.date_of_birth}
+                                    onChange={(val) => updatePrimaryData('date_of_birth', val)}
+                                    error={!!(errors as any)?.primary?.date_of_birth}
+                                    helperText={(errors as any)?.primary?.date_of_birth}
                                     size="small"
                                     fullWidth
-                                    required
-                                    value={primaryData.date_of_birth || ''}
-                                    onChange={(e) => updatePrimaryData('date_of_birth', e.target.value)}
-                                    error={!!(errors as any)?.primary?.date_of_birth} // Quick fallback assuming errors is primarily for members
-                                    helperText={(errors as any)?.primary?.date_of_birth || 'Format: mm/dd/yyyy'}
-                                    slotProps={{ inputLabel: { shrink: true } }}
                                 />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
@@ -429,21 +428,19 @@ export const FamilyStep: React.FC<FamilyStepProps> = ({ data, updateData, primar
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 4 }}>
-                            <TextField
+                            <DobField
                                 label="Date of Birth"
-                                type="date"
+                                required
+                                value={member.date_of_birth}
+                                onChange={(val) => handleChange(index, 'date_of_birth', val)}
+                                error={!!errors[index]?.date_of_birth}
+                                helperText={errors[index]?.date_of_birth}
                                 size="small"
                                 fullWidth
-                                required
-                                value={member.date_of_birth || ''}
-                                onChange={(e) => handleChange(index, 'date_of_birth', e.target.value)}
-                                error={!!errors[index]?.date_of_birth}
-                                helperText={errors[index]?.date_of_birth || 'Format: mm/dd/yyyy'}
-                                slotProps={{ inputLabel: { shrink: true } }}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
-                            <FormControl fullWidth size="small">
+                             <FormControl fullWidth size="small">
                                 <InputLabel shrink>Gender (Optional)</InputLabel>
                                 <Select value={member.gender || ''} onChange={(e) => handleChange(index, 'gender', e.target.value)} label="Gender (Optional)" displayEmpty>
                                     <MenuItem value=""><em>Prefer not to say</em></MenuItem>

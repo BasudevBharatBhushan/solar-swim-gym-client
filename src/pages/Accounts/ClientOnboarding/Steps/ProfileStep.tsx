@@ -17,6 +17,7 @@ import {
 import ClearIcon from '@mui/icons-material/Clear';
 import { useConfig } from '../../../../context/ConfigContext';
 import { getAgeGroup, getAgeRangeLabel } from '../../../../lib/ageUtils';
+import { DobField } from '../components/DobField';
 
 interface ProfileStepProps {
   data: any;
@@ -86,17 +87,15 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6 }}>
-          <TextField
+          <DobField
             label="Date of Birth"
-            type="date"
-            fullWidth
-            value={data.date_of_birth || ''}
-            onChange={(e) => updateData('date_of_birth', e.target.value)}
-            onBlur={(e) => onFieldBlur?.('date_of_birth', e.target.value)}
+            value={data.date_of_birth}
+            onChange={(val) => updateData('date_of_birth', val)}
+            onBlur={(val) => onFieldBlur?.('date_of_birth', val)}
             error={!!errors.date_of_birth}
-            helperText={errors.date_of_birth || 'Format: mm/dd/yyyy'}
+            helperText={errors.date_of_birth}
             required
-            slotProps={{ inputLabel: { shrink: true } }}
+            size="small"
           />
           {ageProfile && (
             <Chip

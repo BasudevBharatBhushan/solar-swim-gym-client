@@ -183,7 +183,7 @@ export const AccountDetail = () => {
           }
 
           const profileNames = profiles.map((p: any) => `${p.first_name} ${p.last_name}`).join(', ');
-          const templateName = 'Waiver to Join Solar Swim Gym Membership';
+          const templateName = 'Waiver to Join Glass Court Swim and Fitness Membership';
           
           let subject = templateName;
           let body = `Please find attached the signed waivers for: ${profileNames}.`;
@@ -284,7 +284,7 @@ export const AccountDetail = () => {
              return;
           }
 
-          const companyName = (account.location?.name || account.location_name || 'Solar Swim Gym');
+          const companyName = (account.location?.name || account.location_name || 'Glass Court Swim and Fitness');
           let subject = `Complete Your Registration – Waiver Signing for ${companyName}`;
           let body = `Your contracts are ready for signing. Please click the secure links below to sign your waivers:\n${linksText}`;
           let templateId: string | undefined = undefined;

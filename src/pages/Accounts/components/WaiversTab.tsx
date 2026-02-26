@@ -306,7 +306,7 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
       );
 
       // Fetch waiver email template
-      const templateName = 'Waiver to Join Solar Swim Gym Membership';
+      const templateName = 'Waiver to Join Glass Court Swim and Fitness Membership';
       let subject = `Signed Waiver – ${profile.first_name} ${profile.last_name}`;
       let body = `Please find attached the signed registration waiver for ${profile.first_name} ${profile.last_name}.`;
       let templateId: string | undefined;
@@ -455,7 +455,7 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
            t.subject?.includes('Waiver Signing')
         );
         if (template) {
-          subject = template.subject.replace(/\{\{company\}?\}?/g, 'Solar Swim Gym');
+          subject = template.subject.replace(/\{\{company\}?\}?/g, 'Glass Court Swim and Fitness');
           body = template.body_content;
           templateId = template.email_template_id;
         }
@@ -465,7 +465,7 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
 
       body = body
         .replace(/\{\{contract_link\}\}/g, publicUrl)
-        .replace(/\{\{company\}\}/g, 'Solar Swim Gym')
+        .replace(/\{\{company\}\}/g, 'Glass Court Swim and Fitness')
         .replace(/\{\{year\}\}/g, new Date().getFullYear().toString());
 
       if (!body.includes(publicUrl)) {
@@ -506,7 +506,7 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
     try {
       const pdfFile = await createWaiverPdfAttachment(profile, waiver);
 
-      const templateName = 'Waiver to Join Solar Swim Gym Membership';
+      const templateName = 'Waiver to Join Glass Court Swim and Fitness Membership';
       let subject = templateName;
       let body = `Please find attached the signed waiver for ${profile.first_name} ${profile.last_name}.`;
       let templateId: string | undefined;

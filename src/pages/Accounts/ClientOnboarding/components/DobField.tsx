@@ -1,7 +1,7 @@
 import React from 'react';
-import { TextField, IconButton, InputAdornment } from '@mui/material';
+import { TextField, IconButton, InputAdornment, Box } from '@mui/material';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import { formatDobForDisplay } from '../utils/dobUtils';
+import { formatDobForDisplay, parseDobInput } from '../utils/dobUtils';
 
 interface DobFieldProps {
   value: string | null | undefined;
@@ -30,37 +30,81 @@ export const DobField: React.FC<DobFieldProps> = ({
   const [displayValue, setDisplayValue] = React.useState(formatDobForDisplay(value));
 
   React.useEffect(() => {
-    setDisplayValue(formatDobForDisplay(value));
+    const parsedValue = parseDobInput(value);
+    if (parsedValue.iso) {
+      const formatted = formatDobForDisplay(value);
+      if (formatted !== displayValue && parseDobInput(displayValue).iso !== parsedValue.iso) {
+        setDisplayValue(formatted);
+      }
+    } else if (!value) {
+      setDisplayValue('');
+    }
   }, [value]);
 
   const handleCalendarOpen = () => {
     if (!hiddenDateRef.current) return;
     const input = hiddenDateRef.current as HTMLInputElement & { showPicker?: () => void };
     if (typeof input.showPicker === 'function') {
-      input.showPicker();
+      try {
+        input.showPicker();
+      } catch (e) {
+        input.click();
+      }
       return;
     }
     input.click();
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    let masked = val.replace(/[^0-9/]/g, '');
+    
+    if (val.length > displayValue.length) {
+        if (masked.length === 2 && !masked.includes('/')) {
+            masked += '/';
+        } else if (masked.length === 5 && (masked.match(/\//g) || []).length === 1) {
+            masked += '/';
+        }
+    }
+    
+    if (masked.length > 10) masked = masked.substring(0, 10);
+
+    setDisplayValue(masked);
+    
+    const parsed = parseDobInput(masked);
+    if (parsed.iso) {
+      onChange(parsed.iso);
+    } else {
+        onChange(''); 
+    }
+  };
+
+  const handleBlur = () => {
+    const parsed = parseDobInput(displayValue);
+    if (parsed.iso) {
+      onChange(parsed.iso);
+      setDisplayValue(formatDobForDisplay(parsed.iso));
+      onBlur?.(parsed.iso);
+    } else {
+      onChange('');
+      onBlur?.('');
+    }
+  };
+
   const helper = error
     ? helperText
-    : [helperText, 'Format: M/D/YYYY'].filter(Boolean).join(' · ');
+    : [helperText, 'Format: MM/DD/YYYY'].filter(Boolean).join(' - ');
 
   return (
-    <>
+    <Box sx={{ position: 'relative', width: fullWidth ? '100%' : 'auto' }}>
       <TextField
         label={label}
         value={displayValue}
-        onChange={(e) => {
-          const nextValue = e.target.value;
-          setDisplayValue(nextValue);
-          onChange(nextValue);
-        }}
-        onBlur={() => onBlur?.(displayValue)}
+        onChange={handleChange}
+        onBlur={handleBlur}
         error={error}
         helperText={helper}
-        placeholder="M/D/YYYY"
+        placeholder="MM/DD/YYYY"
         required={required}
         size={size}
         fullWidth={fullWidth}
@@ -87,8 +131,16 @@ export const DobField: React.FC<DobFieldProps> = ({
           setDisplayValue(formatDobForDisplay(iso));
           onBlur?.(iso);
         }}
-        style={{ display: 'none' }}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          opacity: 0,
+          width: 0,
+          height: 0,
+          pointerEvents: 'none'
+        }}
       />
-    </>
+    </Box>
   );
 };

@@ -10,7 +10,7 @@ const pad2 = (value: number) => value.toString().padStart(2, '0');
 
 const buildIso = (year: number, month: number, day: number): ParsedDob => {
   if (year < 1900 || year > 9999) {
-    return { iso: null, error: 'Use M/D/YYYY format' };
+    return { iso: null, error: 'Use MM/DD/YYYY format' };
   }
 
   if (month < 1 || month > 12 || day < 1 || day > 31) {
@@ -52,7 +52,7 @@ export const parseDobInput = (rawValue: string | null | undefined): ParsedDob =>
     return buildIso(year, month, day);
   }
 
-  return { iso: null, error: 'Use M/D/YYYY format' };
+  return { iso: null, error: 'Use MM/DD/YYYY format' };
 };
 
 export const normalizeDobToIso = (rawValue: string | null | undefined): string | null => {
@@ -66,5 +66,5 @@ export const formatDobForDisplay = (rawValue: string | null | undefined): string
   }
 
   const [year, month, day] = parsed.iso.split('-').map(Number);
-  return `${month}/${day}/${year}`;
+  return `${pad2(month)}/${pad2(day)}/${year}`;
 };

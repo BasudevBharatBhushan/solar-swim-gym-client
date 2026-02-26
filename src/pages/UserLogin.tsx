@@ -33,7 +33,7 @@ export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', lo
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { login, setCurrentLocationId, isAuthenticated } = useAuth();
+  const { login, setCurrentLocationId, isAuthenticated, role } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
@@ -50,9 +50,13 @@ export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', lo
   // Redirect if already authenticated
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate('/portal');
+      if (role === 'MEMBER') {
+        navigate('/portal');
+      } else {
+        navigate('/admin/leads');
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, role, navigate]);
 
   // Set location context on mount if provided
   React.useEffect(() => {

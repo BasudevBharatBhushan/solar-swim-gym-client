@@ -89,7 +89,16 @@ const AppRoutes = () => {
       <Route path="/public/sign-waiver" element={<PublicWaiverSigning />} />
 
       {/* User Portal Routes */}
-      <Route path="/portal" element={isAuthenticated ? <UserPortalLayout /> : <Navigate to="/login" replace />}>
+      <Route 
+        path="/portal" 
+        element={
+          isAuthenticated ? (
+            role === 'MEMBER' ? <UserPortalLayout /> : <Navigate to="/admin/leads" replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      >
         <Route index element={<MyAccount />} />
         <Route path="my-account" element={<MyAccount />} />
         <Route path="marketplace" element={<Marketplace />} />

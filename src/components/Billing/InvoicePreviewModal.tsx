@@ -150,7 +150,7 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
       );
       
       let subject = 'Invoice Payment Request';
-      let body = `Hello,\n\nPlease find the attached invoice for your recent purchase at ${location?.name || 'Solar Swim'}.\n\nTotal Amount Due: $${invoice?.total_amount}\n\nYou can review the details in the attached PDF file.\n\nThank you!`;
+      let body = `Hello,\n\nPlease find the attached invoice for your recent purchase at ${location?.name || 'Glass Court Swim and Fitness'}.\n\nTotal Amount Due: $${invoice?.total_amount}\n\nYou can review the details in the attached PDF file.\n\nThank you!`;
       let templateId = undefined;
 
       if (template) {
@@ -202,13 +202,13 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
             <Box display="flex" justifyContent="space-between" alignItems="flex-start" sx={{ pb: 3, borderBottom: '2px solid #f1f5f9' }}>
               <Box>
                 <Typography variant="h5" fontWeight={900} color="primary.main" gutterBottom>
-                  {location?.name || 'SOLAR SWIM'}
+                  {location?.name || 'GLASS COURT SWIM AND FITNESS'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 250 }}>
                   {location?.address || 'Location Address'}
                 </Typography>
                 <Typography variant="caption" color="text.disabled" sx={{ mt: 1, display: 'block' }}>
-                  support@solarswim.com
+                  support@glasscourt.com
                 </Typography>
               </Box>
               <Box textAlign="right">

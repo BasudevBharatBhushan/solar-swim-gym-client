@@ -140,7 +140,7 @@ export const PublicWaiverSigning = () => {
           
           <Box sx={{ bgcolor: 'primary.main', p: 3, color: 'white', textAlign: 'center' }}>
             <Typography variant="h5" fontWeight={800}>
-              {waiverDetails?.location_name || 'Solar Swim Gym'}
+              {waiverDetails?.location_name || 'Glass Court Swim and Fitness'}
             </Typography>
             <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
               Document Signing Request
