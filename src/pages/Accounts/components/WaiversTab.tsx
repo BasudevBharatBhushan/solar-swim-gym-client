@@ -787,20 +787,36 @@ export const WaiversTab = ({ profiles, selectedProfileId, accountId, account }: 
                       border: none;
                       box-sizing: border-box;
                     }
-                    .ql-waiver-view.ql-editor p { margin-bottom: 0.75em; }
+                    .ql-waiver-view.ql-editor p { 
+                      margin-bottom: 0.75em; 
+                      hyphens: auto;
+                    }
                     .ql-waiver-view.ql-editor h1 { font-size: 2em; font-weight: bold; margin: 0.75em 0 0.5em; }
                     .ql-waiver-view.ql-editor h2 { font-size: 1.5em; font-weight: bold; margin: 0.75em 0 0.5em; }
                     .ql-waiver-view.ql-editor h3 { font-size: 1.17em; font-weight: bold; margin: 0.75em 0 0.5em; }
                     .ql-waiver-view.ql-editor .ql-align-center { text-align: center !important; }
                     .ql-waiver-view.ql-editor .ql-align-right  { text-align: right  !important; }
-                    .ql-waiver-view.ql-editor .ql-align-justify { text-align: justify !important; }
+                    .ql-waiver-view.ql-editor .ql-align-justify { 
+                      text-align: justify !important; 
+                      text-justify: inter-word !important;
+                    }
                     .ql-waiver-view.ql-editor blockquote { border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; }
                     .ql-waiver-view.ql-editor img { max-width: 100%; height: auto; }
                   `}</style>
-                  <div
-                    className="ql-editor ql-waiver-view"
-                    dangerouslySetInnerHTML={{ __html: selectedWaiver.content }}
-                  />
+                  <Box sx={{ bgcolor: '#f1f5f9', p: { xs: 1, md: 4 }, borderRadius: 1 }}>
+                    <Box
+                      className="ql-editor ql-waiver-view"
+                      sx={{ 
+                        maxWidth: '816px', 
+                        width: '100%', 
+                        margin: '0 auto', 
+                        bgcolor: '#fff', 
+                        p: { xs: 2, md: 6 },
+                        boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: selectedWaiver.content }}
+                    />
+                  </Box>
                 </>
             )}
              {selectedWaiver?.signature_url && (

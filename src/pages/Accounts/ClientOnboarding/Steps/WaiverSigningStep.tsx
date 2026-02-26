@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Box, Typography, Button, Alert, Grid, List, ListItem, ListItemButton, Checkbox, FormControlLabel, useTheme, useMediaQuery, Stack, Chip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; // For signed status
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useAuth } from '../../../../context/AuthContext';
 import { useConfig } from '../../../../context/ConfigContext';
 import { WaiverPreview } from '../../../../components/Waiver/WaiverPreview';
@@ -41,6 +42,7 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
     const [activeTab, setActiveTab] = useState(0);
     const [memberStates, setMemberStates] = useState<MemberState[]>([]);
     const signaturePadRef = useRef<SignaturePadRef>(null);
+    const waiverContentRef = useRef<HTMLDivElement>(null);
 
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -48,18 +50,21 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
     useImperativeHandle(ref, () => ({
         advanceToNextUnsigned: () => {
             const nextIdx = memberStates.findIndex((m, idx) => !m.isSigned && idx > activeTab);
-            if (nextIdx !== -1) {
+            // Only allow advancing if current is signed
+            if (nextIdx !== -1 && memberStates[activeTab].isSigned) {
                 setActiveTab(nextIdx);
-                return true;
-            }
-            const firstIdx = memberStates.findIndex(m => !m.isSigned);
-            if (firstIdx !== -1 && firstIdx !== activeTab) {
-                setActiveTab(firstIdx);
                 return true;
             }
             return false;
         }
     }));
+
+    // Scroll to top when active tab changes
+    useEffect(() => {
+        if (waiverContentRef.current) {
+            waiverContentRef.current.scrollTo(0, 0);
+        }
+    }, [activeTab]);
 
     // Initial Setup
     useEffect(() => {
@@ -195,13 +200,7 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                     signatureUrl: sigResponse.signature_url
                 });
 
-                // Auto-advance to next unsigned member after signing
-                setTimeout(() => {
-                    const nextUnsignedIdx = memberStates.findIndex((m, idx) => !m.isSigned && idx !== activeTab);
-                    if (nextUnsignedIdx !== -1) {
-                        setActiveTab(nextUnsignedIdx);
-                    }
-                }, 1000);
+                // Auto-advance removed as per user request (they want manual click or controlled flow)
             };
 
         } catch (err: any) {
@@ -236,13 +235,26 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
     if (memberStates.length === 0) return null;
     
     const currentMember = memberStates[activeTab];
-
     if (!currentMember) return null;
+
+    const isMemberAccessible = (index: number) => {
+        if (index === 0) return true;
+        // Member is accessible if they are signed OR if the immediately previous member is signed
+        return memberStates[index].isSigned || (index > 0 && memberStates[index - 1].isSigned);
+    };
+
+    const handleTabClick = (index: number) => {
+        if (isMemberAccessible(index)) {
+            setActiveTab(index);
+        }
+    };
+
+    const hasNextMember = activeTab < memberStates.length - 1;
 
     return (
         <Grid container sx={{ 
-            height: isMobile ? 'auto' : '600px', 
-            minHeight: isMobile ? 'calc(100vh - 200px)' : '600px',
+            height: isMobile ? 'calc(100vh - 180px)' : '600px', 
+            minHeight: isMobile ? '400px' : '600px',
             border: '1px solid #e2e8f0', 
             borderRadius: 2, 
             overflow: 'hidden', 
@@ -262,7 +274,8 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                 position: isMobile ? 'sticky' : 'relative',
                 top: isMobile ? 0 : 'auto',
                 zIndex: isMobile ? 100 : 1,
-                boxShadow: isMobile ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
+                boxShadow: isMobile ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
+                flexShrink: 0
             }}>
                 {!isMobile && (
                     <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
@@ -274,23 +287,33 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                 
                 {/* Mobile Horizontal List */}
                 {isMobile ? (
-                   <Stack direction="row" spacing={1} sx={{ p: 1.5, width: '100%' }}>
-                       {memberStates.map((m, idx) => (
-                           <Chip 
-                                key={idx}
-                                label={m.name.split(' ')[0]} // First name only for compactness
-                                onClick={() => setActiveTab(idx)}
-                                color={activeTab === idx ? "primary" : "default"}
-                                variant={activeTab === idx ? "filled" : "outlined"}
-                                icon={m.isSigned ? <CheckCircleIcon sx={{ fontSize: '14px !important' }} /> : undefined}
-                                sx={{ 
-                                    fontWeight: 700,
-                                    bgcolor: activeTab === idx ? 'primary.main' : '#fff',
-                                    color: activeTab === idx ? '#fff' : 'text.primary',
-                                    borderColor: '#e2e8f0'
-                                }}
-                           />
-                       ))}
+                   <Stack direction="row" spacing={1} sx={{ p: 1.5, width: '100%', overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' } }}>
+                       {memberStates.map((m, idx) => {
+                           const accessible = isMemberAccessible(idx);
+                           return (
+                               <Chip 
+                                    key={idx}
+                                    label={m.name.split(' ')[0]} 
+                                    onClick={() => handleTabClick(idx)}
+                                    disabled={!accessible}
+                                    color={activeTab === idx ? "primary" : "default"}
+                                    variant={activeTab === idx ? "filled" : "outlined"}
+                                    icon={m.isSigned ? <CheckCircleIcon sx={{ fontSize: '14px !important' }} /> : undefined}
+                                    sx={{ 
+                                        fontWeight: 700,
+                                        bgcolor: activeTab === idx ? 'primary.main' : (accessible ? '#fff' : '#f1f5f9'),
+                                        color: activeTab === idx ? '#fff' : (accessible ? 'text.primary' : 'text.disabled'),
+                                        borderColor: activeTab === idx ? 'primary.main' : '#e2e8f0',
+                                        opacity: accessible ? 1 : 0.6,
+                                        '&.Mui-disabled': {
+                                            bgcolor: '#f1f5f9',
+                                            color: 'text.disabled',
+                                            borderColor: '#e2e8f0'
+                                        }
+                                    }}
+                               />
+                           );
+                       })}
                    </Stack>
                 ) : (
                     <List disablePadding>
@@ -354,7 +377,7 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
 
             {/* Right Content: Waiver - Contracts */}
             <Grid size={{ xs: 12, md: 9 }} sx={{ 
-                height: isMobile ? 'auto' : '100%', 
+                height: isMobile ? 'calc(100% - 60px)' : '100%', 
                 flex: isMobile ? 1 : 'none',
                 display: 'flex', 
                 flexDirection: 'column', 
@@ -375,7 +398,10 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                     </Box>
                 </Box>
 
-                <Box sx={{ flex: 1, overflowY: 'auto', p: isMobile ? 2 : 3 }}>
+                <Box 
+                    ref={waiverContentRef}
+                    sx={{ flex: 1, overflowY: 'auto', p: isMobile ? 2 : 3 }}
+                >
                     {currentMember.error && (
                         <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>{currentMember.error}</Alert>
                     )}
@@ -454,7 +480,7 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                     </Box>
                 </Box>
 
-                {!currentMember.isSigned && currentMember.waiverTemplate && (
+                {(!currentMember.isSigned || (hasNextMember && currentMember.isSigned)) && currentMember.waiverTemplate && (
                     <Box sx={{ 
                         p: isMobile ? 2 : 3, 
                         borderTop: '1px solid #e2e8f0', 
@@ -466,49 +492,77 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                         gap: 2,
                         zIndex: 10
                     }}>
-                        <FormControlLabel
-                            control={
-                                <Checkbox 
-                                    checked={currentMember.agreed} 
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleAgreeChange(e.target.checked)} 
-                                    color="primary"
-                                    sx={{ '& .MuiSvgIcon-root': { fontSize: 32 } }}
+                        {!currentMember.isSigned ? (
+                            <>
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox 
+                                            checked={currentMember.agreed} 
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleAgreeChange(e.target.checked)} 
+                                            color="primary"
+                                            sx={{ '& .MuiSvgIcon-root': { fontSize: 32 } }}
+                                        />
+                                    }
+                                    label={
+                                        <Typography 
+                                            variant="body1" 
+                                            sx={{ fontWeight: 700, color: currentMember.agreed ? 'primary.main' : 'text.primary', fontSize: isMobile ? '0.9rem' : '1rem' }}
+                                        >
+                                            I have read and agree to all terms
+                                        </Typography>
+                                    }
                                 />
-                            }
-                            label={
-                                <Typography 
-                                    variant="body1" 
-                                    sx={{ fontWeight: 700, color: currentMember.agreed ? 'primary.main' : 'text.primary', fontSize: isMobile ? '0.9rem' : '1rem' }}
+                                <Button
+                                    variant="contained"
+                                    size="large"
+                                    onClick={handleSign}
+                                    disabled={!currentMember.agreed || currentMember.loading}
+                                    sx={{ 
+                                        px: 6, 
+                                        py: 2, 
+                                        borderRadius: 3,
+                                        fontWeight: 800,
+                                        fontSize: '1.1rem',
+                                        textTransform: 'none',
+                                        boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
+                                        '&:hover': {
+                                            boxShadow: '0 6px 20px rgba(0,118,255,0.23)',
+                                            transform: 'translateY(-1px)'
+                                        },
+                                        '&:active': {
+                                            transform: 'translateY(0)'
+                                        },
+                                        transition: 'all 0.2s ease'
+                                    }}
                                 >
-                                    I have read and agree to all terms
-                                </Typography>
-                            }
-                        />
-                        <Button
-                            variant="contained"
-                            size="large"
-                            onClick={handleSign}
-                            disabled={!currentMember.agreed || currentMember.loading}
-                            sx={{ 
-                                px: 6, 
-                                py: 2, 
-                                borderRadius: 3,
-                                fontWeight: 800,
-                                fontSize: '1.1rem',
-                                textTransform: 'none',
-                                boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
-                                '&:hover': {
-                                    boxShadow: '0 6px 20px rgba(0,118,255,0.23)',
-                                    transform: 'translateY(-1px)'
-                                },
-                                '&:active': {
-                                    transform: 'translateY(0)'
-                                },
-                                transition: 'all 0.2s ease'
-                            }}
-                        >
-                            {currentMember.loading ? 'Signing...' : 'Sign Waiver'}
-                        </Button>
+                                    {currentMember.loading ? 'Signing...' : 'Sign Waiver'}
+                                </Button>
+                            </>
+                        ) : hasNextMember && (
+                            <Button
+                                variant="contained"
+                                size="large"
+                                onClick={() => setActiveTab(activeTab + 1)}
+                                endIcon={<ArrowForwardIcon />}
+                                sx={{ 
+                                    ml: 'auto',
+                                    px: 6, 
+                                    py: 2, 
+                                    borderRadius: 3,
+                                    fontWeight: 800,
+                                    fontSize: '1.1rem',
+                                    textTransform: 'none',
+                                    boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
+                                    '&:hover': {
+                                        boxShadow: '0 6px 20px rgba(0,118,255,0.23)',
+                                        transform: 'translateY(-1px)'
+                                    },
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                Next Profile
+                            </Button>
+                        )}
                     </Box>
                 )}
             </Grid>
