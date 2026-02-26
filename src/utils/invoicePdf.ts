@@ -120,9 +120,23 @@ const buildInvoiceHtml = (
             <span style="font-weight: 700;">$${Number(invoice.total_amount || 0).toFixed(2)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; padding: 16px 0; margin-top: 8px; background: #f8fafc; padding: 12px;">
-            <span style="font-size: 18px; font-weight: 800; color: #1e293b;">Amount Due</span>
-            <span style="font-size: 18px; font-weight: 800; color: #2563eb;">$${Number(invoice.total_amount || 0).toFixed(2)}</span>
+            <span style="font-size: 18px; font-weight: 800; color: #1e293b;">
+              ${invoice.status === 'PAID' ? 'Total Amount' : 'Amount Due'}
+            </span>
+            <span style="font-size: 18px; font-weight: 800; color: ${invoice.status === 'PAID' ? '#10b981' : '#2563eb'};">
+              $${Number(invoice.total_amount || 0).toFixed(2)}
+            </span>
           </div>
+          ${invoice.status === 'PAID' ? `
+          <div style="margin-top: 12px; padding: 12px; border: 1px solid #10b981; border-radius: 8px; background: #f0fdf4;">
+            <div style="font-size: 12px; font-weight: 800; color: #15803d; text-transform: uppercase;">Payment Details</div>
+            <div style="font-size: 14px; font-weight: 700; color: #166534; margin-top: 4px;">
+              ${invoice.payment_details?.cardholder_name || 'Paid by card'}
+            </div>
+            <div style="font-size: 12px; color: #15803d;">Card ending in ${invoice.payment_details?.card_last4 || '****'}</div>
+            ${invoice.payment_details?.txnid ? `<div style="font-size: 10px; color: #166534; margin-top: 4px; opacity: 0.7;">Ref: ${invoice.payment_details.txnid}</div>` : ''}
+          </div>
+          ` : ''}
         </div>
       </div>
 

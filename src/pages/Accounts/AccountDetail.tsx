@@ -23,6 +23,7 @@ import { ProfileDetail } from './components/ProfileDetail';
 import { SubscriptionsTab } from './components/SubscriptionsTab';
 import { WaiversTab } from './components/WaiversTab';
 import { InvoicesTab } from './components/InvoicesTab';
+import { TransactionsTab } from './components/TransactionsTab';
 import { ProfileUpsertDialog } from './components/ProfileUpsertDialog';
 import { useAuth } from '../../context/AuthContext';
 
@@ -44,7 +45,7 @@ export const AccountDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   
-  // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers, 3=Invoices
+  // Right Panel Tabs: 0=Profile Details, 1=Subscriptions, 2=Waivers, 3=Invoices, 4=Transactions
   const [tabValue, setTabValue] = useState(0);
   const [searchParams] = useSearchParams();
 
@@ -337,16 +338,6 @@ export const AccountDetail = () => {
           setActionLoading(false);
       }
   };
-
-  // Unified handler - decides between sending signed waiver or sending for signing
-  const handleWaiverButtonClick = () => {
-      if (hasUnsignedWaivers) {
-          handleSendWaiverForSigning();
-      } else {
-          handleSendSignedWaiverEmail();
-      }
-  };
-
 
   const fetchAccount = async () => {
     if (!accountId || !currentLocationId) return;
@@ -673,6 +664,7 @@ export const AccountDetail = () => {
                         <Tab label="Purchases" />
                         <Tab label="Waivers" />
                         <Tab label="Invoices" />
+                        <Tab label="Transactions" />
                     </Tabs>
                 </Box>
                 <Box sx={{ p: 4 }}>
@@ -702,6 +694,9 @@ export const AccountDetail = () => {
                     )}
                     {tabValue === 3 && (
                         <InvoicesTab accountId={account.account_id} />
+                    )}
+                    {tabValue === 4 && (
+                        <TransactionsTab accountId={account.account_id} />
                     )}
                 </Box>
             </Paper>

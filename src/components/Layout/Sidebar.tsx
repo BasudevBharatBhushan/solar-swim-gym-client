@@ -50,6 +50,8 @@ const menuItems: MenuItem[] = [
   { text: 'Leads', icon: <PeopleAlt />, path: '/admin/leads' },
   { text: 'Accounts', icon: <Business />, path: '/admin/accounts' },
   { text: 'Profiles', icon: <AccountBox />, path: '/admin/profiles' },
+  { text: 'Transactions', icon: <MonetizationOn />, path: '/admin/transactions', roleVerified: (role: string | null) => role === 'SUPERADMIN' || role === 'ADMIN' || role === 'STAFF' },
+  { text: 'Invoices', icon: <Description />, path: '/admin/invoices', roleVerified: (role: string | null) => role === 'SUPERADMIN' || role === 'ADMIN' || role === 'STAFF' },
   { 
     text: 'Staff', 
     icon: <Badge />, 

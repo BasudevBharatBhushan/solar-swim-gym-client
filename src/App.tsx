@@ -30,6 +30,8 @@ import { LayoutProvider } from './context/LayoutContext';
 import { StaffManagement } from './pages/Settings/StaffManagement';
 import { AdminActivation } from './pages/AdminActivation';
 import { Profiles } from './pages/Profiles/Profiles';
+import { GlobalTransactions } from './pages/Billing/GlobalTransactions';
+import { GlobalInvoices } from './pages/Billing/GlobalInvoices';
 
 
 
@@ -119,6 +121,8 @@ const AppRoutes = () => {
       <Route path="/admin/accounts/:accountId" element={<MainLayout><AccountDetail /></MainLayout>} />
       <Route path="/admin/accounts/:accountId/marketplace" element={<MainLayout><Marketplace /></MainLayout>} />
       <Route path="/admin/profiles" element={<MainLayout><Profiles /></MainLayout>} />
+      <Route path="/admin/transactions" element={<MainLayout><GlobalTransactions /></MainLayout>} />
+      <Route path="/admin/invoices" element={<MainLayout><GlobalInvoices /></MainLayout>} />
       <Route path="/admin/staff" element={<MainLayout><StaffManagement /></MainLayout>} />
       <Route path="/admin/subscription" element={<MainLayout><ComingSoon title="Subscription" icon={<Subscriptions sx={{ fontSize: 60, color: '#3b82f6' }} />} breadcrumbs={[{ label: 'System', href: '/admin' }, { label: 'Subscription', active: true }]} /></MainLayout>} />
       <Route path="/admin/billing" element={<MainLayout><ComingSoon title="Billing" icon={<CreditCard sx={{ fontSize: 60, color: '#3b82f6' }} />} breadcrumbs={[{ label: 'Settings', href: '/admin/settings' }, { label: 'Billing', active: true }]} /></MainLayout>} />

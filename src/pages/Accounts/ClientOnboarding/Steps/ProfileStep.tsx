@@ -27,6 +27,7 @@ interface ProfileStepProps {
   lockFamilyCount?: boolean;
   onFieldBlur?: (key: string, value: string) => void;
   onboardingType?: string;
+  isGlasscourt?: boolean;
 }
 
 export const ProfileStep: React.FC<ProfileStepProps> = ({
@@ -36,7 +37,8 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
   isPrimaryJunior = false,
   lockFamilyCount = false,
   onFieldBlur,
-  onboardingType
+  onboardingType,
+  isGlasscourt = false
 }) => {
   const { waiverPrograms, ageGroups } = useConfig();
   const ageProfile = getAgeGroup(data.date_of_birth || '', ageGroups, 'Membership');
@@ -238,37 +240,41 @@ export const ProfileStep: React.FC<ProfileStepProps> = ({
         </Grid>
 
         {/* Program */}
-        <Grid size={{ xs: 12 }}>
-          <Typography variant="subtitle2" sx={{ mb: 0, mt: 1, fontWeight: 600, color: '#334155' }}>
-            Program Info & Preferences
-          </Typography>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6 }}>
-          <TextField
-            select
-            fullWidth
-            size="small"
-            label="State Waiver Program (Optional)"
-            value={selectValue}
-            onChange={(e) => handleProgramChange(e.target.value)}
-            slotProps={{
-              inputLabel: { shrink: true },
-              select: { displayEmpty: true }
-            }}
-            helperText="Select a government or partner-funded program if applicable."
-          >
-            <MenuItem value="">
-              <em>None / Private Pay</em>
-            </MenuItem>
-            {waiverPrograms
-              .filter((p: any) => p.is_active)
-              .map((program: any) => (
-                <MenuItem key={program.waiver_program_id} value={program.waiver_program_id}>
-                  {program.name} ({program.code})
+        {!isGlasscourt && (
+          <>
+            <Grid size={{ xs: 12 }}>
+              <Typography variant="subtitle2" sx={{ mb: 0, mt: 1, fontWeight: 600, color: '#334155' }}>
+                Program Info & Preferences
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="State Waiver Program (Optional)"
+                value={selectValue}
+                onChange={(e) => handleProgramChange(e.target.value)}
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  select: { displayEmpty: true }
+                }}
+                helperText="Select a government or partner-funded program if applicable."
+              >
+                <MenuItem value="">
+                  <em>None / Private Pay</em>
                 </MenuItem>
-            ))}
-          </TextField>
-        </Grid>
+                {waiverPrograms
+                  .filter((p: any) => p.is_active)
+                  .map((program: any) => (
+                    <MenuItem key={program.waiver_program_id} value={program.waiver_program_id}>
+                      {program.name} ({program.code})
+                    </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+          </>
+        )}
 
         {data.waiver_program_id && (
           <>

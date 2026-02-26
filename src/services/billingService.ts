@@ -15,8 +15,8 @@ export const billingService = {
 
   // Invoices & Payments
   getInvoices: async (locationId?: string) => {
-    const params = locationId ? { location_id: locationId } : {};
-    return apiClient.get('/invoices', params);
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get('/invoices', {}, options);
   },
 
   createInvoice: async (invoiceData: any, locationId?: string) => {
@@ -56,5 +56,16 @@ export const billingService = {
   sendPaymentLink: async (accountId: string, locationId?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/billing/payment-link', { account_id: accountId }, options);
+  },
+
+  // Transactions
+  getAllTransactions: async (locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get('/payments/transactions', {}, options);
+  },
+
+  getAccountTransactions: async (accountId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/payments/transactions/accounts/${accountId}`, {}, options);
   },
 };

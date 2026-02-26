@@ -14,9 +14,10 @@ interface AccountSummaryProps {
   selectedProfileId?: string | null;
   onToggleNotification?: (field: 'notify_primary_member' | 'notify_guardian', value: boolean) => Promise<void>;
   cartCount?: number;
+  onClearCart?: () => Promise<void>;
 }
 
-export const AccountSummary = ({ account, onStoreClick, selectedProfileId, onToggleNotification, cartCount = 0 }: AccountSummaryProps) => {
+export const AccountSummary = ({ account, onStoreClick, selectedProfileId, onToggleNotification, cartCount = 0, onClearCart }: AccountSummaryProps) => {
   const [togglingField, setTogglingField] = useState<string | null>(null);
 
   const handleNotificationToggle = async (field: 'notify_primary_member' | 'notify_guardian', currentValue: boolean) => {
@@ -238,9 +239,22 @@ export const AccountSummary = ({ account, onStoreClick, selectedProfileId, onTog
                     </Button>
             </Tooltip>
             {cartCount > 0 && (
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, mr: 1 }}>
-                    {cartCount} item(s) in cart
-                </Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                        {cartCount} item(s) in cart
+                    </Typography>
+                    {onClearCart && (
+                        <Button 
+                            size="small" 
+                            color="error" 
+                            variant="text" 
+                            sx={{ fontSize: '0.65rem', py: 0, minWidth: 'auto' }}
+                            onClick={onClearCart}
+                        >
+                            Clear
+                        </Button>
+                    )}
+                </Stack>
             )}
           </Box>
         </Grid>

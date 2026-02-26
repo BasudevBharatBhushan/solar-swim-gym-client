@@ -22,6 +22,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
 import EmailIcon from '@mui/icons-material/Email';
 import PaymentsIcon from '@mui/icons-material/Payments';
+import PrintIcon from '@mui/icons-material/Print';
+import CreditCardIcon from '@mui/icons-material/CreditCard';
 import { billingService } from '../../services/billingService';
 import { useAuth } from '../../context/AuthContext';
 import { EmailComposer } from '../Email/EmailComposer';
@@ -38,9 +40,10 @@ interface InvoicePreviewModalProps {
   onClose: () => void;
   invoiceId: string;
   accountId: string;
+  initialPaymentDetails?: any;
 }
 
-export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: InvoicePreviewModalProps) => {
+export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initialPaymentDetails }: InvoicePreviewModalProps) => {
   const { currentLocationId } = useAuth();
   const { ageGroups } = useConfig();
   const [invoice, setInvoice] = useState<any>(null);
@@ -75,6 +78,12 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
         const invRes: any = await billingService.getInvoice(invoiceId);
         const invData = invRes?.data || invRes;
         if (!invData) throw new Error('Invoice not found');
+        
+        // Merge initial payment details if missing from detail fetch
+        if (initialPaymentDetails && !invData.payment_details) {
+            invData.payment_details = initialPaymentDetails;
+        }
+        
         setInvoice(invData);
 
         // 2. Fetch Subscriptions to find items linked to this invoice
@@ -150,7 +159,8 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
       );
       
       let subject = 'Invoice Payment Request';
-      let body = `Hello,\n\nPlease find the attached invoice for your recent purchase at ${location?.name || 'Glass Court Swim and Fitness'}.\n\nTotal Amount Due: $${invoice?.total_amount}\n\nYou can review the details in the attached PDF file.\n\nThank you!`;
+      const dueAmount = invoice.status === 'PAID' ? '0.00' : Number(invoice.total_amount || 0).toFixed(2);
+      let body = `Hello,\n\nPlease find the attached invoice for your recent purchase at ${location?.name || 'Glass Court Swim and Fitness'}.\n\nTotal Amount Due: $${dueAmount}\n\nYou can review the details in the attached PDF file.\n\nThank you!`;
       let templateId = undefined;
 
       if (template) {
@@ -173,6 +183,32 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
       alert('Failed to prepare email draft');
     } finally {
       setPreparingEmail(false);
+    }
+  };
+
+  const handlePrintInvoice = async () => {
+    try {
+      const { createInvoicePdfAttachment } = await import('../../utils/invoicePdf');
+      const pdfFile = await createInvoicePdfAttachment(
+        invoice,
+        subscriptions,
+        location,
+        ageGroups,
+        servicePacks,
+        membershipDetails,
+        basePrices
+      );
+      
+      const fileURL = URL.createObjectURL(pdfFile);
+      const printWindow = window.open(fileURL);
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+    } catch (err) {
+      console.error('Failed to print invoice:', err);
+      alert('Failed to generate printable invoice');
     }
   };
 
@@ -233,13 +269,44 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
             {/* Summary Highlights */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f8fafc', p: 3, borderRadius: 3 }}>
                <Box>
-                  <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase">Amount Due</Typography>
-                  <Typography variant="h4" fontWeight={900} color="primary.dark">
+                  <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase">
+                    {invoice.status === 'PAID' ? 'Amount Paid' : 'Amount Due'}
+                  </Typography>
+                  <Typography variant="h4" fontWeight={900} color={invoice.status === 'PAID' ? 'success.main' : 'primary.dark'}>
                     ${Number(invoice.total_amount || 0).toFixed(2)}
                   </Typography>
+                  {invoice.status === 'PAID' && (
+                    <Box sx={{ mt: 1, p: 1.5, border: '1px dashed #10b981', borderRadius: 2, bgcolor: '#ecfdf5' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#059669', textTransform: 'uppercase', display: 'block', mb: 0.5 }}>
+                            Payment Receipt
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CreditCardIcon sx={{ fontSize: '1.2rem', color: '#10b981' }} />
+                            <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: '#065f46', lineHeight: 1 }}>
+                                    {invoice.payment_details?.cardholder_name || 'Cardholder'}
+                                </Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 600, color: '#059669' }}>
+                                    XXXX-XXXX-XXXX-{invoice.payment_details?.card_last4 || '****'}
+                                </Typography>
+                            </Box>
+                        </Box>
+                        {invoice.payment_details?.txnid && (
+                            <Typography variant="caption" sx={{ color: '#059669', mt: 0.5, display: 'block', opacity: 0.8 }}>
+                                Transaction ID: {invoice.payment_details.txnid}
+                            </Typography>
+                        )}
+                    </Box>
+                  )}
                </Box>
                <Box textAlign="right">
-                  <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase">Billed To</Typography>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase">Balance Due</Typography>
+                    <Typography variant="h6" fontWeight={800} color={invoice.status === 'PAID' ? 'text.disabled' : 'error.main'}>
+                        ${invoice.status === 'PAID' ? '0.00' : Number(invoice.total_amount || 0).toFixed(2)}
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase" sx={{ mt: 1, display: 'block' }}>Billed To</Typography>
                   <Typography variant="body1" fontWeight={700}>Account ID: {invoice.account_id?.substring(0,8)}...</Typography>
                </Box>
             </Box>
@@ -337,10 +404,14 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
                     )}
                     <TableRow sx={{ bgcolor: '#f8fafc' }}>
                       <TableCell colSpan={5} sx={{ borderBottom: 'none' }}>
-                        <Typography variant="subtitle2" fontWeight={800} align="right" textTransform="uppercase">Amount Due</Typography>
+                        <Typography variant="subtitle2" fontWeight={800} align="right" textTransform="uppercase">
+                          {invoice.status === 'PAID' ? 'Total Amount Paid' : 'Amount Due'}
+                        </Typography>
                       </TableCell>
                       <TableCell align="right" sx={{ borderBottom: 'none' }}>
-                        <Typography variant="subtitle2" fontWeight={800} color="primary.main">${Number(invoice.total_amount || 0).toFixed(2)}</Typography>
+                        <Typography variant="subtitle2" fontWeight={800} color={invoice.status === 'PAID' ? 'success.main' : 'primary.main'}>
+                          ${Number(invoice.total_amount || 0).toFixed(2)}
+                        </Typography>
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -362,7 +433,16 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
                   fullWidth
                   sx={{ py: 1.5, borderRadius: 2, fontWeight: 700, boxShadow: 'none' }}
                 >
-                  {preparingEmail ? 'Generating PDF...' : 'Email Invoice as PDF'}
+                  {preparingEmail ? 'Generating PDF...' : 'Email PDF'}
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  startIcon={<PrintIcon />} 
+                  onClick={handlePrintInvoice}
+                  fullWidth
+                  sx={{ py: 1.5, borderRadius: 2, fontWeight: 700 }}
+                >
+                  Print Invoice
                 </Button>
                 <Button 
                   variant="outlined" 
@@ -371,7 +451,7 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId }: Inv
                   fullWidth
                   sx={{ py: 1.5, borderRadius: 2, fontWeight: 700 }}
                 >
-                  Send Payment Link
+                  Payment Link
                 </Button>
               </Stack>
             </Box>

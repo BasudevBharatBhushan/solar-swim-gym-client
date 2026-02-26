@@ -61,6 +61,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
   
   const currentLocation = locations.find(loc => loc.location_id === currentLocationId);
   const locationName = locationNameProp || (currentLocation ? currentLocation.name : 'Zalexy');
+  const isGlasscourt = locationName.toLowerCase().includes('glass court') || locationName.toLowerCase().includes('glasscourt');
 
   // Refresh config data when modal opens
   React.useEffect(() => {
@@ -96,6 +97,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
     guardian_mobile: '',
     guardian_email: '',
     emergency_contact_phone: '',
+    case_manager_name: '',
+    case_manager_email: '',
   });
 
   const [familyMembers, setFamilyMembers] = useState<any[]>([]);
@@ -272,6 +275,17 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
         if (eMobileErr) newErrors.emergency_contact_phone = eMobileErr;
       }
     }
+
+    // Waiver Program Validation
+    if (profileData.waiver_program_id) {
+      if (!profileData.case_manager_name) newErrors.case_manager_name = 'Case manager name is required';
+      if (!profileData.case_manager_email) {
+        newErrors.case_manager_email = 'Case manager email is required';
+      } else {
+        const cmEmailErr = validateEmailFormat(profileData.case_manager_email);
+        if (cmEmailErr) newErrors.case_manager_email = cmEmailErr;
+      }
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -321,6 +335,17 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
           } else {
             const err = validateMobile(member.emergency_contact_phone);
             if (err) memberErrors.emergency_contact_phone = err;
+          }
+        }
+
+        // Waiver Program Validation
+        if (member.waiver_program_id) {
+          if (!member.case_manager_name) memberErrors.case_manager_name = 'Case manager name required';
+          if (!member.case_manager_email) {
+            memberErrors.case_manager_email = 'Case manager email required';
+          } else {
+            const cmEmailErr = validateEmailFormat(member.case_manager_email);
+            if (cmEmailErr) memberErrors.case_manager_email = cmEmailErr;
           }
         }
 
@@ -504,6 +529,8 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       guardian_mobile: '',
       guardian_email: '',
       emergency_contact_phone: '',
+      case_manager_name: '',
+      case_manager_email: '',
     });
     setFamilyMembers([]);
     setSignedWaivers({});
@@ -550,6 +577,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
               lockFamilyCount={isPrimaryJunior}
               onFieldBlur={handleProfileFieldBlur}
               onboardingType={onboardingType}
+              isGlasscourt={isGlasscourt}
             />
             <FamilyStep 
                 data={familyMembers} 
@@ -558,6 +586,7 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 updatePrimaryData={(key: string, value: any) => updateProfileData(key, value)}
                 expectedCount={Math.max(1, profileData.family_count)}
                 errors={errors.family || {}}
+                isGlasscourt={isGlasscourt}
             />
           </Box>
         );
