@@ -33,6 +33,8 @@ interface PaymentDialogProps {
     onPaymentInfoCaptured?: (last4: string) => Promise<boolean>;
     allowPartial?: boolean;
     amountDue?: number;
+    /** Called when user skips payment — should clear cart and navigate away */
+    onSkip?: () => void;
 }
 
 export const PaymentDialog = ({ 
@@ -46,7 +48,8 @@ export const PaymentDialog = ({
     onSuccess, 
     onPaymentInfoCaptured,
     allowPartial = false,
-    amountDue
+    amountDue,
+    onSkip,
 }: PaymentDialogProps) => {
     const { loginId, userParams } = useAuth();
     const staffName = `${userParams?.first_name || ''} ${userParams?.last_name || ''}`.trim();
@@ -526,7 +529,7 @@ export const PaymentDialog = ({
                                     fullWidth
                                     variant="outlined"
                                     size="medium"
-                                    onClick={onClose}
+                                    onClick={onSkip ?? onClose}
                                     disabled={processing}
                                     sx={{ 
                                         borderRadius: 2,

@@ -3153,6 +3153,20 @@ export const Marketplace = () => {
                 invoiceId={pendingInvoiceId}
                 allowPartial={true}
                 onPaymentInfoCaptured={handlePaymentInfoCaptured}
+                onSkip={async () => {
+                    // Clear server-side cart and local state, then navigate
+                    try {
+                        if (accountId && currentLocationId) {
+                            await cartService.clearCart(accountId, currentLocationId);
+                        }
+                    } catch (err) {
+                        console.error('Failed to clear cart on skip:', err);
+                    }
+                    setCart([]);
+                    setItemDiscounts({});
+                    setPaymentOpen(false);
+                    navigate(isMember ? '/portal?tab=invoices' : `/admin/accounts/${accountId}?tab=invoices`);
+                }}
                 onSuccess={async () => {
                     const afterPaymentTemplates = waiverTemplates.filter(t => t.is_after_payment === true);
                     const requiresWaivers = cart.some(item => {
