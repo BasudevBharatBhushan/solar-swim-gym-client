@@ -2548,7 +2548,7 @@ export const Marketplace = () => {
                                                          : item.type === 'MEMBERSHIP'
                                                          ? waiverTemplates.some(t => t.membership_category_id === item.membershipCategoryId)
                                                          : item.type === 'BASE'
-                                                         ? waiverTemplates.some(t => t.base_price_id === item.referenceId)
+                                                         ? waiverTemplates.some(t => t.subterm_id === item.referenceId)
                                                          : false;
                                                      
                                                      if (!hasTpl) return null;
