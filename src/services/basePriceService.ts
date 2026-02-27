@@ -17,6 +17,7 @@ export interface BasePrice {
   payment_mode?: 'RECURRING' | 'PAY_IN_FULL';
   recurrence_unit?: string;
   recurrence_unit_value?: number;
+  duration_months?: number;
 }
 
 export interface BasePlanResponse {

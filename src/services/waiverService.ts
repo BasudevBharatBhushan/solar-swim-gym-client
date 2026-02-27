@@ -7,6 +7,8 @@ export interface WaiverTemplate {
   service_id?: string | null;
   membership_category_id?: string | null;
   base_price_id?: string | null;
+  subterm_id?: string | null;
+  template_category?: string | null;
   content: string;
   is_active: boolean;
   is_before_payment?: boolean;

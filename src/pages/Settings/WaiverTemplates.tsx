@@ -513,7 +513,14 @@ export const WaiverTemplates = () => {
                         <Alert severity="info" icon={<Info fontSize="inherit" />} sx={{ mx: 3, mt: 3, mb: 1, borderRadius: 2 }}>
                             <Box>
                                 <Typography variant="caption" fontWeight={600} sx={{ color: '#1e293b !important', display: 'block', mb: 0.5 }}>
-                                    Standard Variables: Use <code>[FullName]</code>, <code>[GuardianName]</code>, <code>[AcceptSignature]</code>, <code>[CurrentDate]</code>.
+                                   Standard Variables: Use <code>[FullName]</code>, <code>[GuardianName]</code>, <code>[DOB]</code>, <code>[AcceptSignature]</code>, <code>[CurrentDate]</code>,
+
+<code>[CardLast4]</code>,
+
+<code>[MembershipFee]</code>, <code>[MonthlyDues]</code>, <code>[JoningFee]</code>, <code>[AnnualFee]</code>,
+
+<code>[SubscriptionTerm]</code>, <code>[LengthOfContract]</code>, <code>[AutomaticRenewalTerm]</code>
+
                                 </Typography>
                                 {dynamicVariables.length > 0 && (
                                     <Typography variant="caption" fontWeight={600} sx={{ color: '#3b82f6 !important' }}>

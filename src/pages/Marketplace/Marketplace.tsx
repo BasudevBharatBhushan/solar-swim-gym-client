@@ -1460,6 +1460,11 @@ export const Marketplace = () => {
             name: `${pendingMembershipCandidate.programName} - ${pendingMembershipCandidate.categoryName} (${selectedFeeType})`,
             price: selectedAmount,
             membershipRange: pendingMembershipCandidate.range,
+            metadata: {
+                joiningFee: pendingMembershipCandidate.joiningFee,
+                annualFee: pendingMembershipCandidate.annualFee,
+                type: 'MEMBERSHIP'
+            }
         };
 
         setFeeDialogOpen(false);
@@ -1572,9 +1577,16 @@ export const Marketplace = () => {
     const handlePaymentInfoCaptured = (last4: string): Promise<boolean> => {
         return new Promise((resolve) => {
             const afterInfoTemplates = waiverTemplates.filter(t => t.is_after_payment_info_captured === true);
+            // For MEMBERSHIP items, match by template_category='Membership' + subterm_id from BASE item
+            const baseItemTermId = cart.find(c => c.type === 'BASE')?.subscriptionTermId;
             const requiresWaivers = cart.some(item => {
                 if (item.type === 'SERVICE') return afterInfoTemplates.some(t => t.service_id === item.serviceId);
-                if (item.type === 'MEMBERSHIP') return afterInfoTemplates.some(t => t.membership_category_id === item.membershipCategoryId);
+                if (item.type === 'MEMBERSHIP') {
+                    return afterInfoTemplates.some(t =>
+                        (t.template_category === 'Membership' && baseItemTermId && t.subterm_id === baseItemTermId) ||
+                        t.membership_category_id === item.membershipCategoryId
+                    );
+                }
                 if (item.type === 'BASE') return afterInfoTemplates.some(t => t.base_price_id === item.referenceId);
                 return false;
             });
@@ -1644,9 +1656,16 @@ export const Marketplace = () => {
 
             // Check for before_payment waivers
             const beforePaymentTemplates = waiverTemplates.filter(t => t.is_before_payment === true);
+            // For MEMBERSHIP items, match by template_category='Membership' + subterm_id from BASE item
+            const baseItemTermIdBefore = cart.find(c => c.type === 'BASE')?.subscriptionTermId;
             const requiresWaivers = cart.some(item => {
                 if (item.type === 'SERVICE') return beforePaymentTemplates.some(t => t.service_id === item.serviceId);
-                if (item.type === 'MEMBERSHIP') return beforePaymentTemplates.some(t => t.membership_category_id === item.membershipCategoryId);
+                if (item.type === 'MEMBERSHIP') {
+                    return beforePaymentTemplates.some(t =>
+                        (t.template_category === 'Membership' && baseItemTermIdBefore && t.subterm_id === baseItemTermIdBefore) ||
+                        t.membership_category_id === item.membershipCategoryId
+                    );
+                }
                 if (item.type === 'BASE') return beforePaymentTemplates.some(t => t.base_price_id === item.referenceId);
                 return false;
             });
@@ -3134,9 +3153,16 @@ export const Marketplace = () => {
                 onPaymentInfoCaptured={handlePaymentInfoCaptured}
                 onSuccess={async () => {
                     const afterPaymentTemplates = waiverTemplates.filter(t => t.is_after_payment === true);
+                    // For MEMBERSHIP items, match by template_category='Membership' + subterm_id from BASE item
+                    const baseItemTermIdAfter = cart.find(c => c.type === 'BASE')?.subscriptionTermId;
                     const requiresWaivers = cart.some(item => {
                         if (item.type === 'SERVICE') return afterPaymentTemplates.some(t => t.service_id === item.serviceId);
-                        if (item.type === 'MEMBERSHIP') return afterPaymentTemplates.some(t => t.membership_category_id === item.membershipCategoryId);
+                        if (item.type === 'MEMBERSHIP') {
+                            return afterPaymentTemplates.some(t =>
+                                (t.template_category === 'Membership' && baseItemTermIdAfter && t.subterm_id === baseItemTermIdAfter) ||
+                                t.membership_category_id === item.membershipCategoryId
+                            );
+                        }
                         if (item.type === 'BASE') return afterPaymentTemplates.some(t => t.base_price_id === item.referenceId);
                         return false;
                     });
@@ -3192,6 +3218,8 @@ export const Marketplace = () => {
                     subscriptionTerms={subscriptionTerms}
                     cardLast4={capturedLast4}
                     previewMode={true}
+                    basePrices={basePrices}
+                    membershipPrograms={membershipPrograms}
                 />
             )}
  
@@ -3224,6 +3252,8 @@ export const Marketplace = () => {
                 subscriptionTerms={subscriptionTerms}
                 cardLast4={waiverPhase === 'AFTER_INFO_CAPTURED' ? capturedLast4 : undefined}
                 mandatoryMode={true}
+                basePrices={basePrices}
+                membershipPrograms={membershipPrograms}
             />
 
             <Dialog
