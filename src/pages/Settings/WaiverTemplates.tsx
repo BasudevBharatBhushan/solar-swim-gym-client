@@ -519,7 +519,7 @@ export const WaiverTemplates = () => {
 
 <code>[MembershipFee]</code>, <code>[MonthlyDues]</code>, <code>[JoningFee]</code>, <code>[AnnualFee]</code>,
 
-<code>[SubscriptionTerm]</code>, <code>[LengthOfContract]</code>, <code>[AutomaticRenewalTerm]</code>
+<code>[SubscriptionTerm]</code>, <code>[LengthOfContract]</code>, <code>[AutomaticRenewalTerm]</code>, <code>[EffectiveDate]</code>
 
                                 </Typography>
                                 {dynamicVariables.length > 0 && (

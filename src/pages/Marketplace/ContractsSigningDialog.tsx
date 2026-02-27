@@ -149,9 +149,14 @@ export const ContractsSigningDialog = ({
                 const breakdownHtml = `<ul style="margin-top: 8px; margin-bottom: 8px; padding-left: 20px; list-style-type: disc;">${breakdownParts.join('')}</ul>`;
 
                 // Replacements
+                const effectiveDate = item.billing_period_start
+                    ? new Date(item.billing_period_start).toLocaleDateString()
+                    : currentDate;
+
                 content = content.replace(/\[FullName\]/ig, specificName);
                 content = content.replace(/\[GuardianName\]/ig, guardianName || 'N/A');
                 content = content.replace(/\[CurrentDate\]/ig, currentDate);
+                content = content.replace(/\[EffectiveDate\]/ig, effectiveDate);
                 content = content.replace(/\[DOB\]/ig, specificDob);
                 content = content.replace(/\[Relationship\]/ig, 'Guardian');
                 content = content.replace(/\[company_name\]/ig, cName);
