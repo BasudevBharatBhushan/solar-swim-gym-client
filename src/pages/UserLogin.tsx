@@ -16,6 +16,7 @@ import {
   LockOutlined,
   Visibility,
   VisibilityOff,
+  PersonAddAlt1,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -328,21 +329,33 @@ export const UserLogin: React.FC<UserLoginProps> = ({ companyName = 'Zalexy', lo
               fullWidth
               variant="outlined"
               onClick={() => setIsRegisterOpen(true)}
+              startIcon={<PersonAddAlt1 sx={{ fontSize: '1.1rem !important' }} />}
               sx={{
                 height: 52,
                 borderRadius: 3,
                 textTransform: 'none',
-                fontSize: '1rem',
-                fontWeight: 700,
+                fontSize: '0.975rem',
+                fontWeight: 600,
                 color: '#2563eb',
-                borderColor: '#e2e8f0',
+                borderColor: '#2563eb',
+                borderWidth: '1.5px',
+                bgcolor: 'transparent',
+                boxShadow: 'none',
+                letterSpacing: '0.01em',
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  bgcolor: '#f8fafc',
-                  borderColor: '#2563eb',
+                  bgcolor: 'rgba(37, 99, 235, 0.06)',
+                  borderColor: '#1d4ed8',
+                  borderWidth: '1.5px',
+                  color: '#1d4ed8',
+                  boxShadow: 'none',
+                },
+                '&:active': {
+                  bgcolor: 'rgba(37, 99, 235, 0.1)',
                 },
               }}
             >
-              Create New Account
+              Join {companyName}
             </Button>
             
             <Typography

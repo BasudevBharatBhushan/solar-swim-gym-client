@@ -756,6 +756,7 @@ export const AccountDetail = () => {
             onSuccess={handleUpsertSuccess}
             account_id={account.account_id}
             profile={profileToEdit}
+            primaryProfile={account.profiles?.find((p: any) => p.is_primary) || account.profiles?.[0]}
         />
     </Box>
   );

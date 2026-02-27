@@ -51,6 +51,8 @@ interface ContractsSigningDialogProps {
     basePrices?: BasePrice[];
     /** All membership programs from /memberships — used for JoiningFee / AnnualFee placeholders */
     membershipPrograms?: MembershipProgram[];
+    /** Full profiles list — used to resolve guardian_name by profile_id */
+    profiles?: any[];
 }
 
 interface ContractState {
@@ -80,6 +82,7 @@ export const ContractsSigningDialog = ({
     previewMode,
     basePrices = [],
     membershipPrograms = [],
+    profiles: allProfiles = [],
 }: ContractsSigningDialogProps) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -90,7 +93,7 @@ export const ContractsSigningDialog = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const primaryName = `${primaryProfile?.first_name || ''} ${primaryProfile?.last_name || ''}`.trim();
-    const guardianName = primaryProfile?.guardian_name || 'N/A';
+    const primaryGuardianName = primaryProfile?.guardian_name || 'N/A';
     const currentDate = new Date().toLocaleDateString();
 
     const cName = companyConfig?.name || 'Company Name';
@@ -129,6 +132,14 @@ export const ContractsSigningDialog = ({
 
                 const coveredProfile = (item.coverage || [])[0];
                 const specificName = coveredProfile ? coveredProfile.name : primaryName;
+                // Guardian: covered profile's stored guardian_name → look up from full profiles list → primary profile's guardian_name
+                const fullProfile = coveredProfile?.profile_id
+                    ? allProfiles.find((p: any) => p.profile_id === coveredProfile.profile_id)
+                    : null;
+                const guardianName = coveredProfile?.guardian_name
+                    || fullProfile?.guardian_name
+                    || primaryProfile?.guardian_name
+                    || 'N/A';
                 // DOB: prefer coverage profile DOB, fall back to primaryProfile DOB
                 const rawDob = coveredProfile?.date_of_birth || primaryProfile?.date_of_birth || null;
                 const specificDob = rawDob ? new Date(rawDob).toLocaleDateString() : 'N/A';
@@ -284,7 +295,7 @@ export const ContractsSigningDialog = ({
 
         setContracts(newContracts);
         setActiveTab(0);
-    }, [open, cart, templates, primaryName, guardianName, currentDate, cName, cAddress, subscriptionTerms, cardLast4, locationId]);
+    }, [open, cart, templates, primaryName, primaryGuardianName, currentDate, cName, cAddress, subscriptionTerms, cardLast4, locationId]);
 
 
 
@@ -500,7 +511,7 @@ export const ContractsSigningDialog = ({
 
                             <WaiverPreview 
                                 content={currentContract.content}
-                                data={{ first_name: primaryName.split(' ')[0], last_name: primaryName.split(' ')[1] || '', guardian_name: guardianName }}
+                                data={{ first_name: primaryName.split(' ')[0], last_name: primaryName.split(' ')[1] || '', guardian_name: primaryGuardianName }}
                                 agreed={currentContract.agreed}
                                 onAgreeChange={handleAgreeChange}
                                 hideCheckbox={true}

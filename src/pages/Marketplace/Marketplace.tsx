@@ -1262,6 +1262,7 @@ export const Marketplace = () => {
                 name: getProfileDisplayName(profile),
                 age_group: ageGroup,
                 date_of_birth: profile?.date_of_birth ?? null,
+                guardian_name: profile?.guardian_name ?? null,
             };
         });
 
@@ -3238,6 +3239,7 @@ export const Marketplace = () => {
                     previewMode={true}
                     basePrices={basePrices}
                     membershipPrograms={membershipPrograms}
+                    profiles={profiles}
                 />
             )}
  
@@ -3272,6 +3274,7 @@ export const Marketplace = () => {
                 mandatoryMode={true}
                 basePrices={basePrices}
                 membershipPrograms={membershipPrograms}
+                profiles={profiles}
             />
 
             <Dialog

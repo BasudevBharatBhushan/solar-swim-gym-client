@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 import { 
   Dialog, DialogTitle, DialogContent, DialogActions, 
   Button, TextField, Grid, FormControlLabel, Switch,
-  MenuItem, Box, Typography, CircularProgress
+  MenuItem, Box, Typography, CircularProgress, Tooltip
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { crmService } from '../../../services/crmService';
 import { configService } from '../../../services/configService';
 import { useAuth } from '../../../context/AuthContext';
@@ -18,9 +19,10 @@ interface ProfileUpsertDialogProps {
   onSuccess: () => void;
   account_id?: string;
   profile?: any; // If provided, we are editing
+  primaryProfile?: any; // Primary member of the account for copying info
 }
 
-export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, profile }: ProfileUpsertDialogProps) => {
+export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, profile, primaryProfile }: ProfileUpsertDialogProps) => {
   const { currentLocationId, locations } = useAuth();
   const [loading, setLoading] = useState(false);
   const [waiverPrograms, setWaiverPrograms] = useState<any[]>([]);
@@ -421,21 +423,26 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
             <TextField name="country" label="Country" fullWidth value={formData.country} onChange={handleChange} slotProps={{ inputLabel: { shrink: true } }} />
           </Grid>
           <Grid size={12}>
-            <FormControlLabel
-              control={
-                <Switch 
-                  name="is_primary"
-                  checked={formData.is_primary}
-                  onChange={handleChange}
-                  color="primary"
+            <Tooltip title="Primary member assignment is managed automatically" arrow placement="right">
+              <span>
+                <FormControlLabel
+                  control={
+                    <Switch 
+                      name="is_primary"
+                      checked={formData.is_primary}
+                      onChange={handleChange}
+                      color="primary"
+                      disabled
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#94a3b8' }}>
+                       Primary Member of Account
+                    </Typography>
+                  }
                 />
-              }
-              label={
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#475569' }}>
-                   Primary Member of Account
-                </Typography>
-              }
-            />
+              </span>
+            </Tooltip>
           </Grid>
 
           {(() => {
@@ -447,10 +454,46 @@ export const ProfileUpsertDialog = ({ open, onClose, onSuccess, account_id, prof
             return (
               <>
                 <Grid size={12}>
-                  <Box sx={{ mt: 1, mb: 0 }}>
+                  <Box sx={{ mt: 1, mb: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Typography variant="overline" sx={{ fontWeight: 800, color: '#94a3b8', letterSpacing: '1px' }}>
                       Guardian & Emergency Contact
                     </Typography>
+                    {primaryProfile && (
+                      <Tooltip title={`Copy contact info from ${primaryProfile.first_name} ${primaryProfile.last_name}`} arrow>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<ContentCopyIcon sx={{ fontSize: '0.85rem !important' }} />}
+                          onClick={() => {
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              guardian_name: `${primaryProfile.first_name || ''} ${primaryProfile.last_name || ''}`.trim(),
+                              guardian_mobile: primaryProfile.mobile || prev.guardian_mobile,
+                              guardian_email: primaryProfile.email || prev.guardian_email,
+                            }));
+                          }}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontSize: '0.75rem',
+                            px: 1.5,
+                            py: 0.4,
+                            borderRadius: '6px',
+                            border: '1.5px solid #6366f1',
+                            color: '#4338ca',
+                            bgcolor: '#eef2ff',
+                            '&:hover': {
+                              bgcolor: '#e0e7ff',
+                              borderColor: '#4338ca',
+                              boxShadow: '0 2px 6px rgba(99,102,241,0.15)',
+                            },
+                            transition: 'all 0.2s ease',
+                          }}
+                        >
+                          Copy from Primary Member
+                        </Button>
+                      </Tooltip>
+                    )}
                   </Box>
                 </Grid>
 

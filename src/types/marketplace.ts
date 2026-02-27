@@ -5,6 +5,7 @@ export interface CoverageProfile {
     name: string;
     age_group?: string;
     date_of_birth?: string | null;
+    guardian_name?: string | null;
     role?: 'PRIMARY' | 'ADD_ON';
 }
 
@@ -13,6 +14,7 @@ export interface AccountProfile {
     first_name: string;
     last_name: string;
     date_of_birth?: string | null;
+    guardian_name?: string | null;
     waiver_program?: {
         code: string;
         name: string;
