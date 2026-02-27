@@ -2543,12 +2543,16 @@ export const Marketplace = () => {
                                                      />
                                                  ))}
                                                  {(() => {
+                                                     const baseItemTermId = cart.find(c => c.type === 'BASE')?.subscriptionTermId;
                                                      const hasTpl = item.type === 'SERVICE' 
                                                          ? waiverTemplates.some(t => t.service_id === item.serviceId)
                                                          : item.type === 'MEMBERSHIP'
-                                                         ? waiverTemplates.some(t => t.membership_category_id === item.membershipCategoryId)
+                                                         ? waiverTemplates.some(t =>
+                                                             (t.template_category === 'Membership' && baseItemTermId && t.subterm_id === baseItemTermId) ||
+                                                             t.membership_category_id === item.membershipCategoryId
+                                                           )
                                                          : item.type === 'BASE'
-                                                         ? waiverTemplates.some(t => t.subterm_id === item.referenceId)
+                                                         ? waiverTemplates.some(t => t.base_price_id === item.referenceId)
                                                          : false;
                                                      
                                                      if (!hasTpl) return null;
