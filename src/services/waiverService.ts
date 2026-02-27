@@ -6,14 +6,21 @@ export interface WaiverTemplate {
   ageprofile_id: string | null;
   service_id?: string | null;
   membership_category_id?: string | null;
+  base_price_id?: string | null;
   content: string;
   is_active: boolean;
+  is_before_payment?: boolean;
+  is_after_payment_info_captured?: boolean;
+  is_after_payment?: boolean;
 }
 
 export interface GroupedWaiverTemplate {
   template_name: string;
   template_category: string;
   content: string;
+  is_before_payment?: boolean;
+  is_after_payment_info_captured?: boolean;
+  is_after_payment?: boolean;
   assignments: {
     service_ids: string[];
     membership_category_ids: string[];
@@ -28,6 +35,9 @@ export interface BatchUpsertWaiverPayload {
   template_category: string;
   content: string;
   location_id: string;
+  is_before_payment?: boolean;
+  is_after_payment_info_captured?: boolean;
+  is_after_payment?: boolean;
   assignments: {
     service_ids: string[];
     membership_category_ids: string[];
@@ -179,5 +189,20 @@ export const waiverService = {
             'x-location-id': payload.location_id
         }
     });
+  },
+
+  // Standard upsert for a single template
+  upsertWaiverTemplate: async (payload: Partial<WaiverTemplate>, locationId: string): Promise<any> => {
+    return apiClient.post('/waiver-templates/upsert', payload, {
+        headers: {
+            'x-location-id': locationId
+        }
+    });
+  },
+
+  // Fetch a waiver template by its ID
+  getWaiverTemplateById: async (id: string, locationId?: string): Promise<WaiverTemplate> => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.get(`/waiver-templates/${id}`, {}, options);
   }
 };

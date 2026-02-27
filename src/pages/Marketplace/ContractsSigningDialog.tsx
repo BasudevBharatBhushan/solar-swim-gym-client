@@ -42,6 +42,9 @@ interface ContractsSigningDialogProps {
     locationId: string;
     subscriptionTerms?: any[]; // For term name resolution
     companyConfig?: { name?: string; address?: string };
+    cardLast4?: string;
+    mandatoryMode?: boolean;
+    previewMode?: boolean;
 }
 
 interface ContractState {
@@ -65,7 +68,10 @@ export const ContractsSigningDialog = ({
     primaryProfile,
     locationId,
     subscriptionTerms = [],
-    companyConfig
+    companyConfig,
+    cardLast4,
+    mandatoryMode,
+    previewMode
 }: ContractsSigningDialogProps) => {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -84,7 +90,7 @@ export const ContractsSigningDialog = ({
 
     // Extract dynamic variables
     useEffect(() => {
-        if (!open) return;
+        if (!open || cart.length === 0 || templates.length === 0) return;
 
         const newContracts: ContractState[] = [];
 
@@ -95,86 +101,113 @@ export const ContractsSigningDialog = ({
                 matchedTemplate = templates.find(t => t.service_id === item.serviceId);
             } else if (item.type === 'MEMBERSHIP') {
                 matchedTemplate = templates.find(t => t.membership_category_id === item.membershipCategoryId);
+                if (!matchedTemplate) {
+                    const primaryPlan = cart.find(c => c.type === 'BASE' && (c.metadata?.role === 'PRIMARY' || c.name.toLowerCase().includes('primary')));
+                    if (primaryPlan) {
+                        matchedTemplate = templates.find(t => t.base_price_id === primaryPlan.referenceId);
+                    }
+                }
+            } else if (item.type === 'BASE') {
+                matchedTemplate = templates.find(t => t.base_price_id === item.referenceId);
             }
 
             if (matchedTemplate) {
-                // Replace variables
                 let content = matchedTemplate.content || '';
 
-                // Standard
-                content = content.replace(/\[FullName\]/g, primaryName);
-                content = content.replace(/\[GuardianName\]/g, guardianName);
-                content = content.replace(/\[CurrentDate\]/g, currentDate);
-                content = content.replace(/\[company_name\]/g, cName);
-                content = content.replace(/\[company_address\]/g, cAddress);
+                const coveredProfile = (item.coverage || [])[0];
+                const specificName = coveredProfile ? coveredProfile.name : primaryName;
+                const specificDob = coveredProfile?.date_of_birth ? new Date(coveredProfile.date_of_birth).toLocaleDateString() : 'N/A';
+                const coveredNames = (item.coverage || []).map((c: any) => c.name).join(', ') || 'N/A';
+                const coveredAg = (item.coverage || []).map((c: any) => c.age_group).filter(Boolean).join(', ') || 'N/A';
 
-                // Specific variables based on type
-                if (item.type === 'SERVICE') {
-                    content = content.replace(/\[service_name\]/g, String(item.metadata?.service_name || item.name || 'Unknown Service'));
-                    content = content.replace(/\[service_category\]/g, String(item.metadata?.service_category || 'N/A'));
-                    content = content.replace(/\[service_type\]/g, String(item.metadata?.service_type || 'N/A'));
-                    content = content.replace(/\[service_pack_name\]/g, String(item.metadata?.service_pack_name || item.name || 'Unknown Pack'));
-                    content = content.replace(/\[lession_registration_fee\]/g, String(fmtCurr(0))); // Usually 0 in cart context unless split out
-                    content = content.replace(/\[special_program\]/g, String(item.metadata?.special_program || 'None'));
-                    
-                    const classes = item.metadata?.classes ? String(item.metadata.classes) : 'N/A';
-                    content = content.replace(/\[classes\]/g, classes);
-                    
-                    const durationMap: any = [];
-                    if (item.metadata?.duration_months) durationMap.push(`${item.metadata.duration_months} Months`);
-                    if (item.metadata?.duration_days) durationMap.push(`${item.metadata.duration_days} Days`);
-                    const durStr = durationMap.length > 0 ? durationMap.join(', ') : 'N/A';
-                    content = content.replace(/\[service_pack_duration\]/g, durStr);
-                    
-                    content = content.replace(/\[price\]/g, String(fmtCurr(item.price)));
-                    content = content.replace(/\[is_sharable\]/g, item.metadata?.is_shrabable ? 'Yes' : 'No');
-                    
-                    const coveredNames = (item.coverage || []).map((c: any) => c.name).join(', ') || 'N/A';
-                    content = content.replace(/\[shared_proriles\]/g, coveredNames);
-                    
-                    const usageLimit = item.metadata?.max_uses_per_period 
-                        ? `${item.metadata.max_uses_per_period} Uses / ${item.metadata.usage_period_length || 1} ${item.metadata.usage_period_unit || 'Period'}`
-                        : 'Unlimited';
-                    content = content.replace(/\[usage_limit\]/g, usageLimit);
-                    
-                    content = content.replace(/\[service_start_date\]/g, currentDate);
-                    content = content.replace(/\[service_end_date\]/g, 'N/A'); // Would need calculation
+                const primaryPlan = cart.find(c => c.type === 'BASE' && (c.metadata?.role === 'PRIMARY' || c.name.toLowerCase().includes('primary')));
+                const feeItem = cart.find(c => c.type === 'MEMBERSHIP');
+                
+                let durationMonths = 0;
+                let recurrenceUnitValue = 1;
+                let recurrenceUnit = 'Month';
+                let basePrice = 0;
 
-                    const coveredAg = (item.coverage || []).map((c: any) => c.age_group).filter(Boolean).join(', ') || 'N/A';
-                    content = content.replace(/\[age_profile\]/g, coveredAg);
-
-                } else if (item.type === 'MEMBERSHIP') {
-                    content = content.replace(/\[membership_plan\]/g, String(item.name || 'Unknown Plan'));
-                    content = content.replace(/\[subscription_term\]/g, item.feeType === 'ANNUAL' ? 'Annual Renewal' : 'Joining Strategy');
-                    content = content.replace(/\[start_date\]/g, currentDate);
-                    content = content.replace(/\[end_date\]/g, 'Open-ended'); // Usually open-ended until cancelled
-                    
-                    // Detailed breakdown
-                    const breakdownParts: string[] = [];
-                    
-                    // 1. Primary Base Plans
-                    const primaryPlans = cart.filter(c => c.type === 'BASE' && c.name.toLowerCase().includes('primary'));
-                    primaryPlans.forEach(p => {
-                        const termName = subscriptionTerms.find(t => t.subscription_term_id === p.subscriptionTermId)?.name || 'Recurring';
-                        breakdownParts.push(`<li><strong>Membership Fee (Primary):</strong> ${p.name} (${termName}) - <strong>${fmtCurr(p.price)}</strong></li>`);
-                    });
-
-                    // 2. Add-on Base Plans
-                    const addonPlans = cart.filter(c => c.type === 'BASE' && c.name.toLowerCase().includes('add_on'));
-                    addonPlans.forEach(p => {
-                        const termName = subscriptionTerms.find(t => t.subscription_term_id === p.subscriptionTermId)?.name || 'Recurring';
-                        breakdownParts.push(`<li><strong>Add-on Fee:</strong> ${p.name} (${termName}) - <strong>${fmtCurr(p.price)}</strong></li>`);
-                    });
-
-                    // 3. Joining/Admission fees (the item itself)
-                    breakdownParts.push(`<li><strong>${item.feeType === 'ANNUAL' ? 'Renewal' : 'Joining'} Fee:</strong> ${item.name} - <strong>${fmtCurr(item.price)}</strong></li>`);
-
-                    const breakdownHtml = `<ul style="margin-top: 8px; margin-bottom: 8px; padding-left: 20px; list-style-type: disc;">${breakdownParts.join('')}</ul>`;
-                    content = content.replace(/\[membership_fee_breakdown\]|\[membershp_fee_breakdown\]/g, breakdownHtml);
-                    
-                    const coveredNames = (item.coverage || []).map((c: any) => c.name).join(', ') || 'N/A';
-                    content = content.replace(/\[profile_coverage\]/g, coveredNames);
+                if (primaryPlan) {
+                    basePrice = primaryPlan.price;
+                    const term = (subscriptionTerms || []).find(t => t.subscription_term_id === primaryPlan.subscriptionTermId);
+                    if (term) {
+                        durationMonths = term.duration_months || 0;
+                        recurrenceUnitValue = term.recurrence_unit_value || 1;
+                        recurrenceUnit = term.recurrence_unit || 'Month';
+                    }
                 }
+
+                const initiationFeeAmount = (feeItem && feeItem.feeType === 'JOINING') ? feeItem.price : 0;
+                const annualRenewalFee = (feeItem && feeItem.feeType === 'ANNUAL') ? feeItem.price : 0;
+
+                const breakdownParts: string[] = [];
+                cart.filter(c => c.type === 'BASE').forEach(p => {
+                    const termName = (subscriptionTerms || []).find(t => t.subscription_term_id === p.subscriptionTermId)?.name || 'Recurring';
+                    breakdownParts.push(`<li><strong>Membership Fee (${(p.metadata?.role === 'PRIMARY' || p.name.toLowerCase().includes('primary')) ? 'Primary' : 'Add-on'}):</strong> ${p.name} (${termName}) - <strong>${fmtCurr(p.price)}</strong></li>`);
+                });
+                if (feeItem) {
+                    breakdownParts.push(`<li><strong>${feeItem.feeType === 'ANNUAL' ? 'Renewal' : 'Joining'} Fee:</strong> ${feeItem.name} - <strong>${fmtCurr(feeItem.price)}</strong></li>`);
+                }
+                const breakdownHtml = `<ul style="margin-top: 8px; margin-bottom: 8px; padding-left: 20px; list-style-type: disc;">${breakdownParts.join('')}</ul>`;
+
+                // Replacements
+                content = content.replace(/\[FullName\]/ig, specificName);
+                content = content.replace(/\[GuardianName\]/ig, guardianName || 'N/A');
+                content = content.replace(/\[CurrentDate\]/ig, currentDate);
+                content = content.replace(/\[DOB\]/ig, specificDob);
+                content = content.replace(/\[Relationship\]/ig, 'Guardian');
+                content = content.replace(/\[company_name\]/ig, cName);
+                content = content.replace(/\[company_address\]/ig, cAddress);
+                content = content.replace(/\[CardLast4\]/ig, cardLast4 || 'N/A');
+                content = content.replace(/\[AcceptSignature\]/ig, '[AcceptSignature]'); // PRESERVE for WaiverPreview split logic
+
+                // Service Metrics
+                content = content.replace(/\[service_name\]/ig, String(item.metadata?.service_name || item.name || 'N/A'));
+                content = content.replace(/\[service_category\]/ig, String(item.metadata?.service_category || 'N/A'));
+                content = content.replace(/\[service_type\]/ig, String(item.metadata?.service_type || 'N/A'));
+                content = content.replace(/\[service_pack_name\]/ig, String(item.metadata?.service_pack_name || item.name || 'N/A'));
+                content = content.replace(/\[lession_registration_fee\]/ig, String(fmtCurr(0)));
+                content = content.replace(/\[special_program\]/ig, String(item.metadata?.special_program || 'None'));
+                content = content.replace(/\[classes\]/ig, item.metadata?.classes ? String(item.metadata.classes) : 'N/A');
+                
+                const durationMap: string[] = [];
+                if (item.metadata?.duration_months) durationMap.push(`${item.metadata.duration_months} Months`);
+                if (item.metadata?.duration_days) durationMap.push(`${item.metadata.duration_days} Days`);
+                content = content.replace(/\[service_pack_duration\]/ig, durationMap.length > 0 ? durationMap.join(', ') : 'N/A');
+                
+                content = content.replace(/\[price\]/ig, String(fmtCurr(item.price)));
+                content = content.replace(/\[is_sharable\]/ig, item.metadata?.is_shrabable ? 'Yes' : 'No');
+                content = content.replace(/\[shared_proriles\]/ig, coveredNames);
+                content = content.replace(/\[age_profile\]/ig, coveredAg);
+                
+                const usageLimit = item.metadata?.max_uses_per_period 
+                    ? `${item.metadata.max_uses_per_period} Uses / ${item.metadata.usage_period_length || 1} ${item.metadata.usage_period_unit || 'Period'}`
+                    : 'Unlimited';
+                content = content.replace(/\[usage_limit\]/ig, usageLimit);
+                content = content.replace(/\[service_start_date\]/ig, currentDate);
+                content = content.replace(/\[service_end_date\]/ig, 'N/A');
+
+                // Membership Metrics
+                const planDisplayName = (primaryPlan?.name || item.name || 'N/A').replace(/ \(Joining\)| \(Annual\)/ig, '');
+                content = content.replace(/\[membership_plan\]/ig, planDisplayName);
+                
+                const termName = (subscriptionTerms || []).find(t => t.subscription_term_id === (primaryPlan || item).subscriptionTermId)?.name || (item.feeType === 'ANNUAL' ? 'Annual Renewal' : 'Membership');
+                content = content.replace(/\[subscription_term\]/ig, termName);
+                content = content.replace(/\[start_date\]/ig, currentDate);
+                content = content.replace(/\[end_date\]/ig, 'Open-ended');
+                
+                content = content.replace(/\[InitialTerm\]/ig, durationMonths > 0 ? `${durationMonths} (Month)` : 'N/A');
+                content = content.replace(/\[InitiationFeeAmount\]/ig, fmtCurr(initiationFeeAmount));
+                content = content.replace(/\[TotalMembershipFee\]/ig, fmtCurr(basePrice + initiationFeeAmount));
+                content = content.replace(/\[NumberOfInstallments\]/ig, String(recurrenceUnitValue));
+                content = content.replace(/\[InstallmentAmount\]/ig, fmtCurr(basePrice));
+                content = content.replace(/\[AutomaticRenewalTerm\]/ig, recurrenceUnit);
+                content = content.replace(/\[AnnualRenewalFee\]/ig, fmtCurr(annualRenewalFee));
+                
+                content = content.replace(/\[membership_fee_breakdown\]/ig, breakdownHtml);
+                content = content.replace(/\[membershp_fee_breakdown\]/ig, breakdownHtml);
+                content = content.replace(/\[profile_coverage\]/ig, coveredNames);
 
                 newContracts.push({
                     id: item.id,
@@ -192,7 +225,9 @@ export const ContractsSigningDialog = ({
 
         setContracts(newContracts);
         setActiveTab(0);
-    }, [open, cart, templates, primaryName, guardianName, currentDate, cName, cAddress]);
+    }, [open, cart, templates, primaryName, guardianName, currentDate, cName, cAddress, subscriptionTerms, cardLast4, locationId]);
+
+
 
     const handleAgreeChange = (checked: boolean) => {
         setContracts(prev => {
@@ -327,7 +362,7 @@ export const ContractsSigningDialog = ({
                         Review & Sign Contracts
                     </Typography>
                 </Box>
-                <IconButton onClick={onClose} size="small" disabled={isSubmitting}>
+                <IconButton onClick={onClose} size="small" disabled={isSubmitting} sx={{ display: mandatoryMode ? 'none' : 'inline-flex' }}>
                     <CloseIcon />
                 </IconButton>
             </DialogTitle>
@@ -412,7 +447,7 @@ export const ContractsSigningDialog = ({
                                 hideCheckbox={true}
                                 fullHeight={true}
                                 signatureComponent={
-                                    !currentContract.isSigned ? (
+                                    previewMode ? null : (!currentContract.isSigned ? (
                                         <SignaturePad 
                                             key={currentContract.id} 
                                             ref={signaturePadRef}
@@ -443,12 +478,12 @@ export const ContractsSigningDialog = ({
                                         <Box sx={{ p: 3, bgcolor: 'success.50', borderRadius: 2, textAlign: 'center', border: '1px dashed', borderColor: 'success.300' }}>
                                             <Typography variant="body2" color="success.main" fontWeight={700}>✓ Signature confirmed</Typography>
                                         </Box>
-                                    )
+                                    ))
                                 }
                             />
                         </Box>
 
-                        {!currentContract.isSigned && (
+                        {!currentContract.isSigned && !previewMode && (
                             <Box sx={{ p: isMobile ? 2 : 3, borderTop: '1px solid #e2e8f0', bgcolor: '#f8fafc', display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: 2 }}>
                                 <FormControlLabel
                                     control={
@@ -475,19 +510,30 @@ export const ContractsSigningDialog = ({
                 </Grid>
             </DialogContent>
 
-            {allSigned && (
+            {((allSigned && !previewMode) || previewMode) && (
                 <DialogActions sx={{ p: 3, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0', justifyContent: 'center' }}>
-                    <Button
-                        variant="contained"
-                        size="large"
-                        color="success"
-                        onClick={handleCompleteAll}
-                        disabled={isSubmitting}
-                        startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
-                        sx={{ px: 6, py: 1.5, borderRadius: 3, fontWeight: 800, textTransform: 'none', fontSize: '1.1rem' }}
-                    >
-                        {isSubmitting ? 'Finalizing...' : 'All Contracts Signed - Proceed to Payment'}
-                    </Button>
+                    {previewMode ? (
+                        <Button
+                            variant="contained"
+                            size="large"
+                            onClick={onClose}
+                            sx={{ px: 6, py: 1.5, borderRadius: 3, fontWeight: 800, textTransform: 'none', fontSize: '1.1rem' }}
+                        >
+                            Close Preview
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="contained"
+                            size="large"
+                            color="success"
+                            onClick={handleCompleteAll}
+                            disabled={isSubmitting}
+                            startIcon={isSubmitting ? <CircularProgress size={20} color="inherit" /> : <CheckCircleIcon />}
+                            sx={{ px: 6, py: 1.5, borderRadius: 3, fontWeight: 800, textTransform: 'none', fontSize: '1.1rem' }}
+                        >
+                            {isSubmitting ? 'Finalizing...' : 'All Contracts Signed - Proceed to Payment'}
+                        </Button>
+                    )}
                 </DialogActions>
             )}
         </Dialog>

@@ -63,6 +63,8 @@ The billing entity. Represents a household or paying unit.
 | `heard_about_us` | `TEXT` | Source of information about the gym. | |
 | `notify_primary_member` | `BOOLEAN` | Whether to notify primary member. | Default: `TRUE` |
 | `notify_guardian` | `BOOLEAN` | Whether to notify guardian. | Default: `TRUE` |
+| `staff_id` | `UUID` | Staff member who created/updated the account. | **FK** -> `staff` |
+| `staff_name` | `TEXT` | Snapshot of staff name at creation/update. | |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
 **RLS Policy**: Users match `app.current_location_id`.
@@ -80,6 +82,7 @@ Individuals (members) attached to an account.
 | `gender` | `TEXT` | Gender of the member. | |
 | `date_of_birth` | `DATE` | DOB used for age group calculation. | `NOT NULL` |
 | `email` | `TEXT` | Login email (required for Primary). | |
+| `mobile` | `TEXT` | Mobile / phone number. | |
 | `password` | `TEXT` | Hashed password. | |
 | `is_primary` | `BOOLEAN` | True if this is the main account holder. | Default: `FALSE` |
 | `is_active` | `BOOLEAN` | Soft delete flag. | Default: `TRUE` |
@@ -93,6 +96,7 @@ Individuals (members) attached to an account.
 | **Minor / Emergency** | | | |
 | `guardian_name` | `TEXT` | Legal guardian (for minors). | |
 | `guardian_mobile` | `TEXT` | Guardian contact (for minors). | |
+| `guardian_email` | `TEXT` | Guardian email (for minors). | |
 | `emergency_contact_name` | `TEXT` | Emergency contact name. | |
 | `emergency_contact_phone`| `TEXT` | Emergency contact phone. | |
 | **Waiver / Funding** | | | |
@@ -241,6 +245,8 @@ Standard pricing for core services.
 | `age_group_id` | `UUID` | Target age group (Reference). | **FK** -> `age_group`, `NOT NULL` |
 | `subscription_term_id`| `UUID` | Billing cycle (Reference). | **FK** -> `subscription_term`, `NOT NULL` |
 | `price` | `DECIMAL` | The cost amount. | `NOT NULL`, Default: `0.00` |
+| `add_on` | `BOOLEAN` | Whether this is an add-on price. | Default: `FALSE` |
+| `addon_allowed` | `BOOLEAN` | Whether add-ons are allowed for this price/plan. | Default: `TRUE` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 
 **RLS Policy**: Filter by `location_id`.
@@ -275,7 +281,7 @@ Promotional codes that can be applied to subscriptions or invoices.
 | `discount_id` | `UUID` | Unique identifier. | **PK**, Default: `gen_random_uuid()` |
 | `location_id` | `UUID` | Location scope. | **FK** -> `location`, `NOT NULL` |
 | `staff_id` | `UUID` | Staff member who created the code. | **FK** -> `staff` |
-| `discount_code` | `TEXT` | The unique string used to claim the discount. | `UNIQUE`, `NOT NULL` |
+| `discount_code` | `TEXT` | The unique string used to claim the discount. | `UNIQUE (discount_code, location_id)`, `NOT NULL` |
 | `discount` | `TEXT` | The value (e.g., "6%" or "6"). | `NOT NULL` |
 | `staff_name` | `TEXT` | Denormalized snapshot of the creator's name. | |
 | `discount_category` | `ENUM` | `SERVICE`, `MEMBERSHIP_PLAN`, `MEMBERSHIP_FEE` | |
@@ -287,6 +293,19 @@ Promotional codes that can be applied to subscriptions or invoices.
 | `updated_at` | `TIMESTAMP` | Last update timestamp. | Default: `NOW()` |
 
 **RLS Policy**: Filter by `location_id`.
+
+### **Table: `discount_applicable_refs`**
+Supports multi-assignment of a single discount coupon to multiple services and/or membership plans without duplicating codes.
+
+| Field Name | Type | Description | Key / Constraint |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | Unique identifier. | **PK**, Default: `gen_random_uuid()` |
+| `discount_id` | `UUID` | The discount code this applies to. | **FK** -> `discount_codes`, `NOT NULL`, `ON DELETE CASCADE` |
+| `discount_category` | `ENUM` | `SERVICE`, `MEMBERSHIP_PLAN`, `MEMBERSHIP_FEE` | `NOT NULL` |
+| `reference_id` | `UUID` | Target service or membership. | `NOT NULL` |
+| `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
+
+**RLS Policy**: Allow authenticated read, insert, update, and delete operations.
 
 ---
 
@@ -313,6 +332,7 @@ Variations of a program (e.g., "Family", "Individual").
 | `membership_program_id`| `UUID` | Parent program. | **FK** -> `membership_program`, `NOT NULL` |
 | `name` | `TEXT` | Category name. | `NOT NULL` |
 | `members_allowed` | `INT` | Number of members allowed in this category. | Default: `1` |
+| `min_18_plus_allowed`| `INT` | Number of min 18+ members allowed. | Default: `0` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 
 **RLS Policy**: Filter by `location_id` (via Program).
@@ -376,6 +396,8 @@ Financial record for a transaction.
 | `location_id` | `UUID` | Location context. | **FK** -> `location`, `NOT NULL` |
 | `total_amount` | `DECIMAL` | Total due. | `NOT NULL`, Default: `0.00` |
 | `status` | `ENUM` | `DRAFT`, `PAID`, `PARTIAL`, `FAILED`, `PENDING` | Default: `DRAFT`, `NOT NULL` |
+| `staff_id` | `UUID` | Staff member who generated the invoice. | **FK** -> `staff` |
+| `staff_name` | `TEXT` | Snapshot of staff name. | |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
 **RLS Policy**: Filter by `location_id`.
@@ -430,6 +452,8 @@ Logs of all transaction attempts and results against the payment gateway.
 | `approval_code` | `TEXT` | Gateway approval code. | |
 | `status` | `ENUM` | `APPROVED`, `DECLINED`, `FAILED`| `NOT NULL` |
 | `raw_response` | `JSONB` | Full JSON response from Gateway.| |
+| `staff_id` | `UUID` | Staff member processing the transaction. | **FK** -> `staff` |
+| `staff_name` | `TEXT` | Snapshot of staff name. | |
 | `created_at` | `TIMESTAMP` | Transaction time. | Default: `NOW()` |
 
 ### **Table: `subscription`**
@@ -468,6 +492,8 @@ Active recurring contract for a service/membership.
 | `cancel_at_period_end` | `BOOLEAN` | If true, status becomes EXPIRED at end of period. | `NOT NULL`, Default: `FALSE` |
 | `status` | `ENUM` | `ACTIVE`, `PAST_DUE`, `EXPIRED`, `PAUSED`, `CANCELLED` | Default: `ACTIVE`, `NOT NULL` |
 | `role` | `ENUM` | `PRIMARY`, `ADD_ON` | Default: `PRIMARY` |
+| `staff_id` | `UUID` | Staff member who sold/created the subscription. | **FK** -> `staff` |
+| `staff_name` | `TEXT` | Snapshot of staff name. | |
 | `created_at` | `TIMESTAMP` | Record creation timestamp. | Default: `NOW()` |
 
 **RLS Policy**: Filter by `location_id`.
@@ -593,6 +619,9 @@ Stores waiver document templates which can be mapped to various configurations.
 | `membership_category_id`| `UUID` | Membership category (Reference).| **FK** -> `membership_program_category` |
 | `service_id` | `UUID` | Service (Reference). | **FK** -> `service` |
 | `content` | `TEXT` | The waiver template content string.| `NOT NULL` |
+| `is_before_payment` | `BOOLEAN` | If true, waiver is shown before payment. | Default: `FALSE` |
+| `is_after_payment_info_captured` | `BOOLEAN` | If true, waiver is shown after capturing PM info. | Default: `FALSE` |
+| `is_after_payment` | `BOOLEAN` | If true, waiver is shown after successful payment. | Default: `FALSE` |
 | `is_active` | `BOOLEAN` | Availability flag. | Default: `TRUE` |
 | `created_at` | `TIMESTAMP` | Record creation. | Default: `NOW()` |
 | `updated_at` | `TIMESTAMP` | Record update. | Default: `NOW()` |

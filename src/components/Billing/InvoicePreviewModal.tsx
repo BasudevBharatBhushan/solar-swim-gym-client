@@ -35,15 +35,18 @@ import { useConfig } from '../../context/ConfigContext';
 import { getAgeGroupName } from '../../lib/ageUtils';
 import { configService } from '../../services/configService';
 
+import { PaymentDialog } from '../../pages/Marketplace/PaymentDialog';
+
 interface InvoicePreviewModalProps {
   open: boolean;
   onClose: () => void;
   invoiceId: string;
   accountId: string;
   initialPaymentDetails?: any;
+  onRefresh?: () => void;
 }
 
-export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initialPaymentDetails }: InvoicePreviewModalProps) => {
+export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initialPaymentDetails, onRefresh }: InvoicePreviewModalProps) => {
   const { currentLocationId } = useAuth();
   const { ageGroups } = useConfig();
   const [invoice, setInvoice] = useState<any>(null);
@@ -58,83 +61,90 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
   const [openEmailComposer, setOpenEmailComposer] = useState(false);
   const [emailDraft, setEmailDraft] = useState<any>(null);
   const [preparingEmail, setPreparingEmail] = useState(false);
+  const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
+
+  const fetchInvoiceDetails = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // 0. Fetch Location details
+      if (currentLocationId) {
+        try {
+          const locsRes: any = await configService.getLocations();
+          const locs = locsRes?.data || locsRes || [];
+          const currentLoc = locs.find((l: any) => l.location_id === currentLocationId);
+          setLocation(currentLoc);
+        } catch (err) {}
+      }
+
+      // 1. Fetch Invoice
+      const invRes: any = await billingService.getInvoice(invoiceId);
+      const invData = invRes?.data || invRes;
+      if (!invData) throw new Error('Invoice not found');
+      
+      // Merge initial payment details if missing from detail fetch
+      if (initialPaymentDetails && !invData.payment_details) {
+          invData.payment_details = initialPaymentDetails;
+      }
+      
+      setInvoice(invData);
+
+      // 2. Fetch Subscriptions to find items linked to this invoice
+      const subsRes: any = await billingService.getAccountSubscriptions(accountId, currentLocationId || undefined);
+      const subsData = subsRes?.data || subsRes || [];
+      
+      // Filter subscriptions where invoice_id matches
+      const linkedSubs = subsData.filter((sub: any) => sub.invoice_id === invoiceId);
+      
+      // 3. Fetch enrichment details
+      const packs: Record<string, any> = {};
+      const memberships: Record<string, any> = {};
+      const bPrices: Record<string, any> = {};
+
+      await Promise.all(linkedSubs.map(async (sub: any) => {
+        if (sub.subscription_type === 'SERVICE' && sub.reference_id) {
+          try {
+            const packRes = await serviceCatalog.getServicePack(sub.reference_id, currentLocationId || undefined);
+            packs[sub.subscription_id] = packRes.data || packRes;
+          } catch (err) {}
+        } else if (sub.subscription_type === 'MEMBERSHIP_FEE' && sub.reference_id) {
+          try {
+             const bpRes = await basePriceService.getBasePrice(sub.reference_id, currentLocationId || undefined);
+             bPrices[sub.subscription_id] = bpRes;
+          } catch (err) {}
+        } else if (sub.subscription_type.startsWith('MEMBERSHIP') && sub.reference_id) {
+           try {
+              const mpData = await membershipService.getMemberships(currentLocationId || '');
+              const cat = mpData.flatMap((p: any) => p.categories || []).find((c: any) => c.category_id === sub.reference_id);
+              if (cat) memberships[sub.subscription_id] = cat;
+           } catch (err) {}
+        }
+      }));
+
+      setServicePacks(packs);
+      setMembershipDetails(memberships);
+      setBasePrices(bPrices);
+      setSubscriptions(linkedSubs);
+
+    } catch (err: any) {
+      console.error('Failed to load invoice details:', err);
+      setError('Failed to load invoice details.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchInvoiceDetails = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        // 0. Fetch Location details
-        if (currentLocationId) {
-          try {
-            const locsRes: any = await configService.getLocations();
-            const locs = locsRes?.data || locsRes || [];
-            const currentLoc = locs.find((l: any) => l.location_id === currentLocationId);
-            setLocation(currentLoc);
-          } catch (err) {}
-        }
-
-        // 1. Fetch Invoice
-        const invRes: any = await billingService.getInvoice(invoiceId);
-        const invData = invRes?.data || invRes;
-        if (!invData) throw new Error('Invoice not found');
-        
-        // Merge initial payment details if missing from detail fetch
-        if (initialPaymentDetails && !invData.payment_details) {
-            invData.payment_details = initialPaymentDetails;
-        }
-        
-        setInvoice(invData);
-
-        // 2. Fetch Subscriptions to find items linked to this invoice
-        const subsRes: any = await billingService.getAccountSubscriptions(accountId, currentLocationId || undefined);
-        const subsData = subsRes?.data || subsRes || [];
-        
-        // Filter subscriptions where invoice_id matches
-        const linkedSubs = subsData.filter((sub: any) => sub.invoice_id === invoiceId);
-        
-        // 3. Fetch enrichment details
-        const packs: Record<string, any> = {};
-        const memberships: Record<string, any> = {};
-        const bPrices: Record<string, any> = {};
-
-        await Promise.all(linkedSubs.map(async (sub: any) => {
-          if (sub.subscription_type === 'SERVICE' && sub.reference_id) {
-            try {
-              const packRes = await serviceCatalog.getServicePack(sub.reference_id, currentLocationId || undefined);
-              packs[sub.subscription_id] = packRes.data || packRes;
-            } catch (err) {}
-          } else if (sub.subscription_type === 'MEMBERSHIP_FEE' && sub.reference_id) {
-            try {
-               const bpRes = await basePriceService.getBasePrice(sub.reference_id, currentLocationId || undefined);
-               bPrices[sub.subscription_id] = bpRes;
-            } catch (err) {}
-          } else if (sub.subscription_type.startsWith('MEMBERSHIP') && sub.reference_id) {
-             try {
-                const mpData = await membershipService.getMemberships(currentLocationId || '');
-                const cat = mpData.flatMap((p: any) => p.categories || []).find((c: any) => c.category_id === sub.reference_id);
-                if (cat) memberships[sub.subscription_id] = cat;
-             } catch (err) {}
-          }
-        }));
-
-        setServicePacks(packs);
-        setMembershipDetails(memberships);
-        setBasePrices(bPrices);
-        setSubscriptions(linkedSubs);
-
-      } catch (err: any) {
-        console.error('Failed to load invoice details:', err);
-        setError('Failed to load invoice details.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (open && invoiceId) {
       fetchInvoiceDetails();
     }
   }, [open, invoiceId, accountId, currentLocationId]);
+
+  const handleHandlePaymentSuccess = () => {
+    setOpenPaymentDialog(false);
+    fetchInvoiceDetails();
+    if (onRefresh) onRefresh();
+  };
 
   const handleSendNormalInvoiceEmail = async () => {
     setPreparingEmail(true);
@@ -159,8 +169,8 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
       );
       
       let subject = 'Invoice Payment Request';
-      const dueAmount = invoice.status === 'PAID' ? '0.00' : Number(invoice.total_amount || 0).toFixed(2);
-      let body = `Hello,\n\nPlease find the attached invoice for your recent purchase at ${location?.name || 'Glass Court Swim and Fitness'}.\n\nTotal Amount Due: $${dueAmount}\n\nYou can review the details in the attached PDF file.\n\nThank you!`;
+      const dueAmountStr = invoice.status === 'PAID' ? '0.00' : Number(invoice.AmountDue ?? invoice.total_amount).toFixed(2);
+      let body = `Hello,\n\nPlease find the attached invoice for your recent purchase at ${location?.name || 'Glass Court Swim and Fitness'}.\n\nTotal Amount Due: $${dueAmountStr}\n\nYou can review the details in the attached PDF file.\n\nThank you!`;
       let templateId = undefined;
 
       if (template) {
@@ -220,6 +230,8 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
     'FAILED': 'error'
   };
 
+  const amountDue = Number(invoice?.AmountDue ?? (invoice?.status === 'PAID' ? 0 : invoice?.total_amount ?? 0));
+
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 3, m: 2 } }}>
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0', px: 3, py: 2 }}>
@@ -270,15 +282,15 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f8fafc', p: 3, borderRadius: 3 }}>
                <Box>
                   <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase">
-                    {invoice.status === 'PAID' ? 'Amount Paid' : 'Amount Due'}
+                    Total Amount
                   </Typography>
-                  <Typography variant="h4" fontWeight={900} color={invoice.status === 'PAID' ? 'success.main' : 'primary.dark'}>
+                  <Typography variant="h4" fontWeight={900} color="primary.dark">
                     ${Number(invoice.total_amount || 0).toFixed(2)}
                   </Typography>
-                  {invoice.status === 'PAID' && (
+                  {invoice.payment_details && (
                     <Box sx={{ mt: 1, p: 1.5, border: '1px dashed #10b981', borderRadius: 2, bgcolor: '#ecfdf5' }}>
                         <Typography variant="caption" sx={{ fontWeight: 800, color: '#059669', textTransform: 'uppercase', display: 'block', mb: 0.5 }}>
-                            Payment Receipt
+                            Latest Payment Info
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <CreditCardIcon sx={{ fontSize: '1.2rem', color: '#10b981' }} />
@@ -287,23 +299,18 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
                                     {invoice.payment_details?.cardholder_name || 'Cardholder'}
                                 </Typography>
                                 <Typography variant="caption" sx={{ fontWeight: 600, color: '#059669' }}>
-                                    XXXX-XXXX-XXXX-{invoice.payment_details?.card_last4 || '****'}
+                                    XXXX-{invoice.payment_details?.card_last4 || '****'}
                                 </Typography>
                             </Box>
                         </Box>
-                        {invoice.payment_details?.txnid && (
-                            <Typography variant="caption" sx={{ color: '#059669', mt: 0.5, display: 'block', opacity: 0.8 }}>
-                                Transaction ID: {invoice.payment_details.txnid}
-                            </Typography>
-                        )}
                     </Box>
                   )}
                </Box>
                <Box textAlign="right">
                   <Box>
                     <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase">Balance Due</Typography>
-                    <Typography variant="h6" fontWeight={800} color={invoice.status === 'PAID' ? 'text.disabled' : 'error.main'}>
-                        ${invoice.status === 'PAID' ? '0.00' : Number(invoice.total_amount || 0).toFixed(2)}
+                    <Typography variant="h4" fontWeight={900} color={amountDue > 0 ? 'error.main' : 'success.main'}>
+                        ${amountDue.toFixed(2)}
                     </Typography>
                   </Box>
                   <Typography variant="caption" color="text.secondary" fontWeight={700} textTransform="uppercase" sx={{ mt: 1, display: 'block' }}>Billed To</Typography>
@@ -405,11 +412,11 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
                     <TableRow sx={{ bgcolor: '#f8fafc' }}>
                       <TableCell colSpan={5} sx={{ borderBottom: 'none' }}>
                         <Typography variant="subtitle2" fontWeight={800} align="right" textTransform="uppercase">
-                          {invoice.status === 'PAID' ? 'Total Amount Paid' : 'Amount Due'}
+                          Total Invoice Amount
                         </Typography>
                       </TableCell>
                       <TableCell align="right" sx={{ borderBottom: 'none' }}>
-                        <Typography variant="subtitle2" fontWeight={800} color={invoice.status === 'PAID' ? 'success.main' : 'primary.main'}>
+                        <Typography variant="subtitle2" fontWeight={800} color="primary.main">
                           ${Number(invoice.total_amount || 0).toFixed(2)}
                         </Typography>
                       </TableCell>
@@ -419,6 +426,61 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
               </TableContainer>
             </Box>
 
+            {/* Payment history */}
+            {invoice.payment_transactions && invoice.payment_transactions.length > 0 && (
+              <Box>
+                <Typography variant="subtitle2" fontWeight={800} color="text.secondary" textTransform="uppercase" gutterBottom sx={{ px: 1 }}>
+                  Payment History
+                </Typography>
+                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase' }}>Date</TableCell>
+                        <TableCell sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase' }}>Details</TableCell>
+                        <TableCell sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase' }}>Status</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase' }}>Amount</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {invoice.payment_transactions.map((tx: any) => (
+                        <TableRow key={tx.id} hover>
+                          <TableCell>
+                            {new Date(tx.created_at).toLocaleDateString()} {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <CreditCardIcon sx={{ fontSize: '0.8rem', color: 'text.secondary' }} />
+                              <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                                XXXX-{tx.card_last4 || tx.raw_response?.card_last4 || '****'}
+                              </Typography>
+                            </Box>
+                            {tx.txnid && (
+                              <Typography variant="caption" color="text.disabled" sx={{ display: 'block' }}>
+                                ID: {tx.txnid}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={tx.status} 
+                              size="small" 
+                              color={tx.status === 'APPROVED' ? 'success' : 'error'}
+                              variant="outlined"
+                              sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }}
+                            />
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>
+                            ${Number(tx.amount || 0).toFixed(2)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+
             {/* Actions Area internal to modal display */}
             <Box sx={{ borderTop: '2px solid #f1f5f9', pt: 3 }}>
               <Typography variant="subtitle2" fontWeight={800} color="text.secondary" textTransform="uppercase" gutterBottom sx={{ px: 1 }}>
@@ -426,12 +488,12 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
               </Typography>
               <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
                 <Button 
-                  variant="contained" 
+                  variant="outlined" 
                   startIcon={<EmailIcon />} 
                   onClick={handleSendNormalInvoiceEmail}
                   disabled={preparingEmail}
                   fullWidth
-                  sx={{ py: 1.5, borderRadius: 2, fontWeight: 700, boxShadow: 'none' }}
+                  sx={{ py: 1.5, borderRadius: 2, fontWeight: 700 }}
                 >
                   {preparingEmail ? 'Generating PDF...' : 'Email PDF'}
                 </Button>
@@ -442,7 +504,7 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
                   fullWidth
                   sx={{ py: 1.5, borderRadius: 2, fontWeight: 700 }}
                 >
-                  Print Invoice
+                  Print
                 </Button>
                 <Button 
                   variant="outlined" 
@@ -451,7 +513,7 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
                   fullWidth
                   sx={{ py: 1.5, borderRadius: 2, fontWeight: 700 }}
                 >
-                  Payment Link
+                  Link
                 </Button>
               </Stack>
             </Box>
@@ -462,12 +524,37 @@ export const InvoicePreviewModal = ({ open, onClose, invoiceId, accountId, initi
       {/* Main Footer Actions */}
       <DialogActions sx={{ p: 3, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
         <Button onClick={onClose} sx={{ fontWeight: 600, color: 'text.secondary' }}>
-          Pay Later
+          Close
         </Button>
-        <Button variant="contained" disabled sx={{ fontWeight: 700, borderRadius: 2 }}>
-          Proceed with Payment
-        </Button>
+        {amountDue > 0 && (
+          <Button 
+            variant="contained" 
+            onClick={() => setOpenPaymentDialog(true)}
+            sx={{ fontWeight: 700, borderRadius: 2, px: 4 }}
+          >
+            Proceed with Payment
+          </Button>
+        )}
       </DialogActions>
+
+      {/* Payment Dialog */}
+      {openPaymentDialog && invoice && (
+        <PaymentDialog
+          open={openPaymentDialog}
+          onClose={() => setOpenPaymentDialog(false)}
+          accountId={accountId}
+          invoiceId={invoiceId}
+          total={invoice.total_amount}
+          amountDue={amountDue}
+          allowPartial={true}
+          itemCount={subscriptions.length}
+          items={subscriptions.map(s => ({
+            name: `${servicePacks[s.subscription_id]?.name || membershipDetails[s.subscription_id]?.name || basePrices[s.subscription_id]?.name || s.subscription_type}`,
+            price: s.total_amount
+          }))}
+          onSuccess={handleHandlePaymentSuccess}
+        />
+      )}
 
       {/* Email Composer Nested Dialog */}
       <Dialog open={openEmailComposer} onClose={() => setOpenEmailComposer(false)} maxWidth="md" fullWidth>

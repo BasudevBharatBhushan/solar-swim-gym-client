@@ -7,7 +7,6 @@ import {
     DialogTitle,
     Divider,
     Grid,
-    IconButton,
     Stack,
     TextField,
     Typography,
@@ -17,7 +16,6 @@ import {
     Alert,
     CircularProgress,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import LockIcon from '@mui/icons-material/Lock';
 import { useAuth } from '../../context/AuthContext';
@@ -32,14 +30,34 @@ interface PaymentDialogProps {
     accountId?: string | null;
     invoiceId?: string | null;
     onSuccess: () => void;
+    onPaymentInfoCaptured?: (last4: string) => Promise<boolean>;
+    allowPartial?: boolean;
+    amountDue?: number;
 }
 
-export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountId, invoiceId, onSuccess }: PaymentDialogProps) => {
+export const PaymentDialog = ({ 
+    open, 
+    onClose, 
+    total, 
+    itemCount, 
+    items, 
+    accountId, 
+    invoiceId, 
+    onSuccess, 
+    onPaymentInfoCaptured,
+    allowPartial = false,
+    amountDue
+}: PaymentDialogProps) => {
     const { loginId, userParams } = useAuth();
     const staffName = `${userParams?.first_name || ''} ${userParams?.last_name || ''}`.trim();
     const [savedCards, setSavedCards] = useState<SavedCardResponse[]>([]);
     const [selectedCardId, setSelectedCardId] = useState<string>('NEW');
     
+    // Payment Amount State
+    const initialAmount = amountDue !== undefined ? amountDue : total;
+    const [amountToPay, setAmountToPay] = useState<number>(initialAmount);
+    const [amountInput, setAmountInput] = useState<string>(initialAmount.toFixed(2));
+
     // New Card Form State
     const [cardholderName, setCardholderName] = useState('');
     const [cardNumber, setCardNumber] = useState('');
@@ -63,26 +81,31 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
     };
 
     useEffect(() => {
-        if (open && accountId) {
-            const fetchCards = async () => {
-                setLoadingCards(true);
-                setError(null);
-                try {
-                    const cards = await paymentService.getSavedCards(accountId);
-                    setSavedCards(cards);
-                    if (cards.length > 0) {
-                        setSelectedCardId(cards[0].id);
-                    } else {
-                        setSelectedCardId('NEW');
+        if (open) {
+            const currentAmount = amountDue !== undefined ? amountDue : total;
+            setAmountToPay(currentAmount);
+            setAmountInput(currentAmount.toFixed(2));
+
+            if (accountId) {
+                const fetchCards = async () => {
+                    setLoadingCards(true);
+                    setError(null);
+                    try {
+                        const cards = await paymentService.getSavedCards(accountId);
+                        setSavedCards(cards);
+                        if (cards.length > 0) {
+                            setSelectedCardId(cards[0].id);
+                        } else {
+                            setSelectedCardId('NEW');
+                        }
+                    } catch (err) {
+                        console.error('Failed to load saved cards', err);
+                    } finally {
+                        setLoadingCards(false);
                     }
-                } catch (err) {
-                    console.error('Failed to load saved cards', err);
-                    // Non-fatal, they can still enter a new card
-                } finally {
-                    setLoadingCards(false);
-                }
-            };
-            fetchCards();
+                };
+                fetchCards();
+            }
         } else if (!open) {
             // Reset state on close
             setCardholderName('');
@@ -93,11 +116,44 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
             setError(null);
             setSuccess(false);
         }
-    }, [open, accountId]);
+    }, [open, accountId, amountDue, total]);
+
+    const handleAmountChange = (val: string) => {
+        setAmountInput(val);
+        const parsed = parseFloat(val);
+        if (!isNaN(parsed)) {
+            const max = amountDue !== undefined ? amountDue : total;
+            if (parsed > max) {
+                setAmountToPay(max);
+            } else if (parsed < 0) {
+                setAmountToPay(0);
+            } else {
+                setAmountToPay(parsed);
+            }
+        }
+    };
+
+    const handleAmountBlur = () => {
+        const max = amountDue !== undefined ? amountDue : total;
+        if (amountToPay > max) {
+            setAmountToPay(max);
+            setAmountInput(max.toFixed(2));
+        } else if (amountToPay < 0.01) {
+            setAmountToPay(0.01);
+            setAmountInput("0.01");
+        } else {
+            setAmountInput(amountToPay.toFixed(2));
+        }
+    };
 
     const handlePay = async () => {
         if (!accountId || !invoiceId) {
             setError('Account or Invoice context missing.');
+            return;
+        }
+
+        if (amountToPay <= 0) {
+            setError('Amount must be greater than zero.');
             return;
         }
 
@@ -106,6 +162,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
 
         try {
             let paymentMethodId = selectedCardId;
+            let cardLast4 = '';
 
             // Phase 2: Vaulting a New Card
             if (selectedCardId === 'NEW') {
@@ -125,6 +182,21 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                     avsZip: zip,
                 });
                 paymentMethodId = vaultResult.id;
+                cardLast4 = cardNumber.replace(/\s/g, '').slice(-4);
+            } else {
+                const selectedCard = savedCards.find(c => c.id === selectedCardId);
+                if (selectedCard) {
+                    cardLast4 = selectedCard.last4_digits;
+                }
+            }
+
+            // Phase 2.5: Intercept if Payment Info is captured
+            if (onPaymentInfoCaptured && cardLast4) {
+                const proceed = await onPaymentInfoCaptured(cardLast4);
+                if (!proceed) {
+                    setProcessing(false);
+                    return; // Halt payment, parent will handle waivers
+                }
             }
 
             // Phase 3: Execution
@@ -132,6 +204,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                 accountId,
                 invoiceId,
                 paymentMethodId,
+                amountToBePaid: amountToPay,
                 staff_id: loginId || null,
                 staff_name: staffName || null,
             });
@@ -151,6 +224,8 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
             setProcessing(false);
         }
     };
+
+    const displayTotal = amountDue !== undefined ? amountDue : total;
 
     return (
         <Dialog 
@@ -180,12 +255,9 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                         <CreditCardIcon sx={{ color: 'white', fontSize: 20 }} />
                     </Box>
                     <Typography variant="h6" fontWeight={800}>
-                        Complete Enrollment
+                        {allowPartial ? 'Invoice Payment' : 'Complete Enrollment'}
                     </Typography>
                 </Box>
-                <IconButton onClick={onClose} size="small">
-                    <CloseIcon />
-                </IconButton>
             </DialogTitle>
             
             <DialogContent sx={{ p: 0 }}>
@@ -208,7 +280,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                             Payment Successful!
                         </Typography>
                         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-                            Your enrollment has been completed successfully. The invoice has been marked as paid.
+                            Your payment of ${amountToPay.toFixed(2)} was processed successfully.
                         </Typography>
                         <Button 
                             variant="contained" 
@@ -217,7 +289,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                             onClick={onSuccess}
                             sx={{ py: 1.5, borderRadius: 2, fontWeight: 800 }}
                         >
-                            Continue to Invoice
+                            Continue
                         </Button>
                     </Box>
                 ) : (
@@ -264,9 +336,29 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                                     Total Amount
                                 </Typography>
                                 <Typography variant="h6" color="primary.main" fontWeight={800}>
-                                    ${total.toFixed(2)}
+                                    ${displayTotal.toFixed(2)}
                                 </Typography>
                             </Box>
+
+                            {allowPartial && (
+                                <Box sx={{ mt: 2, p: 2, bgcolor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ display: 'block', mb: 1, textTransform: 'uppercase' }}>
+                                        Amount to Pay Now
+                                    </Typography>
+                                    <TextField
+                                        fullWidth
+                                        size="small"
+                                        value={amountInput}
+                                        onChange={(e) => handleAmountChange(e.target.value)}
+                                        onBlur={handleAmountBlur}
+                                        InputProps={{
+                                            startAdornment: <Typography sx={{ mr: 1, fontWeight: 700 }}>$</Typography>,
+                                            sx: { fontWeight: 800, fontSize: '1.2rem', color: 'primary.main' }
+                                        }}
+                                        helperText={`Remaining balance after payment: $${Math.max(0, displayTotal - amountToPay).toFixed(2)}`}
+                                    />
+                                </Box>
+                            )}
 
                             <Box sx={{ mt: 2, p: 1.5, bgcolor: '#f0f9ff', borderRadius: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
                                 <LockIcon sx={{ fontSize: 16, color: '#0ea5e9' }} />
@@ -417,7 +509,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                                     variant="contained"
                                     size="large"
                                     onClick={handlePay}
-                                    disabled={processing || !accountId || !invoiceId}
+                                    disabled={processing || !accountId || !invoiceId || amountToPay <= 0}
                                     sx={{ 
                                         py: 1.5,
                                         borderRadius: 2,
@@ -428,13 +520,13 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                                         mb: 1.5
                                     }}
                                 >
-                                    {processing ? 'Processing...' : `Pay $${total.toFixed(2)}`}
+                                    {processing ? 'Processing...' : `Pay $${amountToPay.toFixed(2)}`}
                                 </Button>
                                 <Button
                                     fullWidth
                                     variant="outlined"
                                     size="medium"
-                                    onClick={onSuccess}
+                                    onClick={onClose}
                                     disabled={processing}
                                     sx={{ 
                                         borderRadius: 2,
@@ -448,7 +540,7 @@ export const PaymentDialog = ({ open, onClose, total, itemCount, items, accountI
                                         }
                                     }}
                                 >
-                                    Pay Later
+                                    Skip Payment
                                 </Button>
                             </Box>
                         </Stack>

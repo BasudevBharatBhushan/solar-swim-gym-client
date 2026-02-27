@@ -27,6 +27,7 @@ export interface PayInvoicePayload {
   invoiceId: string;
   accountId: string;
   paymentMethodId: string; // Must be a tokenized card ID
+  amountToBePaid?: number | null; // Optional: If omitted or null, charges the full AmountDue
   staff_id?: string | null;
   staff_name?: string | null;
 }

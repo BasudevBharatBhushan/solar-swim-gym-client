@@ -64,7 +64,9 @@ export interface Subscription {
     invoice_id: string;
     status: string;
     total_amount: number;
+    AmountDue?: number;
     created_at: string;
+    payment_transactions?: any[];
   };
 }
 
@@ -83,4 +85,33 @@ export interface Session {
 export interface AccountSearchResponse {
   total: number;
   results: Account[];
+}
+
+export interface WaiverTemplate {
+  waiver_template_id: string;
+  location_id: string;
+  ageprofile_id: string | null;
+  service_id?: string | null;
+  membership_category_id?: string | null;
+  content: string;
+  is_active: boolean;
+  is_before_payment?: boolean;
+  is_after_payment_info_captured?: boolean;
+  is_after_payment?: boolean;
+}
+
+export interface GroupedWaiverTemplate {
+  template_name: string;
+  template_category: string;
+  content: string;
+  is_before_payment?: boolean;
+  is_after_payment_info_captured?: boolean;
+  is_after_payment?: boolean;
+  assignments: {
+    service_ids: string[];
+    membership_category_ids: string[];
+    base_price_ids: string[];
+    ageprofile_ids: string[];
+    subterm_ids: string[];
+  };
 }

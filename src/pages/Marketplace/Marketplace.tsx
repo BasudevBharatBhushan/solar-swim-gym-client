@@ -45,6 +45,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import RemoveShoppingCartIcon from '@mui/icons-material/RemoveShoppingCart';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
 import { InputAdornment, MenuItem, Select, OutlinedInput } from '@mui/material';
 
 import { PageHeader } from '../../components/Common/PageHeader';
@@ -71,6 +72,8 @@ import { cartService } from '../../services/cartService';
 import { PaymentDialog } from './PaymentDialog';
 import { ServicePackSelectionDialog } from './ServicePackSelectionDialog';
 import { ManagerPasscodeDialog } from '../../components/Common/ManagerPasscodeDialog';
+import { waiverService, WaiverTemplate } from '../../services/waiverService';
+import { ContractsSigningDialog } from './ContractsSigningDialog';
 import { ServicePackSelection, CartItem, CoverageProfile, AccountProfile } from '../../types/marketplace';
 
 // Removed local CoverageProfile interface - using CartItem's structure or just relying on inference
@@ -195,7 +198,17 @@ export const Marketplace = () => {
     const [serviceSelectionOpen, setServiceSelectionOpen] = useState(false);
     const [pendingServiceSelection, setPendingServiceSelection] = useState<ServicePackSelection | null>(null);
 
+    // Waiver Integration State
+    const [waiverTemplates, setWaiverTemplates] = useState<WaiverTemplate[]>([]);
+    const [waiverPhase, setWaiverPhase] = useState<'BEFORE_PAYMENT' | 'AFTER_INFO_CAPTURED' | 'AFTER_PAYMENT' | null>(null);
+    const [contractsDialogOpen, setContractsDialogOpen] = useState(false);
+    const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+    const [previewItem, setPreviewItem] = useState<CartItem | null>(null);
+    const [checkoutWaiverCallback, setCheckoutWaiverCallback] = useState<(() => void) | null>(null);
+    const [capturedLast4, setCapturedLast4] = useState<string>('');
+    const [paymentInfoCapturedCallback, setPaymentInfoCapturedCallback] = useState<((result: boolean) => void) | null>(null);
 
+    const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
     const [itemDiscounts, setItemDiscounts] = useState<Record<string, ItemDiscountState>>({});
 
@@ -402,15 +415,17 @@ export const Marketplace = () => {
                     }
                 }
 
-                const [basePriceResponse, membershipResponse, serviceResponse, subscriptionResponse] = await Promise.all([
+                const [basePriceResponse, membershipResponse, serviceResponse, subscriptionResponse, waiversResponse] = await Promise.all([
                     basePriceService.getAll(currentLocationId),
                     membershipService.getMemberships(currentLocationId),
                     serviceCatalog.getServices(currentLocationId),
                     billingService.getAccountSubscriptions(accountId, currentLocationId),
+                    waiverService.getWaiverTemplates(currentLocationId),
                 ]);
 
                 setBasePrices(basePriceResponse.prices || []);
                 setMembershipPrograms(membershipResponse || []);
+                setWaiverTemplates(Array.isArray(waiversResponse) ? waiversResponse : (waiversResponse as any)?.data || []);
                 
                 const activeSubs = (subscriptionResponse.data || subscriptionResponse || []).filter((s: any) => 
                     s.status === 'ACTIVE' || s.status === 'PAID'
@@ -1554,7 +1569,28 @@ export const Marketplace = () => {
         return payload;
     };
 
-    const handleCheckout = async () => {
+    const handlePaymentInfoCaptured = (last4: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+            const afterInfoTemplates = waiverTemplates.filter(t => t.is_after_payment_info_captured === true);
+            const requiresWaivers = cart.some(item => {
+                if (item.type === 'SERVICE') return afterInfoTemplates.some(t => t.service_id === item.serviceId);
+                if (item.type === 'MEMBERSHIP') return afterInfoTemplates.some(t => t.membership_category_id === item.membershipCategoryId);
+                if (item.type === 'BASE') return afterInfoTemplates.some(t => t.base_price_id === item.referenceId);
+                return false;
+            });
+
+            if (requiresWaivers) {
+                setCapturedLast4(last4);
+                setWaiverPhase('AFTER_INFO_CAPTURED');
+                setPaymentInfoCapturedCallback(() => resolve);
+                setContractsDialogOpen(true);
+            } else {
+                resolve(true); // Proceed without waivers
+            }
+        });
+    };
+
+    const processCheckout = async () => {
         const staffName = `${userParams?.first_name || ''} ${userParams?.last_name || ''}`.trim();
 
         if (!accountId || !currentLocationId || marketplaceError || cart.length === 0) {
@@ -1563,7 +1599,6 @@ export const Marketplace = () => {
 
         setSubmitting(true);
         try {
-            // Directly create subscriptions and invoice as requested, skipping the waiver step
             const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
             
             // 1. Copy cart items to subscriptions
@@ -1604,8 +1639,24 @@ export const Marketplace = () => {
                     }
                 } catch (invErr) {
                     console.error('Failed to create or link invoice:', invErr);
-                    // Non-blocking for the payment screen show
                 }
+            }
+
+            // Check for before_payment waivers
+            const beforePaymentTemplates = waiverTemplates.filter(t => t.is_before_payment === true);
+            const requiresWaivers = cart.some(item => {
+                if (item.type === 'SERVICE') return beforePaymentTemplates.some(t => t.service_id === item.serviceId);
+                if (item.type === 'MEMBERSHIP') return beforePaymentTemplates.some(t => t.membership_category_id === item.membershipCategoryId);
+                if (item.type === 'BASE') return beforePaymentTemplates.some(t => t.base_price_id === item.referenceId);
+                return false;
+            });
+
+            if (requiresWaivers) {
+                setWaiverPhase('BEFORE_PAYMENT');
+                setContractsDialogOpen(true);
+                setCheckoutWaiverCallback(() => () => setPaymentOpen(true));
+                setSubmitting(false);
+                return;
             }
 
             // Show payment screen
@@ -1616,6 +1667,13 @@ export const Marketplace = () => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const handleCheckout = async () => {
+        if (!accountId || !currentLocationId || marketplaceError || cart.length === 0) {
+            return;
+        }
+        setConfirmDialogOpen(true);
     };
 
     if (loading) {
@@ -2449,23 +2507,56 @@ export const Marketplace = () => {
                                             )}
 
                                             {/* Coverage chips */}
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1.5 }}>
-                                                {item.coverage?.map((covered) => (
-                                                    <Chip
-                                                        key={`${item.id}-${covered.profile_id}`}
-                                                        label={covered.name}
-                                                        size="small"
-                                                        sx={{
-                                                            height: 22,
-                                                            fontSize: '0.65rem',
-                                                            bgcolor: '#f1f5f9',
-                                                            color: 'text.primary',
-                                                            fontWeight: 600,
-                                                            borderRadius: 1,
-                                                        }}
-                                                    />
-                                                ))}
-                                            </Box>
+                                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1.5, alignItems: 'center' }}>
+                                                 {item.coverage?.map((covered) => (
+                                                     <Chip
+                                                         key={`${item.id}-${covered.profile_id}`}
+                                                         label={covered.name}
+                                                         size="small"
+                                                         sx={{
+                                                             height: 22,
+                                                             fontSize: '0.65rem',
+                                                             bgcolor: '#f1f5f9',
+                                                             color: 'text.primary',
+                                                             fontWeight: 600,
+                                                             borderRadius: 1,
+                                                         }}
+                                                     />
+                                                 ))}
+                                                 {(() => {
+                                                     const hasTpl = item.type === 'SERVICE' 
+                                                         ? waiverTemplates.some(t => t.service_id === item.serviceId)
+                                                         : item.type === 'MEMBERSHIP'
+                                                         ? waiverTemplates.some(t => t.membership_category_id === item.membershipCategoryId)
+                                                         : item.type === 'BASE'
+                                                         ? waiverTemplates.some(t => t.base_price_id === item.referenceId)
+                                                         : false;
+                                                     
+                                                     if (!hasTpl) return null;
+                                                     return (
+                                                         <Button 
+                                                             size="small" 
+                                                             variant="text"
+                                                             startIcon={<HistoryEduIcon sx={{ fontSize: 14 }} />}
+                                                             onClick={() => {
+                                                                 setPreviewItem(item);
+                                                                 setPreviewDialogOpen(true);
+                                                             }}
+                                                             sx={{ 
+                                                                 height: 22, 
+                                                                 fontSize: '0.65rem', 
+                                                                 fontWeight: 700, 
+                                                                 textTransform: 'none',
+                                                                 ml: 'auto',
+                                                                 color: 'primary.main',
+                                                                 '&:hover': { bgcolor: 'primary.50' }
+                                                             }}
+                                                         >
+                                                             Preview Contract
+                                                         </Button>
+                                                     );
+                                                 })()}
+                                             </Box>
 
                                             {/* Discount section */}
                                             <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px dashed', borderColor: 'divider' }}>
@@ -3039,29 +3130,138 @@ export const Marketplace = () => {
                 items={cart.map(i => ({ name: i.name, price: i.price }))}
                 accountId={accountId}
                 invoiceId={pendingInvoiceId}
+                allowPartial={true}
+                onPaymentInfoCaptured={handlePaymentInfoCaptured}
                 onSuccess={async () => {
-                    setSubmitting(true);
-                    try {
-                        // 4. Clear server-side cart
-                        if (accountId && currentLocationId) {
-                            await cartService.clearCart(accountId, currentLocationId);
+                    const afterPaymentTemplates = waiverTemplates.filter(t => t.is_after_payment === true);
+                    const requiresWaivers = cart.some(item => {
+                        if (item.type === 'SERVICE') return afterPaymentTemplates.some(t => t.service_id === item.serviceId);
+                        if (item.type === 'MEMBERSHIP') return afterPaymentTemplates.some(t => t.membership_category_id === item.membershipCategoryId);
+                        if (item.type === 'BASE') return afterPaymentTemplates.some(t => t.base_price_id === item.referenceId);
+                        return false;
+                    });
+
+                    const finalizeCheckout = async () => {
+                        setSubmitting(true);
+                        try {
+                            // 4. Clear server-side cart
+                            if (accountId && currentLocationId) {
+                                await cartService.clearCart(accountId, currentLocationId);
+                            }
+
+                            // 5. Clear local state
+                            setCart([]);
+                            setItemDiscounts({});
+
+                            setPaymentOpen(false);
+                            navigate(isMember ? '/portal?tab=invoices' : `/admin/accounts/${accountId}?tab=invoices`);
+                        } catch (err) {
+                            console.error('Checkout finalization failed:', err);
+                            setMarketplaceError('Finalization failed. Please refresh the page.');
+                            setPaymentOpen(false);
+                        } finally {
+                            setSubmitting(false);
                         }
+                    };
 
-                        // 5. Clear local state
-                        setCart([]);
-                        setItemDiscounts({});
-
-                        setPaymentOpen(false);
-                        navigate(isMember ? '/portal?tab=invoices' : `/admin/accounts/${accountId}?tab=invoices`);
-                    } catch (err) {
-                        console.error('Checkout finalization failed:', err);
-                        setMarketplaceError('Finalization failed. Please refresh the page.');
-                        setPaymentOpen(false);
-                    } finally {
-                        setSubmitting(false);
+                    if (requiresWaivers) {
+                        setPaymentOpen(false); // Hide payment dialog and show waiver over content
+                        setWaiverPhase('AFTER_PAYMENT');
+                        setContractsDialogOpen(true);
+                        setCheckoutWaiverCallback(() => finalizeCheckout);
+                        return;
                     }
+
+                    await finalizeCheckout();
                 }}
             />
+
+            {/* Contract Previews */}
+            {previewDialogOpen && previewItem && (
+                <ContractsSigningDialog
+                    open={previewDialogOpen}
+                    onClose={() => {
+                        setPreviewDialogOpen(false);
+                        setPreviewItem(null);
+                    }}
+                    onSuccess={() => {}}
+                    cart={[previewItem]}
+                    templates={waiverTemplates}
+                    primaryProfile={primaryMember}
+                    locationId={currentLocationId!}
+                    subscriptionTerms={subscriptionTerms}
+                    cardLast4={capturedLast4}
+                    previewMode={true}
+                />
+            )}
+ 
+            <ContractsSigningDialog
+                open={contractsDialogOpen}
+                onClose={() => {
+                    setContractsDialogOpen(false);
+                    if (paymentInfoCapturedCallback) {
+                        paymentInfoCapturedCallback(false);
+                        setPaymentInfoCapturedCallback(null);
+                    }
+                }}
+                onSuccess={() => {
+                    setContractsDialogOpen(false);
+                    if (checkoutWaiverCallback) checkoutWaiverCallback();
+                    if (paymentInfoCapturedCallback) {
+                        paymentInfoCapturedCallback(true);
+                        setPaymentInfoCapturedCallback(null);
+                    }
+                }}
+                cart={cart}
+                templates={waiverTemplates.filter(t => {
+                    if (waiverPhase === 'BEFORE_PAYMENT') return t.is_before_payment === true;
+                    if (waiverPhase === 'AFTER_INFO_CAPTURED') return t.is_after_payment_info_captured === true;
+                    if (waiverPhase === 'AFTER_PAYMENT') return t.is_after_payment === true;
+                    return false;
+                })}
+                primaryProfile={primaryMember}
+                locationId={currentLocationId || ''}
+                subscriptionTerms={subscriptionTerms}
+                cardLast4={waiverPhase === 'AFTER_INFO_CAPTURED' ? capturedLast4 : undefined}
+                mandatoryMode={true}
+            />
+
+            <Dialog
+                open={confirmDialogOpen}
+                onClose={() => setConfirmDialogOpen(false)}
+                PaperProps={{
+                    sx: { borderRadius: 3, p: 1 }
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, fontSize: '1.25rem' }}>
+                    Confirm Enrollment
+                </DialogTitle>
+                <DialogContent>
+                    <Typography variant="body1" color="text.secondary">
+                        Are you sure you want to proceed to payment and agreement for the selected items? 
+                        Subscription and invoice will be created upon confirmation.
+                    </Typography>
+                </DialogContent>
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button 
+                        onClick={() => setConfirmDialogOpen(false)}
+                        variant="outlined"
+                        sx={{ borderRadius: 2, px: 3, fontWeight: 700 }}
+                    >
+                        No, Go Back
+                    </Button>
+                    <Button 
+                        onClick={() => {
+                            setConfirmDialogOpen(false);
+                            processCheckout();
+                        }}
+                        variant="contained"
+                        sx={{ borderRadius: 2, px: 3, fontWeight: 700 }}
+                    >
+                        Yes, Proceed
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <ManagerPasscodeDialog 
                 open={passcodeOpen}

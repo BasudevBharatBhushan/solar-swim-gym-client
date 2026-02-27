@@ -100,6 +100,16 @@ export const WaiverTemplates = () => {
       subterm_ids: [] as string[]
   });
 
+  const [isBeforePayment, setIsBeforePayment] = useState(false);
+  const [isAfterPaymentInfoCaptured, setIsAfterPaymentInfoCaptured] = useState(false);
+  const [isAfterPayment, setIsAfterPayment] = useState(false);
+
+  const handleFlagChange = (flag: 'before' | 'info' | 'after') => {
+      setIsBeforePayment(prev => flag === 'before' ? !prev : false);
+      setIsAfterPaymentInfoCaptured(prev => flag === 'info' ? !prev : false);
+      setIsAfterPayment(prev => flag === 'after' ? !prev : false);
+  };
+
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -197,6 +207,9 @@ export const WaiverTemplates = () => {
           ageprofile_ids: [],
           subterm_ids: []
       });
+      setIsBeforePayment(false);
+      setIsAfterPaymentInfoCaptured(false);
+      setIsAfterPayment(false);
   };
 
   const handleSelectTemplate = (template: GroupedWaiverTemplate) => {
@@ -212,6 +225,9 @@ export const WaiverTemplates = () => {
           ageprofile_ids: template.assignments?.ageprofile_ids || [],
           subterm_ids: template.assignments?.subterm_ids || []
       });
+      setIsBeforePayment(!!template.is_before_payment);
+      setIsAfterPaymentInfoCaptured(!!template.is_after_payment_info_captured);
+      setIsAfterPayment(!!template.is_after_payment);
   };
 
   const handleToggleAssignment = (type: keyof typeof assignments, id: string) => {
@@ -240,6 +256,9 @@ export const WaiverTemplates = () => {
               template_category: templateCategory,
               content: editorContent,
               location_id: currentLocationId,
+              is_before_payment: isBeforePayment,
+              is_after_payment_info_captured: isAfterPaymentInfoCaptured,
+              is_after_payment: isAfterPayment,
               assignments
           };
 
@@ -464,6 +483,29 @@ export const WaiverTemplates = () => {
                                         {isSaving ? 'Saving...' : 'Save Template'}
                                     </Button>
                                 </Box>
+                            </Box>
+
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, bgcolor: '#fff', p: 1.5, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                <Typography variant="caption" fontWeight={800} sx={{ color: '#64748b', textTransform: 'uppercase', minWidth: 120 }}>
+                                    Signing Workflow:
+                                </Typography>
+                                <Box sx={{ display: 'flex', gap: 3 }}>
+                                    <FormControlLabel
+                                        control={<Checkbox checked={isBeforePayment} onChange={() => handleFlagChange('before')} size="small" />}
+                                        label={<Typography variant="body2" fontWeight={600} sx={{ color: '#475569' }}>Sign Before Payment</Typography>}
+                                    />
+                                    <FormControlLabel
+                                        control={<Checkbox checked={isAfterPaymentInfoCaptured} onChange={() => handleFlagChange('info')} size="small" />}
+                                        label={<Typography variant="body2" fontWeight={600} sx={{ color: '#475569' }}>After Payment Info Captured</Typography>}
+                                    />
+                                    <FormControlLabel
+                                        control={<Checkbox checked={isAfterPayment} onChange={() => handleFlagChange('after')} size="small" />}
+                                        label={<Typography variant="body2" fontWeight={600} sx={{ color: '#475569' }}>Sign After Payment</Typography>}
+                                    />
+                                </Box>
+                                <Tooltip title="Configure exactly when this document should be presented for signature during the checkout/onboarding flow. Only one timing option can be active at a time.">
+                                    <IconButton size="small"><Info fontSize="small" sx={{ color: '#94a3b8' }} /></IconButton>
+                                </Tooltip>
                             </Box>
                         </Box>
 

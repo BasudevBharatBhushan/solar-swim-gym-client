@@ -33,22 +33,22 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
   
   const [selectedInvoice, setSelectedInvoice] = useState<{id: string, paymentDetails?: any} | null>(null);
 
-  useEffect(() => {
-    const fetchInvoices = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response: any = await billingService.getAccountInvoices(accountId, currentLocationId || undefined);
-        const data = response?.data || response;
-        setInvoices(Array.isArray(data) ? data : []);
-      } catch (err: any) {
-        console.error('Failed to load invoices:', err);
-        setError('Failed to load invoices.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchInvoices = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response: any = await billingService.getAccountInvoices(accountId, currentLocationId || undefined);
+      const data = response?.data || response;
+      setInvoices(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      console.error('Failed to load invoices:', err);
+      setError('Failed to load invoices.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (accountId && currentLocationId) {
       fetchInvoices();
     }
@@ -56,7 +56,7 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
-      const searchStr = `${inv.invoice_id} ${inv.status} ${inv.total_amount} ${inv.primary_profile_name || ''} ${inv.payment_details?.cardholder_name || ''} ${inv.payment_details?.card_last4 || ''}`.toLowerCase();
+      const searchStr = `${inv.invoice_id} ${inv.status} ${inv.total_amount} ${inv.AmountDue || ''} ${inv.primary_profile_name || ''} ${inv.payment_details?.cardholder_name || ''} ${inv.payment_details?.card_last4 || ''}`.toLowerCase();
       return searchStr.includes(searchQuery.toLowerCase());
     });
   }, [invoices, searchQuery]);
@@ -117,7 +117,8 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Date</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Payment Details</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Invoice ID</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Amount</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Total</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Due</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Status</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Staff</TableCell>
             </TableRow>
@@ -125,7 +126,7 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
           <TableBody>
             {filteredInvoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     {searchQuery ? 'No invoices match your search.' : 'No invoices found for this account.'}
                   </Typography>
@@ -166,8 +167,11 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
                       {invoice.invoice_id.substring(0, 8)}...
                     </Typography>
                   </TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 600 }}>
+                  <TableCell align="right" sx={{ fontWeight: 600, color: '#64748b' }}>
                     ${Number(invoice.total_amount || 0).toFixed(2)}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, color: Number(invoice.AmountDue ?? (invoice.status === 'PAID' ? 0 : invoice.total_amount)) > 0 ? 'error.main' : 'success.main' }}>
+                    ${Number(invoice.AmountDue ?? (invoice.status === 'PAID' ? 0 : invoice.total_amount)).toFixed(2)}
                   </TableCell>
                   <TableCell>
                     <Chip 
@@ -196,6 +200,7 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
           invoiceId={selectedInvoice.id}
           accountId={accountId}
           initialPaymentDetails={selectedInvoice.paymentDetails}
+          onRefresh={fetchInvoices}
         />
       )}
     </Box>
