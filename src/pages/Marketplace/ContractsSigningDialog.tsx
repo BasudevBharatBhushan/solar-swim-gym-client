@@ -205,12 +205,12 @@ export const ContractsSigningDialog = ({
                 // Membership Specific Context
                 // ---------------------------------------------------------------
 
-                // Resolve BASE price entry that matches this item's subscriptionTermId
-                const matchedBasePrice = basePrices.find(
-                    bp => bp.subscription_term_id === item.subscriptionTermId
-                ) || (item.type === 'BASE'
+                // Resolve BASE price entry
+                // IMPORTANT: Match by exact base_price_id FIRST if item is a BASE plan
+                // Otherwise, it might grab the wrong age group that happens to have the same term
+                const matchedBasePrice = item.type === 'BASE' 
                     ? basePrices.find(bp => bp.base_price_id === item.referenceId)
-                    : undefined);
+                    : basePrices.find(bp => bp.subscription_term_id === item.subscriptionTermId);
 
                 // Resolve the MEMBERSHIP plan item from cart (type='MEMBERSHIP' = Membership Plan chip)
                 // This is distinct from the current BASE fee item — the MEMBERSHIP item carries the category ID
@@ -250,6 +250,13 @@ export const ContractsSigningDialog = ({
                 const planDisplayName = (primaryPlan?.name || item.name || 'N/A').replace(/ \(Joining\)| \(Annual\)/ig, '');
                 content = content.replace(/\[membership_plan\]/ig, planDisplayName);
                 content = content.replace(/\[Membership_Category\]/ig, matchedCategory?.name || 'N/A');
+
+                const basePlanName = matchedBasePrice?.name || item.name || 'N/A';
+                const basePlanRole = String(matchedBasePrice?.role || item.metadata?.role || 'N/A').replace(/_/g, ' ');
+                content = content.replace(/\[MembershipPlanName\]/ig, basePlanName);
+                content = content.replace(/\[MembershipName\]/ig, basePlanName); // Accommodate screenshot spelling
+                content = content.replace(/\[MembershpPlanType\]/ig, basePlanRole); // Accommodate previous prompt typo
+                content = content.replace(/\[MembershipPlanType\]/ig, basePlanRole); // Accommodate screenshot spelling
 
                 content = content.replace(/\[SubscriptionTerm\]/ig, subscriptionTermDisplay);
                 content = content.replace(/\[subscription_term\]/ig, subscriptionTermDisplay);

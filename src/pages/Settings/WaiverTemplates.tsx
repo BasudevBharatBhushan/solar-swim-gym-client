@@ -517,7 +517,7 @@ export const WaiverTemplates = () => {
 
 <code>[CardLast4]</code>,
 
-<code>[MembershipFee]</code>, <code>[MonthlyDues]</code>, <code>[JoningFee]</code>, <code>[AnnualFee]</code>,
+<code>[MembershipPlanName]</code>, <code>[MembershipPlanType]</code>, <code>[MembershipFee]</code>, <code>[MonthlyDues]</code>, <code>[JoningFee]</code>, <code>[AnnualFee]</code>,
 
 <code>[SubscriptionTerm]</code>, <code>[LengthOfContract]</code>, <code>[AutomaticRenewalTerm]</code>, <code>[EffectiveDate]</code>
 
