@@ -383,8 +383,10 @@ export const ContractsSigningDialog = ({
             await Promise.all(contracts.map(async (c) => {
                 if (!c.isSigned || !c.signatureUrl) return;
 
+                const targetProfileId = c.cartItem.coverage?.[0]?.profile_id || primaryProfile?.profile_id || null;
+
                 const payload = {
-                    profile_id: primaryProfile?.profile_id || null, // Best effort
+                    profile_id: targetProfileId, // Tie to specific coverage profile if possible
                     waiver_template_id: c.template.waiver_template_id,
                     waiver_type: c.cartItem.type === 'SERVICE' ? 'SERVICE' : 'MEMBERSHIP',
                     content: c.content,
