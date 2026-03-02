@@ -37,11 +37,53 @@ export const removeToken = () => {
 };
 
 /**
+ * Clear all authentication data from storage
+ */
+export const clearAuth = () => {
+  if (typeof localStorage !== 'undefined') {
+    const keysToRemove = ['token', 'role', 'loginId', 'userParams', 'currentLocationId', 'locations'];
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+  }
+};
+
+/**
+ * Manually decode JWT payload without external libraries
+ */
+const decodeToken = (token: string): any => {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (e) {
+    return null;
+  }
+};
+
+/**
  * Base fetch wrapper that handles headers and errors
  */
 const request = async (endpoint: string, options: RequestInit = {}) => {
   const token = getToken();
   
+  // Pre-check: Token Expiration (First Layer of Security)
+  if (token) {
+    const decoded = decodeToken(token);
+    const now = Math.floor(Date.now() / 1000); // Current time in seconds
+    
+    if (decoded && decoded.exp && decoded.exp < now) {
+      console.warn("Token expired (pre-check), redirecting...");
+      clearAuth();
+      window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
+      return null;
+    }
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
@@ -49,6 +91,12 @@ const request = async (endpoint: string, options: RequestInit = {}) => {
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Include the current location ID for backend filtering and tenant isolation
+  const currentLocationId = typeof localStorage !== 'undefined' ? localStorage.getItem('currentLocationId') : null;
+  if (currentLocationId) {
+    headers['x-location-id'] = currentLocationId;
   }
 
   const config = {
@@ -61,9 +109,19 @@ const request = async (endpoint: string, options: RequestInit = {}) => {
   if (!response.ok) {
     // Attempt to parse error message from body
     let errorMessage = 'An error occurred';
+    let errorStatus = response.status;
+    
     try {
       const errorBody = await response.json();
       errorMessage = errorBody.message || errorBody.error || errorMessage;
+      
+      // Handle Token Expiration (403 Forbidden with specific message)
+      if (errorStatus === 403 && errorMessage === 'Invalid or expired token') {
+        clearAuth();
+        // Force a page reload to reset the application state and trigger redirects in AppRoutes
+        window.location.href = window.location.pathname.startsWith('/admin') ? '/admin/login' : '/login';
+        return null;
+      }
     } catch {
       errorMessage = response.statusText;
     }
@@ -120,6 +178,12 @@ export const apiClient = {
     };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // Include the current location ID for backend filtering and tenant isolation
+    const currentLocationId = typeof localStorage !== 'undefined' ? localStorage.getItem('currentLocationId') : null;
+    if (currentLocationId) {
+      headers['x-location-id'] = currentLocationId;
     }
 
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {

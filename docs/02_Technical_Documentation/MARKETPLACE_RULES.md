@@ -7,21 +7,26 @@ This file serves as a centralized repository for all business rules, eligibility
 ## 1. Membership Eligibility Rules
 These rules determine which membership programs and categories a household is eligible for based on its composition.
 
-*   **Rule Logic**: The system counts the number of children, adults, and seniors in a household. It then checks these counts against the `min` and `max` ranges defined in the membership category's `condition_json`.
-*   **Key Parameters**: 
-    *   `minChild` / `maxChild`
-    *   `minAdult` / `maxAdult`
-    *   `minSenior` / `maxSenior`
+*   **Core Rule Logic**: The system counts the number of children, adults, and seniors in a household based on the `location_id`'s specific age group definitions.
+*   **Composition Validation**:
+    *   **Per-Age-Group Ranges**: Checks if count for each age group is within `min` and `max` defined in the category's `condition_json` (e.g., `min_adult_uuid`, `max_child_uuid`).
+    *   **Total Member Limit**: Enforces `members_allowed` (maximum total profiles permitted in the plan).
+    *   **Adult/Senior Minimum**: Enforces `min_18_plus_allowed` (minimum count of profiles aged 18+ or categorized as Adult/Senior).
 *   **Implementation File**: `src/pages/Marketplace/membershipSuggestion.ts`
-    *   Functions: `isCategoryEligible`, `extractCategoryRange`, `buildHouseholdCountsFromBaseCart`.
+    *   Functions: `isCategoryEligible`, `extractCategoryRange`, `buildHouseholdCountsFromBaseCart`, `getAllCategoriesWithEligibility`.
 
-### 1.1 Add-on Role Constraints
-*   **Rule Logic**: A user cannot purchase an "ADD_ON" membership (e.g., for a spouse or child) unless they have an active "PRIMARY" membership subscription OR a "PRIMARY" membership item currently in their cart.
+### 1.1 Automatic Household Plan Suggestion
+*   **Rule Logic**: Whenever a "Base Plan" (primary or add-on) is modified in the cart, the system automatically recalculates the household composition and suggests the most "specific" and "cost-effective" Membership Program/Category.
+*   **Identification Logic**: The suggested plan is stored in the cart with a stable internal ID (`MEMBERSHIP-PLAN-HOUSEHOLD`) to ensure only one household plan exists at a time.
+*   **Deduplication**: If the user has multiple membership plans or primary base fees in their cart (e.g., from a previous session sync), the marketplace automatically deduplicates them to maintain a valid bundle.
+
+### 1.2 Add-on Role Constraints
+*   **Rule Logic**: A user cannot purchase an "ADD_ON" base enrollment (membership fee) unless they have an active "PRIMARY" enrollment subscription OR a "PRIMARY" base item currently in their cart.
 *   **Enforcement**: 
-    *   The "Add" button for Add-on cards is disabled or shows an error if no Primary is detected.
+    *   The "Add" button for Add-on cards is disabled or shows a tooltip if no Primary is detected.
     *   Validation checks both active subscriptions (via `billingService.getAccountSubscriptions`) and current cart contents.
 *   **Coverage Dialog Behavior**: 
-    *   Profiles are automatically **disabled and unchecked** in the selection modal if they already hold an active membership or if the same plan is already assigned to them in the cart.
+    *   Profiles are automatically **disabled and unchecked** in the selection modal if they already hold an active membership subscription OR if the same plan is already assigned to them in the current cart.
     *   This prevents duplicate assignments and ensures that only eligible family members can be selected for a new plan or fee.
 *   **Implementation File**: `src/pages/Marketplace/Marketplace.tsx`
     *   Logic: `hasActivePrimary` check, `handleStartAddBaseCard`, and `openCoverageDialogForItem`.
@@ -107,7 +112,25 @@ Rules determining who can perform specific actions in the marketplace.
 
 ---
 
+---
+
 ## 8. Location Context Rules
 *   **Rule Logic**: All products (Base Plans, Memberships, Services) are filtered by the `currentLocationId`. Users cannot purchase products from a location other than the one currently selected in their session.
 *   **Implementation File**: `src/pages/Marketplace/Marketplace.tsx`
     *   Logic: `loadData` function uses `currentLocationId` in all API headers.
+
+---
+
+## 9. Waiver & Contract Execution Rules
+Rules governing the mandatory signing of legal documents during the checkout process.
+
+*   **Rule Logic**: The system enforces three distinct phases for waiver execution:
+    1.  **BEFORE_PAYMENT**: Templates marked as "Required Before Payment" must be signed by all covered profiles before the "Pay" button is enabled.
+    2.  **AFTER_INFO_CAPTURED**: (Reserved) For documents requiring captured payment method details but before final charge execution.
+    3.  **AFTER_PAYMENT**: Templates signed after successful transaction completion.
+*   **Dynamic Variable Parsing**: Waivers are parsed in real-time to replace variables like `[MembershipPlanName]`, `[MembershipName]`, and `[MemberName]` with actual values from the cart and account context.
+*   **Implementation Files**: 
+    *   `src/pages/Marketplace/Marketplace.tsx` (Logic: `handleCheckout` phase transitions)
+    *   `src/pages/Marketplace/ContractsSigningDialog.tsx` (Main interface for document review and signature)
+    *   `src/services/waiverService.ts` (Data contracts and template retrieval)
+
