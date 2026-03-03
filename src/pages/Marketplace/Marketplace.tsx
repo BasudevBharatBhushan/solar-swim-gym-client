@@ -2126,7 +2126,7 @@ export const Marketplace = () => {
           ? (item.discountCode ?? "")
           : "",
       role: topLevelRole,
-      status: "ACTIVE",
+      status: "PENDING_PAYMENT",
       billing_period_start: item.billing_period_start || null,
       billing_period_end: item.billing_period_end || null,
       session_id: sessionId,
