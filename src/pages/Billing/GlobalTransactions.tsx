@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -11,13 +11,19 @@ import {
   Paper,
   CircularProgress,
   Chip,
-  Tooltip,
+  TablePagination,
+  Grid,
+  Button,
   TextField,
   InputAdornment,
+  Tooltip,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
+import PaidIcon from '@mui/icons-material/Paid';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
+import HistoryIcon from '@mui/icons-material/History';
 import { billingService } from '../../services/billingService';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { useAuth } from '../../context/AuthContext';
@@ -28,33 +34,71 @@ export const GlobalTransactions = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [stats, setStats] = useState<any>(null);
 
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response: any = await billingService.getAllTransactions(currentLocationId || undefined);
+  const fetchTransactions = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = {
+        q: searchQuery,
+        startDate,
+        endDate,
+        page: page + 1,
+        limit: rowsPerPage,
+        sortBy: 'created_at',
+        sortOrder: 'desc' as const
+      };
+      const response: any = await billingService.getAllTransactions(currentLocationId || undefined, params);
+      
+      if (response && response.results) {
+        setTransactions(response.results);
+        setTotalRecords(response.total_found || 0);
+        setStats({
+          total_transaction_amount: response.total_transaction_amount,
+          status_stats: response.status_stats,
+          total_found: response.total_found
+        });
+      } else {
         const data = response?.data || response;
         setTransactions(Array.isArray(data) ? data : []);
-      } catch (err: any) {
-        console.error('Failed to load transactions:', err);
-        setError('Failed to load global transaction history.');
-      } finally {
-        setLoading(false);
+        setTotalRecords(Array.isArray(data) ? data.length : 0);
+        setStats(null);
       }
-    };
+    } catch (err: any) {
+      console.error('Failed to load transactions:', err);
+      setError('Failed to load global transaction history.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchTransactions();
-  }, [currentLocationId]);
+  }, [currentLocationId, page, rowsPerPage, startDate, endDate]);
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((tx) => {
-      const invoiceStr = tx.invoice ? `${tx.invoice.invoice_id} ${tx.invoice.status}` : '';
-      const searchStr = `${tx.transaction_id} ${tx.account_name} ${tx.email} ${tx.status} ${tx.amount} ${tx.cardholder_name} ${tx.card_last4} ${tx.primary_profile_name} ${tx.primary_profile_email} ${invoiceStr}`.toLowerCase();
-      return searchStr.includes(searchQuery.toLowerCase());
-    });
-  }, [transactions, searchQuery]);
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(0);
+      fetchTransactions();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status?.toUpperCase()) {
@@ -77,13 +121,73 @@ export const GlobalTransactions = () => {
       />
 
       <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+        {/* Statistics Section */}
+        {stats && (
+          <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ bgcolor: 'white', p: 1, borderRadius: 2, display: 'flex', border: '1px solid #dcfce7' }}>
+                  <PaidIcon sx={{ color: 'success.main' }} />
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="success.dark" sx={{ fontWeight: 600, display: 'block' }}>Total Volume</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                    ${(stats.total_transaction_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </Typography>
+                </Box>
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#f8fafc', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ bgcolor: 'white', p: 1, borderRadius: 2, display: 'flex', border: '1px solid #e2e8f0' }}>
+                  <HistoryIcon sx={{ color: 'primary.main' }} />
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>Total Count</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>{stats.total_found || 0}</Typography>
+                </Box>
+              </Paper>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <Paper elevation={0} sx={{ p: 2, borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: '#fffbeb', display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ bgcolor: 'white', p: 1, borderRadius: 2, display: 'flex', border: '1px solid #fef3c7' }}>
+                  <AnalyticsIcon sx={{ color: 'warning.main' }} />
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="warning.dark" sx={{ fontWeight: 600, display: 'block' }}>Approved</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'warning.main' }}>{stats.status_stats?.APPROVED || 0}</Typography>
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
+        )}
+
+        {/* Filter Section */}
+        <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'flex-end' }}>
+          <TextField
+              size="small"
+              type="date"
+              label="From"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+          />
+          <TextField
+              size="small"
+              type="date"
+              label="To"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+          />
           <TextField
             size="small"
             placeholder="Search all transactions..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: 350 }}
+            sx={{ width: 300 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -92,6 +196,19 @@ export const GlobalTransactions = () => {
               ),
             }}
           />
+          <Button 
+            variant="outlined" 
+            size="small" 
+            onClick={() => {
+              setSearchQuery('');
+              setStartDate('');
+              setEndDate('');
+              setPage(0);
+            }}
+            sx={{ color: 'text.secondary', borderColor: 'divider', textTransform: 'none', fontWeight: 600 }}
+          >
+            Clear
+          </Button>
         </Box>
 
         {loading ? (
@@ -105,6 +222,7 @@ export const GlobalTransactions = () => {
             <Table>
               <TableHead sx={{ bgcolor: '#f8fafc' }}>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Invoice #</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Date</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Account / Member</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Card Info</TableCell>
@@ -116,17 +234,28 @@ export const GlobalTransactions = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredTransactions.length === 0 ? (
+                {transactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">
-                        {searchQuery ? 'No transactions match your search.' : 'No transactions found.'}
+                        {searchQuery || startDate || endDate ? 'No transactions match your filters.' : 'No transactions found.'}
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTransactions.map((tx) => (
+                  transactions.map((tx) => (
                     <TableRow key={tx.transaction_id || tx.id} hover>
+                      <TableCell>
+                        {tx.invoice ? (
+                          <Tooltip title={tx.invoice.invoice_id} arrow>
+                            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, color: '#7c3aed', cursor: 'default' }}>
+                              #{tx.invoice.invoice_id?.substring(0, 8)}
+                            </Typography>
+                          </Tooltip>
+                        ) : (
+                          <Typography variant="body2" color="text.disabled">—</Typography>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                       </TableCell>
@@ -153,11 +282,6 @@ export const GlobalTransactions = () => {
                         <Typography variant="body2" sx={{ fontFamily: 'monospace', color: '#64748b' }}>
                           {(tx.transaction_id || tx.id || '').substring(0, 12)}...
                         </Typography>
-                        {tx.invoice && (
-                          <Typography variant="caption" color="primary.main" sx={{ fontWeight: 600, display: 'block' }}>
-                            Inv: {tx.invoice.invoice_id?.substring(0, 8)}...
-                          </Typography>
-                        )}
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>
                         ${Number(tx.amount || tx.invoice?.total_amount || 0).toFixed(2)}
@@ -199,6 +323,16 @@ export const GlobalTransactions = () => {
                 )}
               </TableBody>
             </Table>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={totalRecords}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{ borderTop: '1px solid #e2e8f0' }}
+            />
           </TableContainer>
         )}
       </Box>

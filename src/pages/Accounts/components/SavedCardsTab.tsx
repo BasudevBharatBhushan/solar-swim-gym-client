@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Box, Typography, Paper, CircularProgress, Grid, Chip, Stack, Alert } from '@mui/material';
+import { Box, Typography, Paper, CircularProgress, Grid, Chip, Stack, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import StarIcon from '@mui/icons-material/Star';
+import AddIcon from '@mui/icons-material/Add';
+import LockIcon from '@mui/icons-material/Lock';
 import { billingService } from '../../../services/billingService';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -28,23 +30,68 @@ export const SavedCardsTab = ({ accountId }: SavedCardsTabProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCards = async () => {
-      if (!accountId || !currentLocationId) return;
-      setLoading(true);
-      try {
-        const response = await billingService.getSavedCards(accountId, currentLocationId);
-        setCards(response || []);
-      } catch (err: any) {
-        console.error("Failed to fetch saved cards", err);
-        setError(err.message || "Failed to load saved cards");
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Add Card State
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [cardholderName, setCardholderName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [zip, setZip] = useState('');
 
+  const fetchCards = async () => {
+    if (!accountId || !currentLocationId) return;
+    setLoading(true);
+    try {
+      const response = await billingService.getSavedCards(accountId, currentLocationId);
+      setCards(response || []);
+    } catch (err: any) {
+      console.error("Failed to fetch saved cards", err);
+      setError(err.message || "Failed to load saved cards");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchCards();
   }, [accountId, currentLocationId]);
+
+  const handleSaveCard = async () => {
+    if (!cardholderName || !cardNumber || !expiry || !cvv || !zip) {
+      setSaveError("All fields are required.");
+      return;
+    }
+
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await billingService.saveCard({
+        accountId,
+        cardholderName,
+        cardNumber: cardNumber.replace(/\s/g, ''),
+        expiryMmYy: expiry.replace(/\//g, ''),
+        cvv,
+        avsZip: zip
+      }, currentLocationId || undefined);
+      
+      setAddDialogOpen(false);
+      // Reset form
+      setCardholderName('');
+      setCardNumber('');
+      setExpiry('');
+      setCvv('');
+      setZip('');
+      
+      await fetchCards();
+    } catch (err: any) {
+      console.error("Failed to save card", err);
+      setSaveError(err.response?.data?.error || err.message || "Failed to save card");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -107,6 +154,20 @@ export const SavedCardsTab = ({ accountId }: SavedCardsTabProps) => {
                 Securely stored cards for quick checkout and automated billing.
             </Typography>
         </Box>
+        <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setAddDialogOpen(true)}
+            sx={{
+                borderRadius: '12px',
+                textTransform: 'none',
+                fontWeight: 700,
+                px: 3,
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)'
+            }}
+        >
+            Add New Card
+        </Button>
       </Box>
       
       <Grid container spacing={3}>
@@ -213,6 +274,101 @@ export const SavedCardsTab = ({ accountId }: SavedCardsTabProps) => {
           </Grid>
         ))}
       </Grid>
+
+      {/* Add Card Dialog */}
+      <Dialog open={addDialogOpen} onClose={() => !saving && setAddDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ bgcolor: 'primary.main', p: 0.8, borderRadius: 1.5, display: 'flex' }}>
+                <CreditCardIcon sx={{ color: 'white', fontSize: 20 }} />
+            </Box>
+            Add New Card
+        </DialogTitle>
+        <DialogContent>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>
+                Enter the credit card details to securely vault this payment method for future use.
+            </Typography>
+            
+            <Stack spacing={2.5}>
+                <TextField
+                    fullWidth
+                    label="Cardholder Name"
+                    placeholder="John Doe"
+                    value={cardholderName}
+                    onChange={(e) => setCardholderName(e.target.value)}
+                    disabled={saving}
+                />
+                <TextField
+                    fullWidth
+                    label="Card Number"
+                    placeholder="0000 0000 0000 0000"
+                    value={cardNumber}
+                    onChange={(e) => setCardNumber(e.target.value)}
+                    disabled={saving}
+                />
+                <Grid container spacing={2}>
+                    <Grid size={{ xs: 6 }}>
+                        <TextField
+                            fullWidth
+                            label="Expiry Date"
+                            placeholder="MM/YY"
+                            value={expiry}
+                            onChange={(e) => setExpiry(e.target.value)}
+                            disabled={saving}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 6 }}>
+                        <TextField
+                            fullWidth
+                            label="CVV"
+                            placeholder="123"
+                            value={cvv}
+                            onChange={(e) => setCvv(e.target.value)}
+                            disabled={saving}
+                        />
+                    </Grid>
+                </Grid>
+                <TextField
+                    fullWidth
+                    label="Billing Zip/Postal Code"
+                    placeholder="12345"
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value)}
+                    disabled={saving}
+                />
+
+                {saveError && (
+                    <Alert severity="error" sx={{ borderRadius: 2 }}>
+                        {saveError}
+                    </Alert>
+                )}
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1.5, bgcolor: '#f0f9ff', borderRadius: 2 }}>
+                    <LockIcon sx={{ fontSize: 16, color: '#0ea5e9' }} />
+                    <Typography variant="caption" sx={{ color: '#0369a1', fontWeight: 600 }}>
+                        Your data is encrypted and securely stored.
+                    </Typography>
+                </Box>
+            </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, pt: 0 }}>
+            <Button onClick={() => setAddDialogOpen(false)} disabled={saving} sx={{ fontWeight: 600 }}>
+                Cancel
+            </Button>
+            <Button 
+                onClick={handleSaveCard} 
+                variant="contained" 
+                disabled={saving}
+                sx={{ 
+                    fontWeight: 800, 
+                    px: 4, 
+                    borderRadius: 2,
+                    textTransform: 'none'
+                }}
+            >
+                {saving ? 'Saving...' : 'Save Card'}
+            </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

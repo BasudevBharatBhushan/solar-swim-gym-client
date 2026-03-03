@@ -1,5 +1,16 @@
 import { apiClient } from './apiClient';
 
+export interface SearchParams {
+  q?: string;
+  startDate?: string;
+  endDate?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  account_id?: string;
+}
+
 export const billingService = {
   // Subscriptions
   createSubscription: async (subscriptionData: any, locationId?: string) => {
@@ -14,9 +25,9 @@ export const billingService = {
   },
 
   // Invoices & Payments
-  getInvoices: async (locationId?: string) => {
+  getInvoices: async (locationId?: string, params?: SearchParams) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get('/invoices', {}, options);
+    return apiClient.get('/invoices', params, options);
   },
 
   createInvoice: async (invoiceData: any, locationId?: string) => {
@@ -24,9 +35,9 @@ export const billingService = {
     return apiClient.post('/invoices', invoiceData, options);
   },
 
-  getAccountInvoices: async (accountId: string, locationId?: string) => {
+  getAccountInvoices: async (accountId: string, locationId?: string, params?: SearchParams) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get(`/invoices/accounts/${accountId}`, {}, options);
+    return apiClient.get(`/invoices/accounts/${accountId}`, params, options);
   },
 
   getInvoice: async (invoiceId: string) => {
@@ -59,18 +70,28 @@ export const billingService = {
   },
 
   // Transactions
-  getAllTransactions: async (locationId?: string) => {
+  getAllTransactions: async (locationId?: string, params?: SearchParams) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get('/payments/transactions', {}, options);
+    return apiClient.get('/payments/transactions', params, options);
   },
 
-  getAccountTransactions: async (accountId: string, locationId?: string) => {
+  getAccountTransactions: async (accountId: string, locationId?: string, params?: SearchParams) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.get(`/payments/transactions/accounts/${accountId}`, {}, options);
+    return apiClient.get(`/payments/transactions/accounts/${accountId}`, params, options);
   },
 
   getSavedCards: async (accountId: string, locationId?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.get(`/payments/saved-cards?account_id=${accountId}`, {}, options);
+  },
+
+  saveCard: async (cardData: any, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/payments/save-card', cardData, options);
+  },
+
+  cancelInvoice: async (invoiceId: string, voidPaymentInGateway: boolean = false, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post(`/invoices/${invoiceId}/cancel`, { voidPaymentInGateway }, options);
   },
 };
