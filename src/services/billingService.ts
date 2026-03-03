@@ -24,6 +24,26 @@ export const billingService = {
     return apiClient.get(`/billing/accounts/${accountId}/subscriptions`, {}, options);
   },
 
+  // PATCH /billing/subscriptions/:subscriptionId — lifecycle/status/auto-renew
+  patchSubscription: async (
+    subscriptionId: string,
+    payload: { status?: 'ACTIVE' | 'PAUSED' | 'CANCELLED'; auto_renew?: boolean; staff_id?: string },
+    locationId?: string
+  ) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.patch(`/billing/subscriptions/${subscriptionId}`, payload, options);
+  },
+
+  // PATCH /billing/subscriptions/:subscriptionId/pricing — pricing/billing snapshots
+  patchSubscriptionPricing: async (
+    subscriptionId: string,
+    payload: { unit_price_snapshot?: number; total_amount?: number; next_renewal_date?: string },
+    locationId?: string
+  ) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.patch(`/billing/subscriptions/${subscriptionId}/pricing`, payload, options);
+  },
+
   // Invoices & Payments
   getInvoices: async (locationId?: string, params?: SearchParams) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};

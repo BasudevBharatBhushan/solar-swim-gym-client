@@ -694,7 +694,7 @@ export const PaymentDialog = ({
                         disabled={
                           processing ||
                           !accountId ||
-                          !invoiceId ||
+                          (!invoiceId && !onCreateInvoice) ||
                           amountToPay <= 0
                         }
                         sx={{
@@ -713,34 +713,11 @@ export const PaymentDialog = ({
                       </Button>
                     )}
 
-                    <Button
-                      fullWidth
-                      variant="outlined"
-                      size="medium"
-                      onClick={onSkip ?? onClose}
-                      disabled={processing}
-                      sx={{
-                        borderRadius: 2,
-                        fontWeight: 700,
-                        textTransform: "none",
-                        color: error ? "primary.main" : "text.secondary",
-                        borderColor: error ? "primary.main" : "divider",
-                        borderWidth: error ? 2 : 1,
-                        "&:hover": {
-                          bgcolor: error ? "primary.50" : "#f1f5f9",
-                          borderColor: error ? "primary.dark" : "text.disabled",
-                          borderWidth: error ? 2 : 1,
-                        },
-                        mb: 1.5,
-                      }}
-                    >
-                      {error ? "Skip for now & Pay Later" : "Skip Payment"}
-                    </Button>
-                    
-                    {!error && (
+                    {/* Follow-up partial payment: only show Cancel to close */}
+                    {invoiceId ? (
                       <Button
                         fullWidth
-                        variant="text"
+                        variant="outlined"
                         size="medium"
                         onClick={onClose}
                         disabled={processing}
@@ -748,14 +725,64 @@ export const PaymentDialog = ({
                           borderRadius: 2,
                           fontWeight: 700,
                           textTransform: "none",
-                          color: "error.main",
+                          color: "text.secondary",
+                          borderColor: "divider",
                           "&:hover": {
-                            bgcolor: "error.50",
+                            bgcolor: "#f1f5f9",
+                            borderColor: "text.disabled",
                           },
+                          mb: 1.5,
                         }}
                       >
-                        Cancel & Return to Cart
+                        Cancel
                       </Button>
+                    ) : (
+                      <>
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          size="medium"
+                          onClick={onSkip ?? onClose}
+                          disabled={processing}
+                          sx={{
+                            borderRadius: 2,
+                            fontWeight: 700,
+                            textTransform: "none",
+                            color: error ? "primary.main" : "text.secondary",
+                            borderColor: error ? "primary.main" : "divider",
+                            borderWidth: error ? 2 : 1,
+                            "&:hover": {
+                              bgcolor: error ? "primary.50" : "#f1f5f9",
+                              borderColor: error ? "primary.dark" : "text.disabled",
+                              borderWidth: error ? 2 : 1,
+                            },
+                            mb: 1.5,
+                          }}
+                        >
+                          {error ? "Skip for now & Pay Later" : "Skip Payment"}
+                        </Button>
+
+                        {!error && (
+                          <Button
+                            fullWidth
+                            variant="text"
+                            size="medium"
+                            onClick={onClose}
+                            disabled={processing}
+                            sx={{
+                              borderRadius: 2,
+                              fontWeight: 700,
+                              textTransform: "none",
+                              color: "error.main",
+                              "&:hover": {
+                                bgcolor: "error.50",
+                              },
+                            }}
+                          >
+                            Cancel & Return to Cart
+                          </Button>
+                        )}
+                      </>
                     )}
                   </Box>
                 </Stack>

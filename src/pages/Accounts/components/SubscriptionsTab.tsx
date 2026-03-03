@@ -16,17 +16,20 @@ import {
   CardContent,
   CardMedia,
   Stack,
-  Divider
+  Divider,
+  Button,
+  Tooltip,
 } from '@mui/material';
+import TuneIcon from '@mui/icons-material/Tune';
 import { useAuth } from '../../../context/AuthContext';
 import { billingService } from '../../../services/billingService';
 import { serviceCatalog } from '../../../services/serviceCatalog';
 import { basePriceService, BasePrice } from '../../../services/basePriceService';
 import { membershipService, MembershipProgram } from '../../../services/membershipService';
 import { Subscription } from '../../../types';
-
 import { useConfig } from '../../../context/ConfigContext';
 import { getAgeGroupName } from '../../../lib/ageUtils';
+import { SubscriptionManageDialog } from './SubscriptionManageDialog';
 
 interface SubscriptionsTabProps {
   accountId: string;
@@ -34,7 +37,7 @@ interface SubscriptionsTabProps {
 }
 
 export const SubscriptionsTab = ({ accountId, selectedProfileId }: SubscriptionsTabProps) => {
-  const { currentLocationId } = useAuth();
+  const { currentLocationId, role } = useAuth();
   const { ageGroups } = useConfig();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [serviceImages, setServiceImages] = useState<Record<string, string>>({});
@@ -45,65 +48,90 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Manage dialog state
+  const [manageOpen, setManageOpen] = useState(false);
+  const [managedSub, setManagedSub] = useState<any>(null);
+  
+  // Filter for membership status
+  const [membershipStatusFilter, setMembershipStatusFilter] = useState<string>('ACTIVE');
+
+  const isStaffOrAbove = ['STAFF', 'ADMIN', 'SUPERADMIN'].includes(role ?? '');
+
+  const handleManageClick = (sub: any) => {
+    setManagedSub(sub);
+    setManageOpen(true);
+  };
+
+  const handleManageSuccess = () => {
+    // Re-fetch subscriptions after a successful update
+    if (accountId && currentLocationId) {
+      setManageOpen(false);
+      setManagedSub(null);
+      // Trigger a re-fetch by clearing and re-loading
+      setSubscriptions([]);
+      fetchSubscriptions();
+    }
+  };
+
+  const fetchSubscriptions = async () => {
+    setLoading(true);
+    try {
+      const [bpData, mpData, response] = await Promise.all([
+          basePriceService.getAll(currentLocationId || ''),
+          membershipService.getMemberships(currentLocationId || ''),
+          billingService.getAccountSubscriptions(accountId, currentLocationId || undefined)
+      ]);
+
+      setBasePrices(bpData?.prices || []);
+      setMembershipPrograms(mpData || []);
+
+      const subs = response.data || response || [];
+      setSubscriptions(subs);
+
+      // Fetch images and details for service subscriptions
+      const serviceSubs = subs.filter((s: Subscription) => s.subscription_type === 'SERVICE');
+      const images: Record<string, string> = {};
+      const details: Record<string, any> = {};
+
+      await Promise.all(serviceSubs.map(async (sub: Subscription) => {
+          try {
+              // reference_id for SERVICE is service_pack_id
+              if (!sub.reference_id) return;
+              
+              const packRes = await serviceCatalog.getServicePack(sub.reference_id, currentLocationId || undefined);
+              const pack = packRes.data || packRes;
+              
+              if (pack) {
+                   details[sub.subscription_id] = pack;
+                   // Use nested service object if available (preferred)
+                   if (pack.service && pack.service.image_url) {
+                       images[sub.subscription_id] = pack.service.image_url;
+                   } 
+                   // Fallback: fetch service if not nested
+                   else if (pack.service_id) {
+                      const serviceRes = await serviceCatalog.getServiceDetail(pack.service_id, currentLocationId || undefined);
+                      const service = serviceRes.data || serviceRes;
+                      if (service && service.image_url) {
+                          images[sub.subscription_id] = service.image_url;
+                      }
+                   }
+              }
+          } catch (err) {
+              // console.warn('Failed to fetch details for subscription', sub.subscription_id, err);
+          }
+      }));
+      setServiceImages(images);
+      setServiceDetails(details);
+
+    } catch (err: any) {
+      console.error("Failed to fetch subscriptions", err);
+      setError("Failed to load subscriptions");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchSubscriptions = async () => {
-      setLoading(true);
-      try {
-        const [bpData, mpData, response] = await Promise.all([
-            basePriceService.getAll(currentLocationId || ''),
-            membershipService.getMemberships(currentLocationId || ''),
-            billingService.getAccountSubscriptions(accountId, currentLocationId || undefined)
-        ]);
-
-        setBasePrices(bpData?.prices || []);
-        setMembershipPrograms(mpData || []);
-
-        const subs = response.data || response || [];
-        setSubscriptions(subs);
-
-        // Fetch images and details for service subscriptions
-        const serviceSubs = subs.filter((s: Subscription) => s.subscription_type === 'SERVICE');
-        const images: Record<string, string> = {};
-        const details: Record<string, any> = {};
-
-        await Promise.all(serviceSubs.map(async (sub: Subscription) => {
-            try {
-                // reference_id for SERVICE is service_pack_id
-                if (!sub.reference_id) return;
-                
-                const packRes = await serviceCatalog.getServicePack(sub.reference_id, currentLocationId || undefined);
-                const pack = packRes.data || packRes;
-                
-                if (pack) {
-                     details[sub.subscription_id] = pack;
-                     // Use nested service object if available (preferred)
-                     if (pack.service && pack.service.image_url) {
-                         images[sub.subscription_id] = pack.service.image_url;
-                     } 
-                     // Fallback: fetch service if not nested
-                     else if (pack.service_id) {
-                        const serviceRes = await serviceCatalog.getServiceDetail(pack.service_id, currentLocationId || undefined);
-                        const service = serviceRes.data || serviceRes;
-                        if (service && service.image_url) {
-                            images[sub.subscription_id] = service.image_url;
-                        }
-                     }
-                }
-            } catch (err) {
-                // console.warn('Failed to fetch details for subscription', sub.subscription_id, err);
-            }
-        }));
-        setServiceImages(images);
-        setServiceDetails(details);
-
-      } catch (err: any) {
-        console.error("Failed to fetch subscriptions", err);
-        setError("Failed to load subscriptions");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (accountId && currentLocationId) {
       fetchSubscriptions();
     }
@@ -138,7 +166,16 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   );
 
   const serviceSubscriptions = filteredSubscriptions.filter(s => s.subscription_type === 'SERVICE');
-  const membershipSubscriptions = filteredSubscriptions.filter(s => s.subscription_type !== 'SERVICE');
+  const membershipSubscriptions = filteredSubscriptions.filter(s => {
+    if (s.subscription_type === 'SERVICE') return false;
+    
+    // Status filtering - default to ACTIVE
+    if (membershipStatusFilter === 'ACTIVE') return s.status === 'ACTIVE' || s.status === 'PAID';
+    if (membershipStatusFilter === 'INACTIVE') return s.status === 'PAUSED';
+    if (membershipStatusFilter === 'CANCELLED') return s.status === 'CANCELLED';
+    
+    return true; // fallback for 'ALL' or undefined
+  });
 
 
   if (loading) {
@@ -224,6 +261,30 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                                       color={getStatusColor(sub.status) as any} 
                                                       sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }}
                                                   />
+                                                  {isStaffOrAbove && sub.status !== 'CANCELLED' && (
+                                                    <Tooltip title="Manage subscription (status & pricing)" arrow>
+                                                      <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        onClick={(e) => { e.stopPropagation(); handleManageClick(sub); }}
+                                                        startIcon={<TuneIcon sx={{ fontSize: '0.8rem !important' }} />}
+                                                        sx={{
+                                                          fontSize: '0.65rem',
+                                                          fontWeight: 700,
+                                                          height: 22,
+                                                          px: 1,
+                                                          py: 0,
+                                                          textTransform: 'none',
+                                                          borderColor: '#6366f1',
+                                                          color: '#4f46e5',
+                                                          bgcolor: '#eef2ff',
+                                                          '&:hover': { bgcolor: '#e0e7ff', borderColor: '#4338ca' },
+                                                        }}
+                                                      >
+                                                        Manage
+                                                      </Button>
+                                                    </Tooltip>
+                                                  )}
                                                </Stack>
                                           </Box>
 
@@ -294,7 +355,35 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
 
       {/* Memberships Section */}
       <Box>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: '#334155' }}>Memberships</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: '#334155' }}>Memberships</Typography>
+            
+            <Stack direction="row" spacing={1}>
+              {[
+                { label: 'ACTIVE', value: 'ACTIVE', color: 'success' },
+                { label: 'INACTIVE', value: 'INACTIVE', color: 'warning' },
+                { label: 'CANCELLED', value: 'CANCELLED', color: 'error' }
+              ].map((f) => (
+                <Chip
+                  key={f.value}
+                  label={f.label}
+                  onClick={() => setMembershipStatusFilter(f.value)}
+                  color={membershipStatusFilter === f.value ? (f.color as any) : 'default'}
+                  variant={membershipStatusFilter === f.value ? 'filled' : 'outlined'}
+                  size="small"
+                  sx={{ 
+                    fontWeight: 800, 
+                    fontSize: '0.65rem',
+                    height: 24,
+                    px: 0.5,
+                    transition: 'all 0.2s',
+                    '&:hover': { opacity: 0.8 }
+                  }}
+                />
+              ))}
+            </Stack>
+          </Box>
+          
           {membershipSubscriptions.length > 0 ? (
               <TableContainer component={Paper} elevation={0} variant="outlined">
                 <Table>
@@ -306,6 +395,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                             <TableCell>Sub Status</TableCell>
                             <TableCell>Invoice Status</TableCell>
                             <TableCell>Coverage</TableCell>
+                            {isStaffOrAbove && <TableCell align="right">Actions</TableCell>}
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -396,6 +486,32 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                             )}
                                         </Box>
                                     </TableCell>
+                                    {isStaffOrAbove && sub.status !== 'CANCELLED' && (
+                                        <TableCell align="right">
+                                            <Tooltip title="Manage subscription (status & pricing)" arrow>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    onClick={() => handleManageClick(sub)}
+                                                    startIcon={<TuneIcon sx={{ fontSize: '0.85rem !important' }} />}
+                                                    sx={{
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 700,
+                                                        textTransform: 'none',
+                                                        borderColor: '#6366f1',
+                                                        color: '#4f46e5',
+                                                        bgcolor: '#eef2ff',
+                                                        '&:hover': { bgcolor: '#e0e7ff', borderColor: '#4338ca' },
+                                                        borderRadius: '6px',
+                                                        px: 1.5,
+                                                        py: 0.4,
+                                                    }}
+                                                >
+                                                    Manage
+                                                </Button>
+                                            </Tooltip>
+                                        </TableCell>
+                                    )}
                                 </TableRow>
                             );
                         })}
@@ -408,6 +524,16 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
               </Box>
           )}
       </Box>
+
+      {/* Subscription manage dialog (staff/admin/superadmin only) */}
+      {isStaffOrAbove && managedSub && (
+        <SubscriptionManageDialog
+          open={manageOpen}
+          onClose={() => { setManageOpen(false); setManagedSub(null); }}
+          onSuccess={handleManageSuccess}
+          subscription={managedSub}
+        />
+      )}
     </Box>
   );
 };

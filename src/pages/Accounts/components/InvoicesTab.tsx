@@ -12,14 +12,15 @@ import {
   CircularProgress,
   Chip,
   TextField,
-  InputAdornment,
   Collapse,
   IconButton,
   Tooltip,
   TablePagination,
   Grid,
+  TableSortLabel,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import ArticleIcon from '@mui/icons-material/Article';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
@@ -92,7 +93,7 @@ const InvoiceRow = ({ invoice, onOpen, onCancel }: InvoiceRowProps) => {
         <TableCell>
           <Tooltip title={invoice.invoice_id} arrow>
             <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, color: '#7c3aed', cursor: 'default' }}>
-              #{invoice.invoice_id?.substring(0, 8)}
+              #{invoice.invoice_no || invoice.invoice_id?.substring(0, 8)}
             </Typography>
           </Tooltip>
         </TableCell>
@@ -267,6 +268,8 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
   const [stats, setStats] = useState<any>(null);
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const [selectedInvoice, setSelectedInvoice] = useState<{id: string, paymentDetails?: any} | null>(null);
   
@@ -317,8 +320,8 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
         endDate,
         page: page + 1,
         limit: rowsPerPage,
-        sortBy: 'created_at',
-        sortOrder: 'desc' as const
+        sortBy: sortField,
+        sortOrder: sortOrder
       };
       
       const response: any = await billingService.getAccountInvoices(accountId, currentLocationId || undefined, params);
@@ -349,16 +352,20 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
     if (accountId && currentLocationId) {
       fetchInvoices();
     }
-  }, [accountId, currentLocationId, page, rowsPerPage, startDate, endDate]);
+  }, [accountId, currentLocationId, page, rowsPerPage, sortField, sortOrder]);
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(0);
-      fetchInvoices();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(0);
+    fetchInvoices();
+  };
+
+  const handleSort = (field: string) => {
+    const isAsc = sortField === field && sortOrder === 'asc';
+    setSortOrder(isAsc ? 'desc' : 'asc');
+    setSortField(field);
+    setPage(0);
+  };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -430,12 +437,8 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
       )}
 
       {/* Filter Section */}
-      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: '#1e293b' }}>
-          Invoices
-        </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Paper sx={{ mb: 3, p: 2, borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+        <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
               size="small"
               type="date"
@@ -456,45 +459,64 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
           />
           <TextField
             size="small"
-            placeholder="Search by ID or Status..."
+            placeholder="Search by Invoice #, Status..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: 250 }}
+            sx={{ flexGrow: 1, minWidth: 200 }}
             InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#94a3b8', fontSize: '1.2rem' }} />
-                </InputAdornment>
-              ),
+              startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
             }}
           />
+          <Button type="submit" variant="outlined" sx={{ borderRadius: '8px' }}>
+            Search
+          </Button>
           <Button 
-            variant="outlined" 
+            variant="text" 
             size="small" 
             onClick={() => {
               setSearchQuery('');
               setStartDate('');
               setEndDate('');
               setPage(0);
+              setTimeout(() => fetchInvoices(), 0);
             }}
-            sx={{ color: 'text.secondary', borderColor: 'divider', textTransform: 'none', fontWeight: 600 }}
+            sx={{ color: 'text.secondary', fontWeight: 600, minWidth: 'auto', px: 2 }}
           >
             Clear
           </Button>
+          <IconButton onClick={fetchInvoices} title="Refresh">
+            <RefreshIcon />
+          </IconButton>
         </Box>
-      </Box>
+      </Paper>
 
       <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid #e2e8f0', borderRadius: '12px' }}>
         <Table>
           <TableHead sx={{ bgcolor: '#f8fafc' }}>
             <TableRow>
               <TableCell sx={{ width: 48 }} />
-              <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Invoice #</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Date</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }}>
+                <TableSortLabel active={sortField === 'invoice_no'} direction={sortField === 'invoice_no' ? sortOrder : 'asc'} onClick={() => handleSort('invoice_no')}>
+                  Invoice #
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }}>
+                <TableSortLabel active={sortField === 'created_at'} direction={sortField === 'created_at' ? sortOrder : 'asc'} onClick={() => handleSort('created_at')}>
+                  Date
+                </TableSortLabel>
+              </TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Payment Details</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Total</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">
+                <TableSortLabel active={sortField === 'total_amount'} direction={sortField === 'total_amount' ? sortOrder : 'asc'} onClick={() => handleSort('total_amount')}>
+                  Total
+                </TableSortLabel>
+              </TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Due</TableCell>
-              <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Status</TableCell>
+              <TableCell sx={{ fontWeight: 600, color: '#475569' }}>
+                <TableSortLabel active={sortField === 'status'} direction={sortField === 'status' ? sortOrder : 'asc'} onClick={() => handleSort('status')}>
+                  Status
+                </TableSortLabel>
+              </TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Staff</TableCell>
               <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Actions</TableCell>
             </TableRow>

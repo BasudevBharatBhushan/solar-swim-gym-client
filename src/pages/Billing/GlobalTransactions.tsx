@@ -15,11 +15,13 @@ import {
   Grid,
   Button,
   TextField,
-  InputAdornment,
   Tooltip,
+  IconButton,
+  TableSortLabel,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import SearchIcon from '@mui/icons-material/Search';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import PaidIcon from '@mui/icons-material/Paid';
 import AnalyticsIcon from '@mui/icons-material/Analytics';
@@ -41,6 +43,9 @@ export const GlobalTransactions = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [stats, setStats] = useState<any>(null);
 
+  const [sortField, setSortField] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
   const fetchTransactions = async () => {
     setLoading(true);
     setError(null);
@@ -51,8 +56,8 @@ export const GlobalTransactions = () => {
         endDate,
         page: page + 1,
         limit: rowsPerPage,
-        sortBy: 'created_at',
-        sortOrder: 'desc' as const
+        sortBy: sortField,
+        sortOrder: sortOrder
       };
       const response: any = await billingService.getAllTransactions(currentLocationId || undefined, params);
       
@@ -80,16 +85,20 @@ export const GlobalTransactions = () => {
 
   useEffect(() => {
     fetchTransactions();
-  }, [currentLocationId, page, rowsPerPage, startDate, endDate]);
+  }, [currentLocationId, page, rowsPerPage, sortField, sortOrder]);
 
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(0);
-      fetchTransactions();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(0);
+    fetchTransactions();
+  };
+
+  const handleSort = (field: string) => {
+    const isAsc = sortField === field && sortOrder === 'asc';
+    setSortOrder(isAsc ? 'desc' : 'asc');
+    setSortField(field);
+    setPage(0);
+  };
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -163,53 +172,58 @@ export const GlobalTransactions = () => {
         )}
 
         {/* Filter Section */}
-        <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', justifyContent: 'flex-end' }}>
-          <TextField
+        <Paper sx={{ mb: 3, p: 2, borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+          <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TextField
+                size="small"
+                type="date"
+                label="From"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 160 }}
+            />
+            <TextField
+                size="small"
+                type="date"
+                label="To"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ width: 160 }}
+            />
+            <TextField
               size="small"
-              type="date"
-              label="From"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ width: 160 }}
-          />
-          <TextField
-              size="small"
-              type="date"
-              label="To"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{ width: 160 }}
-          />
-          <TextField
-            size="small"
-            placeholder="Search all transactions..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: '#94a3b8', fontSize: '1.2rem' }} />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Button 
-            variant="outlined" 
-            size="small" 
-            onClick={() => {
-              setSearchQuery('');
-              setStartDate('');
-              setEndDate('');
-              setPage(0);
-            }}
-            sx={{ color: 'text.secondary', borderColor: 'divider', textTransform: 'none', fontWeight: 600 }}
-          >
-            Clear
-          </Button>
-        </Box>
+              placeholder="Search all transactions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{ flexGrow: 1, minWidth: 200 }}
+              InputProps={{
+                startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
+              }}
+            />
+            <Button type="submit" variant="outlined" sx={{ borderRadius: '8px' }}>
+              Search
+            </Button>
+            <Button 
+              variant="text" 
+              size="small" 
+              onClick={() => {
+                setSearchQuery('');
+                setStartDate('');
+                setEndDate('');
+                setPage(0);
+                setTimeout(() => fetchTransactions(), 0);
+              }}
+              sx={{ color: 'text.secondary', fontWeight: 600, minWidth: 'auto', px: 2 }}
+            >
+              Clear
+            </Button>
+            <IconButton onClick={fetchTransactions} title="Refresh">
+              <RefreshIcon />
+            </IconButton>
+          </Box>
+        </Paper>
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -223,12 +237,24 @@ export const GlobalTransactions = () => {
               <TableHead sx={{ bgcolor: '#f8fafc' }}>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Invoice #</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#475569' }}>
+                    <TableSortLabel active={sortField === 'created_at'} direction={sortField === 'created_at' ? sortOrder : 'asc'} onClick={() => handleSort('created_at')}>
+                      Date
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Account / Member</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Card Info</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Transaction ID</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="right">
+                    <TableSortLabel active={sortField === 'amount'} direction={sortField === 'amount' ? sortOrder : 'asc'} onClick={() => handleSort('amount')}>
+                      Amount
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: '#475569' }}>
+                    <TableSortLabel active={sortField === 'status'} direction={sortField === 'status' ? sortOrder : 'asc'} onClick={() => handleSort('status')}>
+                      Status
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }}>Staff</TableCell>
                   <TableCell sx={{ fontWeight: 600, color: '#475569' }} align="center">Details</TableCell>
                 </TableRow>
@@ -249,7 +275,7 @@ export const GlobalTransactions = () => {
                         {tx.invoice ? (
                           <Tooltip title={tx.invoice.invoice_id} arrow>
                             <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 700, color: '#7c3aed', cursor: 'default' }}>
-                              #{tx.invoice.invoice_id?.substring(0, 8)}
+                              #{tx.invoice.invoice_no || tx.invoice.invoice_id?.substring(0, 8)}
                             </Typography>
                           </Tooltip>
                         ) : (
