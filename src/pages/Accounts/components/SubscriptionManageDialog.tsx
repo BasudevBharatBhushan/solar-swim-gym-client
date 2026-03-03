@@ -37,12 +37,14 @@ interface SubscriptionManageDialogProps {
   subscription: any;
 }
 
-const STATUS_OPTIONS = ['ACTIVE', 'PAUSED', 'CANCELLED'] as const;
+const STATUS_OPTIONS = ['ACTIVE', 'PAUSED', 'EXPIRED', 'PENDING_PAYMENT', 'CANCELLED'] as const;
 
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'ACTIVE': return 'success';
     case 'PAUSED': return 'warning';
+    case 'EXPIRED': return 'secondary';
+    case 'PENDING_PAYMENT': return 'info';
     case 'CANCELLED': return 'error';
     default: return 'default';
   }
@@ -75,6 +77,11 @@ export const SubscriptionManageDialog = ({
       ? subscription.next_renewal_date.substring(0, 10)
       : ''
   );
+  const [billingPeriodStart, setBillingPeriodStart] = useState<string>(
+    subscription?.billing_period_start
+      ? subscription.billing_period_start.substring(0, 10)
+      : '2024-01-01'
+  );
 
   // Flow state
   const [passcodeOpen, setPasscodeOpen] = useState(false);
@@ -100,7 +107,7 @@ export const SubscriptionManageDialog = ({
         await billingService.patchSubscription(
           subscription.subscription_id,
           {
-            status: newStatus as 'ACTIVE' | 'PAUSED' | 'CANCELLED',
+            status: newStatus as 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'PENDING_PAYMENT' | 'CANCELLED',
             auto_renew: autoRenew,
             staff_id: loginId || undefined,
           },
@@ -109,10 +116,18 @@ export const SubscriptionManageDialog = ({
         setSuccess('Subscription lifecycle updated successfully.');
       } else {
         // PATCH /billing/subscriptions/:id/pricing  — pricing
-        const payload: { unit_price_snapshot?: number; total_amount?: number; next_renewal_date?: string } = {};
+        const payload: { 
+          unit_price_snapshot?: number; 
+          total_amount?: number; 
+          next_renewal_date?: string;
+          billing_period_start?: string;
+        } = {};
         if (unitPrice.trim() !== '') payload.unit_price_snapshot = parseFloat(unitPrice);
         if (totalAmount.trim() !== '') payload.total_amount = parseFloat(totalAmount);
-        if (nextRenewalDate.trim() !== '') payload.next_renewal_date = nextRenewalDate;
+        if (nextRenewalDate.trim() !== '' && false) { // Disabled for now as requested
+          payload.next_renewal_date = nextRenewalDate;
+        }
+        if (billingPeriodStart.trim() !== '') payload.billing_period_start = billingPeriodStart;
 
         await billingService.patchSubscriptionPricing(
           subscription.subscription_id,
@@ -377,18 +392,38 @@ export const SubscriptionManageDialog = ({
                 />
 
                 <TextField
-                  label="Next Renewal Date"
+                  label="Billing Period Start"
                   type="date"
                   fullWidth
-                  value={nextRenewalDate}
-                  onChange={(e) => setNextRenewalDate(e.target.value)}
+                  value={billingPeriodStart}
+                  onChange={(e) => setBillingPeriodStart(e.target.value)}
                   InputLabelProps={{ shrink: true }}
                   sx={{ 
                     '& .MuiOutlinedInput-root': { borderRadius: 2.5 },
                     '& .MuiInputLabel-root': { fontWeight: 600 }
                   }}
-                  helperText="Set or override the date this subscription next renews."
+                  helperText="The start date of the current billing cycle."
                 />
+
+                <Box>
+                  <TextField
+                    label="Next Renewal Date"
+                    type="date"
+                    fullWidth
+                    value={nextRenewalDate}
+                    onChange={(e) => setNextRenewalDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    disabled={true}
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': { borderRadius: 2.5 },
+                      '& .MuiInputLabel-root': { fontWeight: 600 },
+                      opacity: 0.7
+                    }}
+                  />
+                  <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 700, mt: 0.5, display: 'block' }}>
+                    Note: This feature will be added soon.
+                  </Typography>
+                </Box>
               </Box>
 
               <Alert severity="info" variant="outlined" sx={{ borderRadius: 3, bgcolor: '#f0f9ff', border: '1px solid #bae6fd', fontSize: '0.85rem' }}>

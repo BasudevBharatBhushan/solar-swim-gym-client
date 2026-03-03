@@ -45,7 +45,7 @@ export interface Subscription {
   subscription_id: string;
   subscription_type: 'MEMBERSHIP_FEE' | 'MEMBERSHIP_JOINING' | 'MEMBERSHIP_RENEWAL' | 'SERVICE';
   reference_id: string; // ID of the plan/service
-  status: 'ACTIVE' | 'PAID' | 'CANCELLED' | 'PAUSED';
+  status: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'PENDING_PAYMENT' | 'CANCELLED';
   created_at: string;
   billing_period_start?: string;
   billing_period_end?: string;

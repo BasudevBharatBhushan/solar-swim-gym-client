@@ -2193,6 +2193,11 @@ export const Marketplace = () => {
     try {
       const totalAmount = cart.reduce((sum, item) => sum + item.price, 0);
 
+      // If we already have a pending invoice for this checkout session, return it
+      if (pendingInvoiceId) {
+        return { invoiceId: pendingInvoiceId, total: totalAmount };
+      }
+
       // 1. Copy cart items to subscriptions
       const subscriptionPromises = cart.map((item) => {
         const payload = constructSubscriptionPayload(item);

@@ -52,7 +52,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   const [manageOpen, setManageOpen] = useState(false);
   const [managedSub, setManagedSub] = useState<any>(null);
   
-  // Filter for membership status
+  // Filter for membership status: ACTIVE, PENDING, CANCELLED
   const [membershipStatusFilter, setMembershipStatusFilter] = useState<string>('ACTIVE');
 
   const isStaffOrAbove = ['STAFF', 'ADMIN', 'SUPERADMIN'].includes(role ?? '');
@@ -140,7 +140,9 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   const getStatusColor = (status: string) => {
       switch (status) {
           case 'ACTIVE': return 'success';
-          case 'PAID': return 'success';
+          case 'PAUSED': return 'warning';
+          case 'EXPIRED': return 'secondary';
+          case 'PENDING_PAYMENT': return 'info';
           case 'CANCELLED': return 'error';
           default: return 'default';
       }
@@ -168,13 +170,15 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   const serviceSubscriptions = filteredSubscriptions.filter(s => s.subscription_type === 'SERVICE');
   const membershipSubscriptions = filteredSubscriptions.filter(s => {
     if (s.subscription_type === 'SERVICE') return false;
-    
-    // Status filtering - default to ACTIVE
-    if (membershipStatusFilter === 'ACTIVE') return s.status === 'ACTIVE' || s.status === 'PAID';
-    if (membershipStatusFilter === 'INACTIVE') return s.status === 'PAUSED';
+
+    // Status filtering logic
+    if (membershipStatusFilter === 'ACTIVE') return s.status === 'ACTIVE';
+    if (membershipStatusFilter === 'PAUSED') return s.status === 'PAUSED';
+    if (membershipStatusFilter === 'EXPIRED') return s.status === 'EXPIRED';
+    if (membershipStatusFilter === 'PENDING_PAYMENT') return s.status === 'PENDING_PAYMENT';
     if (membershipStatusFilter === 'CANCELLED') return s.status === 'CANCELLED';
     
-    return true; // fallback for 'ALL' or undefined
+    return true; // fallback
   });
 
 
@@ -361,7 +365,9 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
             <Stack direction="row" spacing={1}>
               {[
                 { label: 'ACTIVE', value: 'ACTIVE', color: 'success' },
-                { label: 'INACTIVE', value: 'INACTIVE', color: 'warning' },
+                { label: 'PAUSED', value: 'PAUSED', color: 'warning' },
+                { label: 'EXPIRED', value: 'EXPIRED', color: 'secondary' },
+                { label: 'PENDING PAYMENT', value: 'PENDING_PAYMENT', color: 'info' },
                 { label: 'CANCELLED', value: 'CANCELLED', color: 'error' }
               ].map((f) => (
                 <Chip

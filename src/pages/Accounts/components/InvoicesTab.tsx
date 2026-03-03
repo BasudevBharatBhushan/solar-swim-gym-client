@@ -582,22 +582,30 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
           </Typography>
           
           {(cancellingInvoice?.status === 'PAID' || cancellingInvoice?.status === 'PARTIAL') && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: '#fef2f2', borderRadius: 2, border: '1px solid #fee2e2' }}>
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: '#f8fafc', 
+              borderRadius: 3, 
+              border: '1px solid #e2e8f0',
+              opacity: 0.6,
+              pointerEvents: 'none', // Prevents interaction while keeping the look
+              userSelect: 'none'
+            }}>
               <FormControlLabel
                 control={
                   <Checkbox 
-                    checked={voidInGateway} 
-                    onChange={(e) => setVoidInGateway(e.target.checked)}
-                    color="error"
+                    checked={false} 
+                    color="default"
                   />
                 }
                 label={
                   <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#991b1b' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#64748b' }}>
                       Void/Reverse payment in gateway
                     </Typography>
-                    <Typography variant="caption" sx={{ color: '#ef4444', display: 'block' }}>
-                      WARNING: This will attempt to refund the customer automatically.
+                    <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5 }}>
+                      Direct voiding has not been enabled yet. Kindly void the related transaction directly from the payment gateway.
                     </Typography>
                   </Box>
                 }

@@ -27,7 +27,7 @@ export const billingService = {
   // PATCH /billing/subscriptions/:subscriptionId — lifecycle/status/auto-renew
   patchSubscription: async (
     subscriptionId: string,
-    payload: { status?: 'ACTIVE' | 'PAUSED' | 'CANCELLED'; auto_renew?: boolean; staff_id?: string },
+    payload: { status?: 'ACTIVE' | 'PAUSED' | 'EXPIRED' | 'PENDING_PAYMENT' | 'CANCELLED'; auto_renew?: boolean; staff_id?: string },
     locationId?: string
   ) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
@@ -37,7 +37,7 @@ export const billingService = {
   // PATCH /billing/subscriptions/:subscriptionId/pricing — pricing/billing snapshots
   patchSubscriptionPricing: async (
     subscriptionId: string,
-    payload: { unit_price_snapshot?: number; total_amount?: number; next_renewal_date?: string },
+    payload: { unit_price_snapshot?: number; total_amount?: number; next_renewal_date?: string; billing_period_start?: string },
     locationId?: string
   ) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};

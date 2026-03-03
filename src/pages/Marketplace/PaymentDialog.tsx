@@ -496,6 +496,31 @@ export const PaymentDialog = ({
                     Secure SSL encrypted
                   </Typography>
                 </Box>
+
+                {!invoiceId && (
+                  <Box sx={{ mt: 3, px: 1 }}>
+                    <Stack spacing={1.5}>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.8 }}>•</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+                          <strong>Pay</strong> will create an invoice in a Paid or Partial state.
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.8 }}>•</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+                          <strong>Skip</strong> will create an invoice in a Pending state.
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.8 }}>•</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.4 }}>
+                          <strong>Cancel</strong> will take you back to the cart without creating an invoice.
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Box>
+                )}
               </Stack>
             </Grid>
 
@@ -713,77 +738,58 @@ export const PaymentDialog = ({
                       </Button>
                     )}
 
-                    {/* Follow-up partial payment: only show Cancel to close */}
-                    {invoiceId ? (
+                    <Box sx={{ mt: 2 }}>
+                      {/* Secondary Action: Skip or Cancel */}
                       <Button
                         fullWidth
                         variant="outlined"
                         size="medium"
-                        onClick={onClose}
+                        onClick={onSkip ?? onClose}
                         disabled={processing}
                         sx={{
                           borderRadius: 2,
                           fontWeight: 700,
                           textTransform: "none",
-                          color: "text.secondary",
-                          borderColor: "divider",
+                          color: error ? "primary.main" : "text.secondary",
+                          borderColor: error ? "primary.main" : "divider",
+                          borderWidth: error ? 2 : 1,
                           "&:hover": {
-                            bgcolor: "#f1f5f9",
-                            borderColor: "text.disabled",
+                            bgcolor: error ? "primary.50" : "#f1f5f9",
+                            borderColor: error ? "primary.dark" : "text.disabled",
+                            borderWidth: error ? 2 : 1,
                           },
                           mb: 1.5,
                         }}
                       >
-                        Cancel
+                        {error
+                          ? "Skip for now & Pay Later"
+                          : invoiceId
+                            ? "Cancel"
+                            : "Skip Payment"}
                       </Button>
-                    ) : (
-                      <>
+
+                      {/* Third Action: Cancel & Return to Cart (Only if no invoice yet and no error) */}
+                      {!invoiceId && !error && (
                         <Button
                           fullWidth
-                          variant="outlined"
+                          variant="text"
                           size="medium"
-                          onClick={onSkip ?? onClose}
+                          onClick={onClose}
                           disabled={processing}
                           sx={{
                             borderRadius: 2,
                             fontWeight: 700,
                             textTransform: "none",
-                            color: error ? "primary.main" : "text.secondary",
-                            borderColor: error ? "primary.main" : "divider",
-                            borderWidth: error ? 2 : 1,
+                            color: "error.main",
                             "&:hover": {
-                              bgcolor: error ? "primary.50" : "#f1f5f9",
-                              borderColor: error ? "primary.dark" : "text.disabled",
-                              borderWidth: error ? 2 : 1,
+                              bgcolor: "error.50",
                             },
-                            mb: 1.5,
                           }}
                         >
-                          {error ? "Skip for now & Pay Later" : "Skip Payment"}
+                          Cancel & Return to Cart
                         </Button>
-
-                        {!error && (
-                          <Button
-                            fullWidth
-                            variant="text"
-                            size="medium"
-                            onClick={onClose}
-                            disabled={processing}
-                            sx={{
-                              borderRadius: 2,
-                              fontWeight: 700,
-                              textTransform: "none",
-                              color: "error.main",
-                              "&:hover": {
-                                bgcolor: "error.50",
-                              },
-                            }}
-                          >
-                            Cancel & Return to Cart
-                          </Button>
-                        )}
-                      </>
-                    )}
+                      )}
+                    </Box>
                   </Box>
                 </Stack>
               )}
