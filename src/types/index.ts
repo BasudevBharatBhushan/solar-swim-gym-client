@@ -135,8 +135,8 @@ export interface PaymentLinkDetails {
   invoice_no: string;
   location_name: string;
   profile_name: string;
-  total_amount?: number;
-  amount_due?: number;
+  invoice_total?: number;
+  current_amount_due?: number;
   saved_methods: {
     id: string;
     brand: string;

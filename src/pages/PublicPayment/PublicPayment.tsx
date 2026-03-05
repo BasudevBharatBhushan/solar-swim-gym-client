@@ -304,11 +304,11 @@ export const PublicPayment = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body2" color="text.secondary" fontWeight={600}>Total Invoice</Typography>
-                  <Typography variant="body2" fontWeight={700}>${Number(linkDetails?.total_amount || 0).toFixed(2)}</Typography>
+                  <Typography variant="body2" fontWeight={700}>${Number(linkDetails?.invoice_total || 0).toFixed(2)}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body2" color="text.secondary" fontWeight={600}>Payment Due</Typography>
-                  <Typography variant="body2" fontWeight={700} sx={{ color: '#ef4444' }}>${Number(linkDetails?.amount_due || 0).toFixed(2)}</Typography>
+                  <Typography variant="body2" fontWeight={700} sx={{ color: '#ef4444' }}>${Number(linkDetails?.current_amount_due || 0).toFixed(2)}</Typography>
                 </Box>
                 <Divider sx={{ my: 0.5, borderStyle: 'dashed', borderColor: '#e2e8f0' }} />
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>

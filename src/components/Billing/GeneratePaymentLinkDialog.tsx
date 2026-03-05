@@ -106,7 +106,7 @@ export const GeneratePaymentLinkDialog = ({ open, onClose, invoice }: GeneratePa
       const invoiceNo = invoice.invoice_no || invoice.invoice_id.substring(0, 8);
       const customerName = invoice.primary_profile_name || invoice.account_name || 'Valued Customer';
       const paymentDate = new Date().toLocaleDateString();
-      const paymentMethod = 'Online Payment (Credit Card / ACH)';
+      const dueDate = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000).toLocaleDateString();
 
       let subject = `Payment Request for Invoice #${invoiceNo}`;
       let body = `
@@ -120,6 +120,7 @@ export const GeneratePaymentLinkDialog = ({ open, onClose, invoice }: GeneratePa
           </p>
           <p style="word-break: break-all;"><a href="${url}">${url}</a></p>
           <p><strong>Total Amount Due: ${formattedAmount}</strong></p>
+          <p><strong>Due Date: ${dueDate}</strong></p>
           <p>Thank you!</p>
         </div>
       `;
@@ -140,10 +141,10 @@ export const GeneratePaymentLinkDialog = ({ open, onClose, invoice }: GeneratePa
               .replace(/\[fullname\]/gi, customerName)
               .replace(/\[invoice_number\]/gi, invoiceNo)
               .replace(/\[amount\]/gi, formattedAmount)
-              .replace(/\[payment_date\]/gi, paymentDate)
-              .replace(/\[payment_method\]/gi, paymentMethod);
+              .replace(/\[due_date\]/gi, dueDate)
+              .replace(/\[payment_link\]/gi, `<a href="${url}">${url}</a>`);
 
-            // If no link is in the template, append it
+            // If no link is in the template (manually or via placeholder), append it
             if (!content.includes(url)) {
               content = `${content}<br/><br/><strong>Secure Payment Link:</strong> <a href="${url}">${url}</a>`;
             }
