@@ -16,7 +16,6 @@ import {
   TablePagination,
   Grid,
   Button,
-  IconButton,
   TableSortLabel,
 } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -219,8 +218,16 @@ export const TransactionsTab = ({ accountId }: TransactionsTabProps) => {
               startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
             }}
           />
-          <Button type="submit" variant="outlined" sx={{ borderRadius: '8px' }}>
+          <Button type="submit" variant="contained" sx={{ borderRadius: '8px', fontWeight: 700 }}>
             Search
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<RefreshIcon />}
+            onClick={() => fetchTransactions()}
+            sx={{ borderRadius: '8px', fontWeight: 700 }}
+          >
+            Refresh
           </Button>
           <Button 
             variant="text" 
@@ -236,9 +243,7 @@ export const TransactionsTab = ({ accountId }: TransactionsTabProps) => {
           >
             Clear
           </Button>
-          <IconButton onClick={fetchTransactions} title="Refresh">
-            <RefreshIcon />
-          </IconButton>
+
         </Box>
       </Paper>
 

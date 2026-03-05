@@ -293,19 +293,33 @@ export const PublicPayment = () => {
         {/* ── LEFT: Order Summary ──────────────────────────────────────────── */}
         <Box sx={{ flex: { md: '0 0 340px' }, width: '100%' }}>
           <Box sx={cardSx}>
-            {/* Amount Due */}
-            <Box sx={{ textAlign: 'center', pb: 2.5, mb: 2.5, borderBottom: '1px solid #f1f5f9' }}>
+            {/* Amount Summary */}
+            <Box sx={{ pb: 1, mb: 1, borderBottom: '1px solid #f1f5f9' }}>
               <Typography
-                sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 2, color: '#94a3b8', textTransform: 'uppercase', mb: 0.5 }}
+                sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 2, color: '#94a3b8', textTransform: 'uppercase', mb: 2, textAlign: 'center' }}
               >
-                Amount Due
+                Payment Summary
               </Typography>
-              <Typography
-                sx={{ fontSize: { xs: '2.4rem', sm: '2.75rem' }, fontWeight: 900, color: '#0f172a', lineHeight: 1 }}
-              >
-                ${Number(linkDetails?.amount_to_be_paid || 0).toFixed(2)}
-              </Typography>
+              
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" color="text.secondary" fontWeight={600}>Total Invoice</Typography>
+                  <Typography variant="body2" fontWeight={700}>${Number(linkDetails?.total_amount || 0).toFixed(2)}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" color="text.secondary" fontWeight={600}>Payment Due</Typography>
+                  <Typography variant="body2" fontWeight={700} sx={{ color: '#ef4444' }}>${Number(linkDetails?.amount_due || 0).toFixed(2)}</Typography>
+                </Box>
+                <Divider sx={{ my: 0.5, borderStyle: 'dashed', borderColor: '#e2e8f0' }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+                  <Typography variant="body1" color="primary" fontWeight={800}>Amount to Pay Now</Typography>
+                  <Typography variant="h5" fontWeight={900} color="primary">
+                    ${Number(linkDetails?.amount_to_be_paid || 0).toFixed(2)}
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
+
 
             {/* Subscription Breakdown */}
             {subs.length > 0 && (

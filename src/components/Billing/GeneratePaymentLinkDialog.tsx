@@ -16,6 +16,8 @@ import {
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import EmailIcon from '@mui/icons-material/Email';
 import { paymentLinkService } from '../../services/paymentLinkService';
+import { emailService } from '../../services/emailService';
+import { useAuth } from '../../context/AuthContext';
 import { EmailComposer } from '../Email/EmailComposer';
 
 interface GeneratePaymentLinkDialogProps {
@@ -25,6 +27,7 @@ interface GeneratePaymentLinkDialogProps {
 }
 
 export const GeneratePaymentLinkDialog = ({ open, onClose, invoice }: GeneratePaymentLinkDialogProps) => {
+  const { currentLocationId } = useAuth();
   const [amountToPay, setAmountToPay] = useState<string>('');
   const [expiresInDays, setExpiresInDays] = useState<number>(7);
   const [loading, setLoading] = useState(false);
@@ -97,14 +100,16 @@ export const GeneratePaymentLinkDialog = ({ open, onClose, invoice }: GeneratePa
     });
   };
 
-  const handleGenerateAndEmail = () => {
-    handleGenerate((url) => {
-      const formattedAmount = parseFloat(amountToPay).toFixed(2);
+  const handleGenerateAndEmail = async () => {
+    await handleGenerate(async (url) => {
+      const formattedAmount = `$${parseFloat(amountToPay).toFixed(2)}`;
       const invoiceNo = invoice.invoice_no || invoice.invoice_id.substring(0, 8);
-      
-      setEmailSubject(`Payment Request for Invoice #${invoiceNo}`);
-      
-      const htmlBody = `
+      const customerName = invoice.primary_profile_name || invoice.account_name || 'Valued Customer';
+      const paymentDate = new Date().toLocaleDateString();
+      const paymentMethod = 'Online Payment (Credit Card / ACH)';
+
+      let subject = `Payment Request for Invoice #${invoiceNo}`;
+      let body = `
         <div style="font-family: sans-serif; color: #333;">
           <p>Hello,</p>
           <p>Please find the secure payment link for your invoice below:</p>
@@ -114,11 +119,46 @@ export const GeneratePaymentLinkDialog = ({ open, onClose, invoice }: GeneratePa
             </a>
           </p>
           <p style="word-break: break-all;"><a href="${url}">${url}</a></p>
-          <p><strong>Total Amount Due: $${formattedAmount}</strong></p>
+          <p><strong>Total Amount Due: ${formattedAmount}</strong></p>
           <p>Thank you!</p>
         </div>
       `;
-      setEmailBody(htmlBody);
+
+      if (currentLocationId) {
+        setLoading(true);
+        try {
+          const templates = await emailService.getTemplates(currentLocationId);
+          const targetSubject = 'Payment Request – Complete Your Payment for Glass Court Swim & Fitness';
+          const template = templates.find(t => t.subject === targetSubject);
+
+          if (template) {
+            subject = template.subject;
+            let content = template.body_content || '';
+
+            // Replace variables
+            content = content
+              .replace(/\[fullname\]/gi, customerName)
+              .replace(/\[invoice_number\]/gi, invoiceNo)
+              .replace(/\[amount\]/gi, formattedAmount)
+              .replace(/\[payment_date\]/gi, paymentDate)
+              .replace(/\[payment_method\]/gi, paymentMethod);
+
+            // If no link is in the template, append it
+            if (!content.includes(url)) {
+              content = `${content}<br/><br/><strong>Secure Payment Link:</strong> <a href="${url}">${url}</a>`;
+            }
+
+            body = content;
+          }
+        } catch (err) {
+          console.warn('Failed to fetch email templates, using default message', err);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      setEmailSubject(subject);
+      setEmailBody(body);
       setView('email');
     });
   };

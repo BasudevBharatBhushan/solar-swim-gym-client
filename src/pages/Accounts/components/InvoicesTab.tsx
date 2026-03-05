@@ -552,8 +552,16 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
               startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />
             }}
           />
-          <Button type="submit" variant="outlined" sx={{ borderRadius: '8px' }}>
+          <Button type="submit" variant="contained" sx={{ borderRadius: '8px', fontWeight: 700 }}>
             Search
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<RefreshIcon />}
+            onClick={() => fetchInvoices()}
+            sx={{ borderRadius: '8px', fontWeight: 700 }}
+          >
+            Refresh
           </Button>
           <Button 
             variant="text" 
@@ -569,9 +577,7 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
           >
             Clear
           </Button>
-          <IconButton onClick={fetchInvoices} title="Refresh">
-            <RefreshIcon />
-          </IconButton>
+
         </Box>
       </Paper>
 
