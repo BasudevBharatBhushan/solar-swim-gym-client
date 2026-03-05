@@ -110,8 +110,18 @@ export const billingService = {
     return apiClient.post('/payments/save-card', cardData, options);
   },
 
-  cancelInvoice: async (invoiceId: string, voidPaymentInGateway: boolean = false, locationId?: string) => {
+  voidTransaction: async (data: { transactionId: string, invoiceId: string, accountId: string }, locationId?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.post(`/invoices/${invoiceId}/cancel`, { voidPaymentInGateway }, options);
+    return apiClient.post('/payment/void', data, options);
+  },
+
+  refundTransaction: async (data: { transactionId: string, invoiceId: string, accountId: string, refundAmount?: number }, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post('/payment/refund', data, options);
+  },
+
+  cancelInvoice: async (invoiceId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.post(`/invoices/${invoiceId}/cancel`, { voidPaymentInGateway: false }, options);
   },
 };

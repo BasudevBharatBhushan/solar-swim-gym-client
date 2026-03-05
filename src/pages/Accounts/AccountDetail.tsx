@@ -1,11 +1,13 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Box, Grid, CircularProgress, Typography, Button, Paper, Tabs, Tab, Stack, Snackbar, Alert, Dialog, DialogContent, Tooltip } from '@mui/material';
+import { Box, Grid, CircularProgress, Typography, Button, Paper, Tabs, Tab, Stack, Snackbar, Alert, Dialog, DialogContent, Tooltip, DialogTitle, DialogActions } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LinkIcon from '@mui/icons-material/Link';
 import PaymentsIcon from '@mui/icons-material/Payments';
 import LaunchIcon from '@mui/icons-material/Launch';
+import DeleteIcon from '@mui/icons-material/Delete';
+import WarningIcon from '@mui/icons-material/Warning';
 import { authService } from '../../services/authService';
 import { billingService } from '../../services/billingService';
 import { waiverService } from '../../services/waiverService';
@@ -27,6 +29,7 @@ import { TransactionsTab } from './components/TransactionsTab';
 import { ProfileUpsertDialog } from './components/ProfileUpsertDialog';
 import { SavedCardsTab } from './components/SavedCardsTab';
 import { useAuth } from '../../context/AuthContext';
+import { ManagerPasscodeDialog } from '../../components/Common/ManagerPasscodeDialog';
 
 interface WaiverComposeDraft {
   to: string;
@@ -90,6 +93,9 @@ export const AccountDetail = () => {
     severity: 'info'
   });
 
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [passcodeOpen, setPasscodeOpen] = useState(false);
+
   const showToast = (message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'error') => {
     setToast({ open: true, message, severity });
   };
@@ -140,6 +146,32 @@ export const AccountDetail = () => {
         console.error("Failed to send payment link", error);
         showToast(error.message || "Failed to send payment link", "error");
     } finally {
+        setActionLoading(false);
+    }
+  };
+
+  const handleDeleteClick = () => {
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setDeleteConfirmOpen(false);
+    setPasscodeOpen(true);
+  };
+
+  const handlePasscodeSuccess = async () => {
+    if (!accountId || !currentLocationId) return;
+    setPasscodeOpen(false);
+    setActionLoading(true);
+    try {
+        await crmService.deleteAccount(accountId, currentLocationId);
+        showToast("Account and all related data deleted successfully", "success");
+        setTimeout(() => {
+            navigate('/admin/accounts');
+        }, 1500);
+    } catch (error: any) {
+        console.error("Failed to delete account", error);
+        showToast(error.message || "Failed to delete account", "error");
         setActionLoading(false);
     }
   };
@@ -610,6 +642,46 @@ export const AccountDetail = () => {
                 >
                     Back to Accounts
                 </Button>
+                {(() => {
+                    console.log("Current user role:", role);
+                    return null;
+                })()}
+
+                {(['SUPERADMIN','ADMIN', 'STAFF', 'admin', 'staff'].includes(role || '')) && (
+                    <>
+                        <Box sx={{ width: '1px', height: 24, bgcolor: '#e2e8f0', mx: 0.5 }} />
+                        <Tooltip title="Permanently delete account and all data" arrow>
+                            <span>
+                                <Button
+                                    startIcon={<DeleteIcon sx={{ fontSize: '0.95rem !important' }} />}
+                                    onClick={handleDeleteClick}
+                                    disabled={actionLoading}
+                                    size="small"
+                                    sx={{
+                                        textTransform: 'none',
+                                        fontWeight: 600,
+                                        fontSize: '0.8rem',
+                                        px: 1.75,
+                                        py: 0.75,
+                                        borderRadius: '6px',
+                                        border: '1.5px solid #ef4444',
+                                        color: '#b91c1c',
+                                        bgcolor: '#fef2f2',
+                                        '&:hover': {
+                                            bgcolor: '#fee2e2',
+                                            borderColor: '#dc2626',
+                                            boxShadow: '0 2px 8px rgba(239,68,68,0.15)',
+                                        },
+                                        transition: 'all 0.2s ease',
+                                        '&.Mui-disabled': { opacity: 0.5 },
+                                    }}
+                                >
+                                    Delete Account
+                                </Button>
+                            </span>
+                        </Tooltip>
+                    </>
+                )}
             </Stack>
         }
       />
@@ -758,6 +830,49 @@ export const AccountDetail = () => {
             profile={profileToEdit}
             primaryProfile={account.profiles?.find((p: any) => p.is_primary) || account.profiles?.[0]}
         />
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth>
+            <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, color: '#b91c1c' }}>
+                <WarningIcon color="error" />
+                Caution: Delete Account
+            </DialogTitle>
+            <DialogContent>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                    Are you sure you want to delete this account?
+                </Typography>
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                    Deleting this account will permanently delete its related:
+                    <ul style={{ paddingLeft: '20px', marginTop: '8px' }}>
+                        <li>Profiles</li>
+                        <li>Subscriptions</li>
+                        <li>Transactions</li>
+                        <li>Invoices</li>
+                    </ul>
+                    This action cannot be undone.
+                </Alert>
+            </DialogContent>
+            <DialogActions sx={{ p: 2, pt: 0 }}>
+                <Button onClick={() => setDeleteConfirmOpen(false)} sx={{ color: '#64748b' }}>
+                    Cancel
+                </Button>
+                <Button 
+                    onClick={handleConfirmDelete} 
+                    variant="contained" 
+                    color="error"
+                    sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                >
+                    Delete Permanently
+                </Button>
+            </DialogActions>
+        </Dialog>
+
+        {/* Manager passcode gate */}
+      <ManagerPasscodeDialog
+        open={passcodeOpen}
+        onClose={() => setPasscodeOpen(false)}
+        onSuccess={handlePasscodeSuccess}
+      />
     </Box>
   );
 };

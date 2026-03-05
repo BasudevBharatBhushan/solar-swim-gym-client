@@ -29,7 +29,7 @@ This directory (`docs/03_Changelog/`) maintains the version history of the Solar
 
 ## 📌 Version Master List
 
-* *Add new versions here at the top...*
+* [v1.2.0](v1.2.0.md) - *Atomic Payments, Deferred Creation & Billing UI Refinements*
 * [v1.1.1](v1.1.1.md) - *Patch Notes Example*
 * [v1.1.0](v1.1.0.md) - *Minor Release Example*
 * [v1.0.0](v1.0.0.md) - *Initial Stable Release*

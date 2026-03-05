@@ -99,4 +99,9 @@ export const crmService = {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.post('/profiles/upsert', profileData, options);
   },
+
+  deleteAccount: async (accountId: string, locationId?: string) => {
+    const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
+    return apiClient.delete(`/accounts/${accountId}`, options);
+  },
 };

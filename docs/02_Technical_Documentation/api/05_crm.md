@@ -96,6 +96,20 @@ Management of registered families (Accounts) and individual members (Profiles).
   }
   ```
 
+### **DELETE** `/accounts/:accountId`
+- **Purpose**: Permanent deletion of an account and all its related details (profiles, waivers, billing history, etc.).
+- **Permissions**: `SUPERADMIN`, `ADMIN`, `STAFF`.
+- **Headers**:
+  - `Authorization`: `Bearer <token>`
+  - `x-location-id`: `uuid`
+- **Response**: `{ "message": "Account and related data successfully deleted" }`
+- **CURL Example**:
+  ```bash
+  curl -X DELETE "http://localhost:3001/api/v1/accounts/68032746-8e54-47fd-893f-7e9286eb079c" \
+       -H "Authorization: Bearer YOUR_TOKEN" \
+       -H "x-location-id: YOUR_LOCATION_ID"
+  ```
+
 ---
 
 ## 6.3 Maintenance

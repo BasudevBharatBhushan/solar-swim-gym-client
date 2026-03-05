@@ -31,7 +31,7 @@ import { billingService } from '../../../services/billingService';
 import { InvoicePreviewModal } from '../../../components/Billing/InvoicePreviewModal';
 import { useAuth } from '../../../context/AuthContext';
 import { ManagerPasscodeDialog } from '../../../components/Common/ManagerPasscodeDialog';
-import { FormControlLabel, Checkbox, Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert } from '@mui/material';
 
 interface InvoicesTabProps {
   accountId: string;
@@ -59,9 +59,11 @@ interface InvoiceRowProps {
   invoice: any;
   onOpen: (inv: any) => void;
   onCancel: (inv: any) => void;
+  onVoidTxn: (invoiceId: string, txn: any) => void;
+  onRefundTxn: (invoiceId: string, txn: any) => void;
 }
 
-const InvoiceRow = ({ invoice, onOpen, onCancel }: InvoiceRowProps) => {
+const InvoiceRow = ({ invoice, onOpen, onCancel, onVoidTxn, onRefundTxn }: InvoiceRowProps) => {
   const [open, setOpen] = useState(false);
   const hasTransactions = Array.isArray(invoice.payment_transactions) && invoice.payment_transactions.length > 0;
 
@@ -191,6 +193,7 @@ const InvoiceRow = ({ invoice, onOpen, onCancel }: InvoiceRowProps) => {
                       <TableCell sx={{ fontWeight: 600, color: '#64748b', fontSize: '0.75rem' }}>Approval Code</TableCell>
                       <TableCell sx={{ fontWeight: 600, color: '#64748b', fontSize: '0.75rem' }} align="right">Amount</TableCell>
                       <TableCell sx={{ fontWeight: 600, color: '#64748b', fontSize: '0.75rem' }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: '#64748b', fontSize: '0.75rem' }} align="right">Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -243,6 +246,30 @@ const InvoiceRow = ({ invoice, onOpen, onCancel }: InvoiceRowProps) => {
                             </Typography>
                           </Box>
                         </TableCell>
+                        <TableCell align="right">
+                          {(txn.status?.toUpperCase() === 'APPROVED' || txn.status?.toUpperCase() === 'CAPTURED') && (
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                              <Button 
+                                size="small" 
+                                variant="outlined" 
+                                color="error" 
+                                sx={{ py: 0.25, px: 1, fontSize: '0.7rem', minWidth: 'auto' }}
+                                onClick={() => onVoidTxn(invoice.invoice_id, txn)}
+                              >
+                                Void
+                              </Button>
+                              <Button 
+                                size="small" 
+                                variant="outlined" 
+                                color="warning" 
+                                sx={{ py: 0.25, px: 1, fontSize: '0.7rem', minWidth: 'auto' }}
+                                onClick={() => onRefundTxn(invoice.invoice_id, txn)}
+                              >
+                                Refund
+                              </Button>
+                            </Box>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -277,20 +304,39 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
   const [cancellingInvoice, setCancellingInvoice] = useState<any>(null);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [passcodeOpen, setPasscodeOpen] = useState(false);
-  const [voidInGateway, setVoidInGateway] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
 
+  // Txn Action state
+  const [passcodeMode, setPasscodeMode] = useState<'CANCEL_INVOICE' | 'VOID_TXN' | 'REFUND_TXN'>('CANCEL_INVOICE');
+  const [selectedTxn, setSelectedTxn] = useState<{ invoiceId: string, txn: any } | null>(null);
+  const [confirmTxnOpen, setConfirmTxnOpen] = useState(false);
+
   const handleCancelClick = (invoice: any) => {
     setCancellingInvoice(invoice);
-    setVoidInGateway(false);
     setCancelError(null);
+    setPasscodeMode('CANCEL_INVOICE');
     setConfirmCancelOpen(true);
   };
 
   const proceedToPasscode = () => {
     setConfirmCancelOpen(false);
+    setConfirmTxnOpen(false);
     setPasscodeOpen(true);
+  };
+
+  const handleVoidTxn = (invoiceId: string, txn: any) => {
+    setSelectedTxn({ invoiceId, txn });
+    setCancelError(null);
+    setPasscodeMode('VOID_TXN');
+    setConfirmTxnOpen(true);
+  };
+
+  const handleRefundTxn = (invoiceId: string, txn: any) => {
+    setSelectedTxn({ invoiceId, txn });
+    setCancelError(null);
+    setPasscodeMode('REFUND_TXN');
+    setConfirmTxnOpen(true);
   };
 
   const handleCancelSuccess = async () => {
@@ -298,13 +344,30 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
     setCancelLoading(true);
     setCancelError(null);
     try {
-      await billingService.cancelInvoice(cancellingInvoice.invoice_id, voidInGateway, currentLocationId || undefined);
-      setCancellingInvoice(null);
+      if (passcodeMode === 'CANCEL_INVOICE') {
+        await billingService.cancelInvoice(cancellingInvoice.invoice_id, currentLocationId || undefined);
+        setCancellingInvoice(null);
+      } else if (passcodeMode === 'VOID_TXN' && selectedTxn) {
+        await billingService.voidTransaction({
+          transactionId: selectedTxn.txn.id,
+          invoiceId: selectedTxn.invoiceId,
+          accountId: accountId
+        }, currentLocationId || undefined);
+        setSelectedTxn(null);
+      } else if (passcodeMode === 'REFUND_TXN' && selectedTxn) {
+        await billingService.refundTransaction({
+          transactionId: selectedTxn.txn.id,
+          invoiceId: selectedTxn.invoiceId,
+          accountId: accountId
+        }, currentLocationId || undefined);
+        setSelectedTxn(null);
+      }
       await fetchInvoices();
     } catch (err: any) {
-      console.error('Failed to cancel invoice:', err);
-      setCancelError(err.response?.data?.error || err.message || 'Failed to cancel invoice.');
-      setConfirmCancelOpen(true); // Re-open confirm dialog to show error
+      console.error(`Failed to process action:`, err);
+      setCancelError(err.response?.data?.error || err.message || `Failed to complete action.`);
+      if (passcodeMode === 'CANCEL_INVOICE') setConfirmCancelOpen(true);
+      else setConfirmTxnOpen(true);
     } finally {
       setCancelLoading(false);
     }
@@ -544,6 +607,8 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
                   invoice={invoice}
                   onOpen={setSelectedInvoice}
                   onCancel={handleCancelClick}
+                  onVoidTxn={handleVoidTxn}
+                  onRefundTxn={handleRefundTxn}
                 />
               ))
             )}
@@ -580,38 +645,6 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
             Are you sure you want to cancel invoice <strong>{cancellingInvoice?.invoice_id.substring(0, 8)}</strong>? 
             This will also cancel any related subscription coverage.
           </Typography>
-          
-          {(cancellingInvoice?.status === 'PAID' || cancellingInvoice?.status === 'PARTIAL') && (
-            <Box sx={{ 
-              mt: 2, 
-              p: 2, 
-              bgcolor: '#f8fafc', 
-              borderRadius: 3, 
-              border: '1px solid #e2e8f0',
-              opacity: 0.6,
-              pointerEvents: 'none', // Prevents interaction while keeping the look
-              userSelect: 'none'
-            }}>
-              <FormControlLabel
-                control={
-                  <Checkbox 
-                    checked={false} 
-                    color="default"
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#64748b' }}>
-                      Void/Reverse payment in gateway
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5 }}>
-                      Direct voiding has not been enabled yet. Kindly void the related transaction directly from the payment gateway.
-                    </Typography>
-                  </Box>
-                }
-              />
-            </Box>
-          )}
 
           {cancelError && (
             <Alert severity="error" sx={{ mt: 2 }}>
@@ -631,6 +664,40 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
             sx={{ fontWeight: 800, px: 3 }}
           >
             {cancelLoading ? 'Cancelling...' : 'Yes, Cancel Invoice'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Txn Confirmation Dialog */}
+      <Dialog open={confirmTxnOpen} onClose={() => !cancelLoading && setConfirmTxnOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {passcodeMode === 'VOID_TXN' ? 'Void Transaction' : 'Refund Transaction'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Are you sure you want to {passcodeMode === 'VOID_TXN' ? 'void' : 'refund'} this transaction of 
+            <strong> ${Number(selectedTxn?.txn?.amount || 0).toFixed(2)}</strong>?
+            This will update the invoice due amount and statuses accordingly.
+          </Typography>
+
+          {cancelError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {cancelError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setConfirmTxnOpen(false)} disabled={cancelLoading} sx={{ fontWeight: 600 }}>
+            No, Back
+          </Button>
+          <Button 
+            onClick={proceedToPasscode} 
+            variant="contained" 
+            color={passcodeMode === 'VOID_TXN' ? 'error' : 'warning'} 
+            disabled={cancelLoading}
+            sx={{ fontWeight: 800, px: 3 }}
+          >
+            {cancelLoading ? 'Processing...' : `Yes, ${passcodeMode === 'VOID_TXN' ? 'Void' : 'Refund'}`}
           </Button>
         </DialogActions>
       </Dialog>
