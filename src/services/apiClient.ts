@@ -1,11 +1,21 @@
-const getBaseUrl = () => {
+export const getBaseUrl = () => {
+  let url = '';
   if (typeof import.meta !== 'undefined' && import.meta.env) {
-    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
+    url = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
+  } else {
+    url = 'http://localhost:3001/api/v1';
   }
-  return 'http://localhost:3001/api/v1';
+
+  // Ensure the URL has a protocol if it's not a relative path
+  // This prevents the browser from treating the hostname as a relative path
+  if (url && !url.startsWith('http') && !url.startsWith('/')) {
+    url = `https://${url}`;
+  }
+
+  return url;
 };
 
-const API_BASE_URL = getBaseUrl();
+export const API_BASE_URL = getBaseUrl();
 const TOKEN_KEY = 'token';
 
 /**

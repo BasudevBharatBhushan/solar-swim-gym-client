@@ -21,9 +21,8 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import logo from '../assets/logo.png';
+import { API_BASE_URL } from '../services/apiClient';
 
-// Move to a config file in production
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -45,7 +44,7 @@ export const Login = () => {
     setError(null);
 
     try {
-      const response = await axios.post(`${API_URL}/auth/staff/login`, {
+      const response = await axios.post(`${API_BASE_URL}/auth/staff/login`, {
         email,
         password,
       });

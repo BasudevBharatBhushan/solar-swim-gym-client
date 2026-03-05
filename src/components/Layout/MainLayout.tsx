@@ -8,7 +8,7 @@ import axios from 'axios';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import LogoutIcon from '@mui/icons-material/Logout';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api/v1';
+import { API_BASE_URL } from '../../services/apiClient';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -21,7 +21,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
   useEffect(() => {
     if (isAuthenticated && role === 'SUPERADMIN') {
       if (locations.length === 0) {
-        axios.get(`${API_URL}/locations`, {
+        axios.get(`${API_BASE_URL}/locations`, {
           headers: { Authorization: `Bearer ${token}` }
         })
         .then(res => {
