@@ -167,7 +167,7 @@ export const GeneratePaymentLinkDialog = ({ open, onClose, invoice }: GeneratePa
   if (!open || !invoice) return null;
 
   return (
-    <Dialog open={open} onClose={() => !loading && onClose()} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={() => !loading && onClose()} maxWidth="md" fullWidth>
       {view === 'generate' ? (
         <>
           <DialogTitle sx={{ fontWeight: 800 }}>Generate Payment Link</DialogTitle>
