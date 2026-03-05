@@ -277,7 +277,7 @@ export const PublicPayment = () => {
           display: 'flex',
           flexDirection: { xs: 'column', md: 'row' },
           gap: { xs: 2, sm: 2.5 },
-          alignItems: 'flex-start',
+          alignItems: { xs: 'stretch', md: 'flex-start' },
         }}
       >
         {/* ── LEFT: Order Summary ──────────────────────────────────────────── */}
