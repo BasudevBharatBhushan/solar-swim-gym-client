@@ -68,6 +68,7 @@ export interface Subscription {
     created_at: string;
     payment_transactions?: any[];
   };
+  signedwaiver_id?: string;
 }
 
 export interface Session {
@@ -113,5 +114,42 @@ export interface GroupedWaiverTemplate {
     base_price_ids: string[];
     ageprofile_ids: string[];
     subterm_ids: string[];
+  };
+}
+
+export interface PaymentLinkResponse {
+  message: string;
+  token: string;
+  expires_at: string;
+  id: string;
+}
+
+export interface PaymentLinkDetails {
+  id: string;
+  token: string;
+  invoice_id: string;
+  account_id: string;
+  location_id: string;
+  amount_to_be_paid: number;
+  status: 'pending' | 'paid' | 'expired' | 'cancelled';
+  expires_at: string;
+  invoice_no: string;
+  location_name: string;
+  profile_name: string;
+  saved_methods: {
+    id: string;
+    brand: string;
+    last4: string;
+    expiry: string;
+  }[];
+}
+
+export interface PaymentLinkPayResponse {
+  message: string;
+  transaction: {
+    id: string;
+    status: string;
+    amount: number;
+    approval_code: string;
   };
 }

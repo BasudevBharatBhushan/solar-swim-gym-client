@@ -27,7 +27,9 @@ import CreditCardIcon from '@mui/icons-material/CreditCard';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CancelIcon from '@mui/icons-material/Cancel';
+import LinkIcon from '@mui/icons-material/Link';
 import { billingService } from '../../../services/billingService';
+import { GeneratePaymentLinkDialog } from '../../../components/Billing/GeneratePaymentLinkDialog';
 import { InvoicePreviewModal } from '../../../components/Billing/InvoicePreviewModal';
 import { useAuth } from '../../../context/AuthContext';
 import { ManagerPasscodeDialog } from '../../../components/Common/ManagerPasscodeDialog';
@@ -61,9 +63,10 @@ interface InvoiceRowProps {
   onCancel: (inv: any) => void;
   onVoidTxn: (invoiceId: string, txn: any) => void;
   onRefundTxn: (invoiceId: string, txn: any) => void;
+  onSendLink: (inv: any) => void;
 }
 
-const InvoiceRow = ({ invoice, onOpen, onCancel, onVoidTxn, onRefundTxn }: InvoiceRowProps) => {
+const InvoiceRow = ({ invoice, onOpen, onCancel, onVoidTxn, onRefundTxn, onSendLink }: InvoiceRowProps) => {
   const [open, setOpen] = useState(false);
   const hasTransactions = Array.isArray(invoice.payment_transactions) && invoice.payment_transactions.length > 0;
 
@@ -152,22 +155,40 @@ const InvoiceRow = ({ invoice, onOpen, onCancel, onVoidTxn, onRefundTxn }: Invoi
           </Typography>
         </TableCell>
         <TableCell align="right">
-          {invoice.status !== 'CANCELLED' && (
-            <Tooltip title="Cancel Invoice" arrow>
-              <IconButton 
-                size="small" 
-                color="error" 
-                onClick={(e) => { e.stopPropagation(); onCancel(invoice); }}
-                sx={{ 
-                  bgcolor: '#fef2f2', 
-                  '&:hover': { bgcolor: '#fee2e2' },
-                  transition: 'all 0.2s'
-                }}
-              >
-                <CancelIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+            {invoice.status !== 'PAID' && Number(invoice.amount_due ?? invoice.AmountDue ?? invoice.total_amount) > 0 && (
+              <Tooltip title="Send Payment Link" arrow>
+                <IconButton 
+                  size="small" 
+                  color="primary" 
+                  onClick={(e) => { e.stopPropagation(); onSendLink(invoice); }}
+                  sx={{ 
+                    bgcolor: '#eff6ff', 
+                    '&:hover': { bgcolor: '#dbeafe' },
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <LinkIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            {invoice.status !== 'CANCELLED' && (
+              <Tooltip title="Cancel Invoice" arrow>
+                <IconButton 
+                  size="small" 
+                  color="error" 
+                  onClick={(e) => { e.stopPropagation(); onCancel(invoice); }}
+                  sx={{ 
+                    bgcolor: '#fef2f2', 
+                    '&:hover': { bgcolor: '#fee2e2' },
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <CancelIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
         </TableCell>
       </TableRow>
 
@@ -299,6 +320,7 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const [selectedInvoice, setSelectedInvoice] = useState<{id: string, paymentDetails?: any} | null>(null);
+  const [linkInvoice, setLinkInvoice] = useState<any>(null);
   
   // Cancellation state
   const [cancellingInvoice, setCancellingInvoice] = useState<any>(null);
@@ -609,6 +631,7 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
                   onCancel={handleCancelClick}
                   onVoidTxn={handleVoidTxn}
                   onRefundTxn={handleRefundTxn}
+                  onSendLink={(inv) => setLinkInvoice(inv)}
                 />
               ))
             )}
@@ -634,6 +657,14 @@ export const InvoicesTab = ({ accountId }: InvoicesTabProps) => {
           accountId={accountId}
           initialPaymentDetails={selectedInvoice.paymentDetails}
           onRefresh={fetchInvoices}
+        />
+      )}
+
+      {linkInvoice && (
+        <GeneratePaymentLinkDialog
+          open={!!linkInvoice}
+          onClose={() => setLinkInvoice(null)}
+          invoice={linkInvoice}
         />
       )}
 

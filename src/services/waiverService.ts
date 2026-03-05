@@ -206,5 +206,23 @@ export const waiverService = {
   getWaiverTemplateById: async (id: string, locationId?: string): Promise<WaiverTemplate> => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
     return apiClient.get(`/waiver-templates/${id}`, {}, options);
+  },
+
+  // Get waiver status for an account (pending and signed)
+  getWaiverStatus: async (accountId: string, profileId?: string, status?: string) => {
+    const params: any = { account_id: accountId };
+    if (profileId) params.profile_id = profileId;
+    if (status) params.status = status;
+    return apiClient.get('/waivers/status', params);
+  },
+
+  // Link signed waiver to a subscription
+  linkWaiverToSubscription: async (subscriptionId: string, signedWaiverId: string) => {
+    return apiClient.patch(`/subscriptions/${subscriptionId}/waiver`, { signedwaiver_id: signedWaiverId });
+  },
+
+  // Get a single signed waiver by its ID
+  getSignedWaiverById: async (signedWaiverId: string) => {
+    return apiClient.get(`/signed-waivers/${signedWaiverId}`);
   }
 };

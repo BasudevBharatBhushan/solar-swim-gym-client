@@ -26,10 +26,14 @@ import { billingService } from '../../../services/billingService';
 import { serviceCatalog } from '../../../services/serviceCatalog';
 import { basePriceService, BasePrice } from '../../../services/basePriceService';
 import { membershipService, MembershipProgram } from '../../../services/membershipService';
+import { waiverService } from '../../../services/waiverService';
 import { Subscription } from '../../../types';
 import { useConfig } from '../../../context/ConfigContext';
 import { getAgeGroupName } from '../../../lib/ageUtils';
 import { SubscriptionManageDialog } from './SubscriptionManageDialog';
+import HistoryEduIcon from '@mui/icons-material/HistoryEdu';
+import LinkIcon from '@mui/icons-material/Link';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Select, MenuItem, InputLabel, FormControl } from '@mui/material';
 
 interface SubscriptionsTabProps {
   accountId: string;
@@ -52,10 +56,68 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   const [manageOpen, setManageOpen] = useState(false);
   const [managedSub, setManagedSub] = useState<any>(null);
   
+  // Contract dialog state
+  const [contractOpen, setContractOpen] = useState(false);
+  const [contractData, setContractData] = useState<any>(null);
+  const [contractLoading, setContractLoading] = useState(false);
+
   // Filter for membership status: ACTIVE, PENDING, CANCELLED
   const [membershipStatusFilter, setMembershipStatusFilter] = useState<string>('ACTIVE');
 
   const isStaffOrAbove = ['STAFF', 'ADMIN', 'SUPERADMIN'].includes(role ?? '');
+
+  // Link contract dialog state
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkSub, setLinkSub] = useState<Subscription | null>(null);
+  const [availableWaivers, setAvailableWaivers] = useState<any[]>([]);
+  const [selectedWaiverId, setSelectedWaiverId] = useState<string>('');
+  const [linkLoading, setLinkLoading] = useState(false);
+
+  const handleContractClick = async (sub: Subscription) => {
+    if (!sub.signedwaiver_id) return;
+    setContractLoading(true);
+    setContractOpen(true);
+    try {
+      const res = await waiverService.getSignedWaiverById(sub.signedwaiver_id);
+      setContractData(res.data || res);
+    } catch (err) {
+      console.error('Failed to load contract', err);
+    } finally {
+      setContractLoading(false);
+    }
+  };
+
+  const handleOpenLinkDialog = async (sub: Subscription) => {
+    setLinkSub(sub);
+    setLinkOpen(true);
+    setLinkLoading(true);
+    try {
+        // Fetch signed waivers for the profile(s) on this sub
+        const targetProfileId = selectedProfileId || sub.subscription_coverage?.[0]?.profile_id || sub.coverage?.[0]?.profile_id || '';
+        const res = await waiverService.getSignedWaivers(targetProfileId, currentLocationId || '');
+        setAvailableWaivers(res.data || res);
+    } catch (err) {
+        console.error('Failed to load available waivers', err);
+    } finally {
+        setLinkLoading(false);
+    }
+  };
+
+  const handleLinkContract = async () => {
+    if (!linkSub || !selectedWaiverId) return;
+    setLinkLoading(true);
+    try {
+        await waiverService.linkWaiverToSubscription(linkSub.subscription_id, selectedWaiverId);
+        // We'd ideally refresh the subscriptions list here
+        setLinkOpen(false);
+        setLinkSub(null);
+        setSelectedWaiverId('');
+    } catch (err) {
+        console.error('Failed to link contract', err);
+    } finally {
+        setLinkLoading(false);
+    }
+  };
 
   const handleManageClick = (sub: any) => {
     setManagedSub(sub);
@@ -248,6 +310,27 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                                   <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.5, fontSize: '0.65rem' }}>
                                                       Ref: {sub.reference_id ? sub.reference_id.substring(0, 8) : 'N/A'}...
                                                   </Typography>
+                                                  {sub.signedwaiver_id ? (
+                                                      <Chip
+                                                          icon={<HistoryEduIcon sx={{ fontSize: '0.8rem' }} />}
+                                                          label="View Contract"
+                                                          size="small"
+                                                          onClick={(e) => { e.stopPropagation(); handleContractClick(sub); }}
+                                                          color="primary"
+                                                          variant="outlined"
+                                                          sx={{ mt: 1, fontSize: '0.65rem', height: 20, cursor: 'pointer' }}
+                                                      />
+                                                  ) : (
+                                                      <Chip
+                                                          icon={<LinkIcon sx={{ fontSize: '0.8rem' }} />}
+                                                          label="Link Contract"
+                                                          size="small"
+                                                          onClick={(e) => { e.stopPropagation(); handleOpenLinkDialog(sub); }}
+                                                          color="warning"
+                                                          variant="outlined"
+                                                          sx={{ mt: 1, fontSize: '0.65rem', height: 20, cursor: 'pointer' }}
+                                                      />
+                                                  )}
                                               </Box>
                                                <Stack direction="row" spacing={1} alignItems="center">
                                                   {sub.invoice && (
@@ -401,6 +484,7 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                             <TableCell>Sub Status</TableCell>
                             <TableCell>Invoice Status</TableCell>
                             <TableCell>Coverage</TableCell>
+                            <TableCell>Contract</TableCell>
                             {isStaffOrAbove && <TableCell align="right">Actions</TableCell>}
                         </TableRow>
                     </TableHead>
@@ -492,6 +576,29 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                             )}
                                         </Box>
                                     </TableCell>
+                                    <TableCell>
+                                        {sub.signedwaiver_id ? (
+                                            <Chip
+                                                icon={<HistoryEduIcon sx={{ fontSize: '0.8rem' }} />}
+                                                label="View"
+                                                size="small"
+                                                onClick={() => handleContractClick(sub)}
+                                                color="primary"
+                                                variant="outlined"
+                                                sx={{ fontSize: '0.65rem', height: 22, cursor: 'pointer' }}
+                                            />
+                                        ) : (
+                                            <Chip
+                                                icon={<LinkIcon sx={{ fontSize: '0.8rem' }} />}
+                                                label="Link"
+                                                size="small"
+                                                onClick={() => handleOpenLinkDialog(sub)}
+                                                color="warning"
+                                                variant="outlined"
+                                                sx={{ fontSize: '0.65rem', height: 22, cursor: 'pointer' }}
+                                            />
+                                        )}
+                                    </TableCell>
                                     {isStaffOrAbove && sub.status !== 'CANCELLED' && (
                                         <TableCell align="right">
                                             <Tooltip title="Manage subscription (status & pricing)" arrow>
@@ -540,6 +647,98 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
           subscription={managedSub}
         />
       )}
+
+      {/* Contract Viewer Dialog */}
+      <Dialog 
+        open={contractOpen} 
+        onClose={() => setContractOpen(false)}
+        maxWidth="md"
+        fullWidth
+        scroll="paper"
+      >
+        <DialogTitle>
+            Subscription Contract
+        </DialogTitle>
+        <DialogContent dividers>
+            {contractLoading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+                    <CircularProgress />
+                </Box>
+            ) : contractData ? (
+                <Box sx={{ bgcolor: '#f1f5f9', p: { xs: 1, md: 4 }, borderRadius: 1 }}>
+                    <Box
+                      sx={{ 
+                        maxWidth: '816px', 
+                        width: '100%', 
+                        margin: '0 auto', 
+                        bgcolor: '#fff', 
+                        p: { xs: 2, md: 6 },
+                        boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                        '& img': { maxWidth: '100%', height: 'auto' }
+                      }}
+                      dangerouslySetInnerHTML={{ __html: contractData.content }}
+                    />
+                    <Box sx={{ mt: 3, textAlign: 'center' }}>
+                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>Signature</Typography>
+                        {contractData.signature_url ? (
+                            <img src={contractData.signature_url} alt="Signature" style={{ border: '1px solid #e2e8f0', borderRadius: 8, maxHeight: 100, backgroundColor: '#fff', padding: 4 }} />
+                        ) : (
+                             <Typography variant="body2" color="text.disabled">No signature captured</Typography>
+                        )}
+                        <Typography variant="caption" display="block" sx={{ mt: 1, color: '#64748b' }}>
+                            Signed on {new Date(contractData.signed_at || contractData.created_at).toLocaleString()}
+                        </Typography>
+                    </Box>
+                </Box>
+            ) : (
+                <Typography color="error">Failed to load contract data.</Typography>
+            )}
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setContractOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Link Contract Dialog */}
+      <Dialog open={linkOpen} onClose={() => setLinkOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Link Contract to Subscription</DialogTitle>
+        <DialogContent dividers>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+                Select a signed waiver to link to {linkSub?.plan_name || 'this subscription'}.
+            </Typography>
+            {linkLoading ? (
+                <CircularProgress size={24} />
+            ) : (
+                <FormControl fullWidth size="small">
+                    <InputLabel>Signed Waiver</InputLabel>
+                    <Select
+                        value={selectedWaiverId}
+                        label="Signed Waiver"
+                        onChange={(e) => setSelectedWaiverId(e.target.value)}
+                    >
+                        {availableWaivers.length === 0 && (
+                            <MenuItem value="" disabled>No signed waivers found</MenuItem>
+                        )}
+                        {availableWaivers.map((w: any) => (
+                            <MenuItem key={w.signed_waiver_id} value={w.signed_waiver_id}>
+                                {w.template?.template_category || `Waiver ${w.signed_waiver_id.substring(0,8)}`} - Signed: {new Date(w.signed_at).toLocaleDateString()}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            )}
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setLinkOpen(false)} color="inherit">Cancel</Button>
+            <Button 
+                onClick={handleLinkContract} 
+                variant="contained" 
+                disabled={linkLoading || !selectedWaiverId}
+            >
+                Link Contract
+            </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

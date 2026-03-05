@@ -39,6 +39,7 @@ import { ComingSoon } from './components/Common/ComingSoon';
 import { CreditCard, Subscriptions } from '@mui/icons-material';
 import { getLocationConfig } from './utils/locationConfig';
 import { PublicWaiverSigning } from './pages/PublicWaiverSigning';
+import { PublicPayment } from './pages/PublicPayment/PublicPayment';
 
 const LoginRedirect = () => {
   const { isAuthenticated, role } = useAuth();
@@ -89,6 +90,7 @@ const AppRoutes = () => {
 
       {/* Public Pages */}
       <Route path="/public/sign-waiver" element={<PublicWaiverSigning />} />
+      <Route path="/public/pay/:token" element={<PublicPayment />} />
 
       {/* User Portal Routes */}
       <Route 

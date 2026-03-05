@@ -28,10 +28,12 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import ArticleIcon from '@mui/icons-material/Article';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import LinkIcon from '@mui/icons-material/Link';
 import { billingService } from '../../services/billingService';
 import { PageHeader } from '../../components/Common/PageHeader';
 import { useAuth } from '../../context/AuthContext';
 import { InvoicePreviewModal } from '../../components/Billing/InvoicePreviewModal';
+import { GeneratePaymentLinkDialog } from '../../components/Billing/GeneratePaymentLinkDialog';
 
 const getStatusColor = (status: string) => {
   switch (status?.toUpperCase()) {
@@ -65,9 +67,10 @@ const getTxnStatusBg = (status: string) => {
 interface InvoiceRowProps {
   inv: any;
   onView: (inv: any) => void;
+  onSendLink: (inv: any) => void;
 }
 
-const GlobalInvoiceRow = ({ inv, onView }: InvoiceRowProps) => {
+const GlobalInvoiceRow = ({ inv, onView, onSendLink }: InvoiceRowProps) => {
   const [open, setOpen] = useState(false);
   const hasTransactions = Array.isArray(inv.payment_transactions) && inv.payment_transactions.length > 0;
 
@@ -147,14 +150,32 @@ const GlobalInvoiceRow = ({ inv, onView }: InvoiceRowProps) => {
           </Typography>
         </TableCell>
         <TableCell align="center">
-          <Button
-            size="small"
-            variant="text"
-            startIcon={<VisibilityIcon />}
-            onClick={() => onView(inv)}
-          >
-            View
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+            {inv.status !== 'PAID' && Number(inv.amount_due ?? inv.AmountDue ?? inv.total_amount) > 0 && (
+              <Tooltip title="Send Payment Link" arrow>
+                <IconButton 
+                  size="small" 
+                  color="primary" 
+                  onClick={(e) => { e.stopPropagation(); onSendLink(inv); }}
+                  sx={{ 
+                    bgcolor: '#eff6ff', 
+                    '&:hover': { bgcolor: '#dbeafe' },
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <LinkIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+            <Button
+              size="small"
+              variant="text"
+              startIcon={<VisibilityIcon />}
+              onClick={() => onView(inv)}
+            >
+              View
+            </Button>
+          </Box>
         </TableCell>
       </TableRow>
 
@@ -253,6 +274,7 @@ export const GlobalInvoices = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<{id: string, accountId: string, paymentDetails?: any} | null>(null);
+  const [linkInvoice, setLinkInvoice] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -494,6 +516,7 @@ export const GlobalInvoices = () => {
                           paymentDetails: invoice.payment_details,
                         })
                       }
+                      onSendLink={(invoice) => setLinkInvoice(invoice)}
                     />
                   ))
                 )}
@@ -520,6 +543,14 @@ export const GlobalInvoices = () => {
           invoiceId={selectedInvoice.id}
           accountId={selectedInvoice.accountId}
           initialPaymentDetails={selectedInvoice.paymentDetails}
+        />
+      )}
+
+      {linkInvoice && (
+        <GeneratePaymentLinkDialog
+          open={!!linkInvoice}
+          onClose={() => setLinkInvoice(null)}
+          invoice={linkInvoice}
         />
       )}
     </Box>

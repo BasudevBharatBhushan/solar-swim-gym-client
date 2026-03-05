@@ -8,13 +8,10 @@ import PaymentsIcon from '@mui/icons-material/Payments';
 import LaunchIcon from '@mui/icons-material/Launch';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningIcon from '@mui/icons-material/Warning';
+import DrawIcon from '@mui/icons-material/Draw';
 import { authService } from '../../services/authService';
 import { billingService } from '../../services/billingService';
-import { waiverService } from '../../services/waiverService';
-import { emailService } from '../../services/emailService';
-import { configService } from '../../services/configService';
-import { getAgeGroup } from '../../lib/ageUtils';
-import { createWaiverPdfAttachment } from '../../utils/waiverPdf';
+
 import { EmailComposer } from '../../components/Email/EmailComposer';
 import { crmService } from '../../services/crmService';
 import { cartService } from '../../services/cartService';
@@ -28,6 +25,7 @@ import { InvoicesTab } from './components/InvoicesTab';
 import { TransactionsTab } from './components/TransactionsTab';
 import { ProfileUpsertDialog } from './components/ProfileUpsertDialog';
 import { SavedCardsTab } from './components/SavedCardsTab';
+import { GenerateWaiverDialog } from './components/GenerateWaiverDialog';
 import { useAuth } from '../../context/AuthContext';
 import { ManagerPasscodeDialog } from '../../components/Common/ManagerPasscodeDialog';
 
@@ -75,9 +73,7 @@ export const AccountDetail = () => {
     }
   }, [searchParams]);
 
-  // Waiver status tracking
-  const [hasUnsignedWaivers, setHasUnsignedWaivers] = useState(false);
-  
+
   // Cart state
   const [cartCount, setCartCount] = useState(0);
 
@@ -95,6 +91,8 @@ export const AccountDetail = () => {
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [passcodeOpen, setPasscodeOpen] = useState(false);
+
+  const [generateWaiverOpen, setGenerateWaiverOpen] = useState(false);
 
   const showToast = (message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'error') => {
     setToast({ open: true, message, severity });
@@ -176,210 +174,21 @@ export const AccountDetail = () => {
     }
   };
 
-  // Send signed waiver PDFs via email (existing behavior)
-  const handleSendSignedWaiverEmail = async () => {
-      if (!account || !currentLocationId) return;
-      setActionLoading(true);
 
-      try {
-          const profiles = account.profiles || [];
-          if (profiles.length === 0) {
-              showToast("No profiles found for this account.", "warning");
-              setActionLoading(false);
-              return;
-          }
-           const recipientEmail = account.email || profiles.find((p: any) => p.is_primary)?.email || profiles[0]?.email;
 
-           if (!recipientEmail) {
-              showToast("No recipient email found for this account.", "warning");
-              setActionLoading(false);
-              return;
-           }
-
-          // Fetch signed waivers
-          const attachments: File[] = [];
-          const missingWaiverProfiles: string[] = [];
-          const failedPdfProfiles: string[] = [];
-          
-          for (const profile of profiles) {
-              const waivers = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
-              if (waivers.data && waivers.data.length > 0) {
-                  const latestWaiver = waivers.data[0];
-                  try {
-                    const pdfFile = await createWaiverPdfAttachment(
-                      { first_name: profile.first_name, last_name: profile.last_name },
-                      latestWaiver
-                    );
-                    attachments.push(pdfFile);
-                  } catch (pdfError) {
-                    console.error(`Failed to create waiver PDF for ${profile.first_name} ${profile.last_name}`, pdfError);
-                    failedPdfProfiles.push(`${profile.first_name} ${profile.last_name}`);
-                  }
-              } else {
-                  missingWaiverProfiles.push(`${profile.first_name} ${profile.last_name}`);
-              }
-          }
-
-          if (attachments.length === 0) {
-              showToast("No signed waivers found to send.", "warning");
-              setActionLoading(false);
-              return;
-          }
-
-          const profileNames = profiles.map((p: any) => `${p.first_name} ${p.last_name}`).join(', ');
-          const templateName = 'Welcome to Glass Court Swim & Fitness – Waiver Confirmation';
-          
-          let subject = `Signed Waiver Confirmation – ${profileNames}`;
-          let body = `Please find attached the signed waivers for: ${profileNames}.`;
-          let templateId: string | undefined = undefined;
-
-          try {
-              const templates = await emailService.getTemplates(currentLocationId);
-              const template = templates.find(t => t.subject === templateName || t.subject.includes('Waiver Confirmation'));
-              if (template) {
-                  subject = template.subject;
-                  body = (template.body_content || '').replace(/\[fullname\]/gi, profileNames);
-                  templateId = template.email_template_id;
-              }
-          } catch (e) {
-              console.warn("Could not fetch templates, using default subject");
-          }
-
-          setComposeDraft({
-             to: recipientEmail,
-             subject,
-             body,
-             templateId,
-             attachments,
-             accountId: account.account_id
-          });
-          setOpenCompose(true);
-          showToast("Email draft prepared. Review details and send.", "info");
-
-      } catch (error: any) {
-          console.error("Failed to prepare waiver email", error);
-          showToast("Failed to prepare waiver email. " + error.message, "error");
-      } finally {
-          setActionLoading(false);
-      }
-  };
-
-  // Send waiver for signing - based on account status
-  const handleSendWaiverForSigning = async () => {
-      if (!account || !currentLocationId) return;
-      setActionLoading(true);
-
-      try {
-          const profiles = account.profiles || [];
-          // Collect all profile emails as comma-separated
-          const allEmails = profiles
-              .map((p: any) => p.email)
-              .filter(Boolean)
-              .join(', ');
-          const recipientEmail = allEmails || account.email;
-
-          if (!recipientEmail) {
-              showToast("No recipient email found for this account.", "warning");
-              setActionLoading(false);
-              return;
-          }
-
-          // Unauthenticated signing handles pending vs active cleanly by not requiring login
-          const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
-            waiverService.getWaiverTemplates(currentLocationId),
-            configService.getAgeGroups(currentLocationId)
-          ]);
-          const templates = (waiverTemplatesRes as any).data || [];
-          const ageGroups = (ageGroupsRes as any) || [];
-
-          let linksText = '';
-          for (const profile of profiles) {
-             const group = getAgeGroup(profile.date_of_birth, ageGroups, 'Membership');
-             const matchedTemplate = templates.find((t: any) => 
-               t.is_active && (t.ageprofile_id === group?.age_group_id || !t.ageprofile_id)
-             );
-
-             if (matchedTemplate) {
-               const signedRes = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
-               const signed = signedRes.data || [];
-               const hasRegistration = signed.some((w: any) => w.waiver_type === 'REGISTRATION');
-               
-               if (!hasRegistration) {
-                  const payload = {
-                     account_id: account.account_id,
-                     profile_id: profile.profile_id,
-                     waiver_template_id: matchedTemplate.waiver_template_id,
-                     waiver_type: 'REGISTRATION',
-                     variables: {
-                        FullName: `${profile.first_name} ${profile.last_name}`,
-                        GuardianName: profile.guardian_name || 'N/A',
-                        CurrentDate: new Date().toLocaleDateString()
-                     }
-                  };
-                  const reqRes = await waiverService.createWaiverRequest(payload, currentLocationId);
-                  linksText += `\n- Sign for ${profile.first_name}: ${reqRes.data.public_signing_url}`;
-               }
-             }
-          }
-
-          if (!linksText.trim()) {
-             showToast("No unsigned registration waivers found.", "info");
-             setActionLoading(false);
-             return;
-          }
-
-          const companyName = (account.location?.name || account.location_name || 'Glass Court Swim and Fitness');
-          let subject = `Complete Your Registration – Waiver Signing for ${companyName}`;
-          let body = `Your contracts are ready for signing. Please click the secure links below to sign your waivers:\n${linksText}`;
-          let templateId: string | undefined = undefined;
-
-          try {
-              const emailTemplates = await emailService.getTemplates(currentLocationId);
-              const template = emailTemplates.find((t: any) =>
-                  t.subject?.includes('Complete Your Registration') ||
-                  t.subject?.includes('Waiver Signing') ||
-                  t.subject?.includes('Contract')
-              );
-              if (template) {
-                  subject = template.subject.replace(/\{\{company\}?\}?/g, companyName);
-                  body = template.body_content;
-                  templateId = template.email_template_id;
-              }
-          } catch (e) {
-              console.warn("Could not fetch templates, using default");
-          }
-
-          const currentYear = new Date().getFullYear().toString();
-          
-          body = body
-            .replace(/\{\{contract_link\}\}/g, linksText)
-            .replace(/\{\{company\}\}/g, companyName)
-            .replace(/\{\{year\}\}/g, currentYear);
-
-          if (!body.includes(linksText.trim())) {
-              body = `${body}\n\nSign your waivers here:\n${linksText}`;
-          }
-
-          if (account.status === 'PENDING') {
-              body = `Note: Your account is currently pending. You can sign your waivers below. We will send you an activation link separately.\n\n${body}`;
-          }
-
-          setComposeDraft({
-              to: recipientEmail,
-              subject,
-              body,
-              templateId,
-              attachments: [],
-              accountId: account.account_id
-          });
-          setOpenCompose(true);
-          showToast("Email draft prepared. Review details and send.", "info");
-      } catch (error: any) {
-          console.error("Failed to send waiver for signing", error);
-          showToast(error.message || "Failed to send waiver for signing.", "error");
-      } finally {
-          setActionLoading(false);
-      }
+  const handleGenerateWaiverEmailDraft = (draftInfo: { templateName: string; publicUrl: string; profile: any }) => {
+    const subject = `Review & Sign Waiver - ${draftInfo.templateName}`;
+    let body = `Please follow this unique, secure link to sign your waiver.\n\n${draftInfo.publicUrl}`;
+    
+    setComposeDraft({
+        to: draftInfo.profile?.email || account.email || '',
+        subject,
+        body,
+        attachments: [],
+        accountId: account.account_id
+    });
+    setOpenCompose(true);
+    showToast("Email draft prepared. Review details and send.", "info");
   };
 
   const fetchAccount = async () => {
@@ -402,39 +211,7 @@ export const AccountDetail = () => {
         prev ? prev : (primaryProfile?.profile_id || normalizedData.profiles?.[0]?.profile_id || null)
       );
 
-      // Check waiver status for all profiles
-      try {
-        const profiles = normalizedData.profiles || [];
-        if (profiles.length > 0) {
-          const [waiverTemplatesRes, ageGroupsRes] = await Promise.all([
-            waiverService.getWaiverTemplates(currentLocationId || undefined),
-            configService.getAgeGroups(currentLocationId || undefined)
-          ]);
-          const templates = (waiverTemplatesRes as any).data || [];
-          const ageGroups = (ageGroupsRes as any) || [];
 
-          let foundUnsigned = false;
-          for (const profile of profiles) {
-            const group = getAgeGroup(profile.date_of_birth, ageGroups, 'Membership');
-            const matchedTemplate = templates.find((t: any) => 
-              t.is_active && (t.ageprofile_id === group?.age_group_id || !t.ageprofile_id)
-            );
-
-            if (matchedTemplate) {
-              const signedRes = await waiverService.getSignedWaivers(profile.profile_id, currentLocationId);
-              const signed = signedRes.data || [];
-              const hasRegistration = signed.some((w: any) => w.waiver_type === 'REGISTRATION');
-              if (!hasRegistration) {
-                foundUnsigned = true;
-                break;
-              }
-            }
-          }
-          setHasUnsignedWaivers(foundUnsigned);
-        }
-      } catch (waiverErr) {
-        console.warn('Could not determine waiver status', waiverErr);
-      }
 
     } catch (err: any) {
       console.error("Failed to fetch account details", err);
@@ -612,6 +389,36 @@ export const AccountDetail = () => {
                             }}
                         >
                             Send Payment Link
+                        </Button>
+                    </span>
+                </Tooltip>
+
+                <Tooltip title="Generate Waiver Request" arrow>
+                    <span>
+                        <Button
+                            startIcon={<DrawIcon sx={{ fontSize: '0.95rem !important' }} />}
+                            onClick={() => setGenerateWaiverOpen(true)}
+                            size="small"
+                            sx={{
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                fontSize: '0.8rem',
+                                px: 1.75,
+                                py: 0.75,
+                                borderRadius: '6px',
+                                border: '1.5px solid #0ea5e9',
+                                color: '#0284c7',
+                                bgcolor: '#f0f9ff',
+                                '&:hover': {
+                                    bgcolor: '#e0f2fe',
+                                    borderColor: '#0284c7',
+                                    boxShadow: '0 2px 8px rgba(14,165,233,0.15)',
+                                },
+                                transition: 'all 0.2s ease',
+                                '&.Mui-disabled': { opacity: 0.5 },
+                            }}
+                        >
+                            Request Signature
                         </Button>
                     </span>
                 </Tooltip>
@@ -872,6 +679,15 @@ export const AccountDetail = () => {
         open={passcodeOpen}
         onClose={() => setPasscodeOpen(false)}
         onSuccess={handlePasscodeSuccess}
+      />
+
+      <GenerateWaiverDialog 
+        open={generateWaiverOpen} 
+        onClose={() => setGenerateWaiverOpen(false)} 
+        accountId={accountId as string} 
+        profiles={account.profiles || []} 
+        onGenerateEmailDraft={handleGenerateWaiverEmailDraft} 
+        showToast={showToast} 
       />
     </Box>
   );

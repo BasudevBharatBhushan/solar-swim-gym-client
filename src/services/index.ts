@@ -8,3 +8,5 @@ export * from './billingService';
 export * from './discountService';
 export * from './pricingService';
 export * from './paymentService';
+export * from './paymentLinkService';
+export * from './publicPaymentService';
