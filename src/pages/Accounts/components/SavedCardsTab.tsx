@@ -105,43 +105,7 @@ export const SavedCardsTab = ({ accountId }: SavedCardsTabProps) => {
     return <Alert severity="error" sx={{ borderRadius: '12px' }}>{error}</Alert>;
   }
 
-  if (cards.length === 0) {
-    return (
-      <Box 
-        sx={{ 
-          textAlign: 'center', 
-          py: 12,
-          px: 3,
-          borderRadius: '16px',
-          bgcolor: '#f8fafc',
-          border: '2px dashed #e2e8f0'
-        }}
-      >
-        <Box 
-          sx={{ 
-            width: 80, 
-            height: 80, 
-            borderRadius: '50%', 
-            bgcolor: '#ffffff', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            mx: 'auto',
-            mb: 3,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-          }}
-        >
-          <CreditCardIcon sx={{ fontSize: 40, color: '#cbd5e1' }} />
-        </Box>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: '#475569', mb: 1 }}>
-          No Saved Cards Found
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#64748b', maxWidth: 400, mx: 'auto' }}>
-          When this account adds a payment method during checkout or via a payment link, it will appear here for future use.
-        </Typography>
-      </Box>
-    );
-  }
+
 
   return (
     <Box>
@@ -170,7 +134,59 @@ export const SavedCardsTab = ({ accountId }: SavedCardsTabProps) => {
         </Button>
       </Box>
       
-      <Grid container spacing={3}>
+      {cards.length === 0 ? (
+        <Box 
+          sx={{ 
+            textAlign: 'center', 
+            py: 12,
+            px: 3,
+            borderRadius: '24px',
+            bgcolor: '#f8fafc',
+            border: '2px dashed #e2e8f0',
+            transition: 'all 0.3s ease'
+          }}
+        >
+          <Box 
+            sx={{ 
+              width: 80, 
+              height: 80, 
+              borderRadius: '50%', 
+              bgcolor: '#ffffff', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              mx: 'auto',
+              mb: 3,
+              boxShadow: '0 8px 16px rgba(0,0,0,0.04)',
+              color: '#cbd5e1'
+            }}
+          >
+            <CreditCardIcon sx={{ fontSize: 40 }} />
+          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b', mb: 1 }}>
+            No Saved Cards Yet
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#64748b', maxWidth: 420, mx: 'auto', mb: 4, lineHeight: 1.6 }}>
+            No payment methods have been saved for this account. You can manually add a card now or it will be saved automatically during checkout.
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setAddDialogOpen(true)}
+            sx={{
+                borderRadius: '10px',
+                textTransform: 'none',
+                fontWeight: 700,
+                px: 3,
+                borderWidth: '2px',
+                '&:hover': { borderWidth: '2px' }
+            }}
+          >
+            Add First Card
+          </Button>
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
         {cards.map((card) => (
           <Grid size={{ xs: 12, md: 6 }} key={card.id}>
             <Paper
@@ -274,6 +290,7 @@ export const SavedCardsTab = ({ accountId }: SavedCardsTabProps) => {
           </Grid>
         ))}
       </Grid>
+      )}
 
       {/* Add Card Dialog */}
       <Dialog open={addDialogOpen} onClose={() => !saving && setAddDialogOpen(false)} maxWidth="xs" fullWidth>
