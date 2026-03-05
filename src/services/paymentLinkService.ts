@@ -15,6 +15,6 @@ export const paymentLinkService = {
    */
   generatePaymentLink: async (payload: GeneratePaymentLinkPayload): Promise<PaymentLinkResponse> => {
     const response = await apiClient.post('/payment-links', payload);
-    return response.data;
+    return response;
   }
 };

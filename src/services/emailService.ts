@@ -58,7 +58,7 @@ export const emailService = {
     // Templates
     getTemplates: async (locationId: string): Promise<EmailTemplate[]> => {
         const response = await apiClient.get('/emails/templates', {}, { headers: { 'x-location-id': locationId } });
-        return response.data;
+        return response;
     },
 
     createTemplate: async (data: CreateTemplateRequest): Promise<EmailTemplate> => {
@@ -67,7 +67,7 @@ export const emailService = {
             headers['x-location-id'] = data.location_id;
         }
         const response = await apiClient.post('/emails/templates', data, { headers });
-        return response.data;
+        return response;
     },
 
     updateTemplate: async (templateId: string, data: UpdateTemplateRequest): Promise<EmailTemplate> => {
@@ -76,7 +76,7 @@ export const emailService = {
             headers['x-location-id'] = data.location_id;
         }
         const response = await apiClient.post('/emails/templates', { ...data, email_template_id: templateId }, { headers });
-        return response.data;
+        return response;
     },
 
     // Sending
@@ -100,6 +100,6 @@ export const emailService = {
         }
 
         const response = await apiClient.upload('/emails/send', formData, { headers });
-        return response.data;
+        return response;
     }
 };
