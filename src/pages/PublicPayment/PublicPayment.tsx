@@ -45,7 +45,17 @@ interface ExtendedPaymentLinkDetails extends PaymentLinkDetails {
 
 const formatDate = (d?: string) => {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  // Parse as local date (avoid UTC-midnight timezone shift)
+  const [year, month, day] = d.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatExpiry = (value: string): string => {
+  // Strip everything except digits
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return digits.slice(0, 2) + '/' + digits.slice(2);
 };
 
 const subscriptionTypeLabel = (type: string) => {
@@ -518,23 +528,23 @@ export const PublicPayment = () => {
                       size="small"
                       label="Expiry (MM/YY)"
                       value={expiry}
-                      onChange={(e) => setExpiry(e.target.value)}
+                      onChange={(e) => setExpiry(formatExpiry(e.target.value))}
                       disabled={processing}
                       required
                       placeholder="MM/YY"
-                      inputProps={{ maxLength: 5 }}
+                      inputProps={{ maxLength: 5, inputMode: 'numeric' }}
                     />
                     <TextField
                       sx={{ flex: 1, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                       size="small"
                       label="CVV"
                       value={cvv}
-                      onChange={(e) => setCvv(e.target.value)}
+                      onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))}
                       disabled={processing}
                       required
                       type="password"
                       placeholder="•••"
-                      inputProps={{ maxLength: 4 }}
+                      inputProps={{ maxLength: 4, inputMode: 'numeric' }}
                     />
                   </Box>
 

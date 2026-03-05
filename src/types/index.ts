@@ -68,7 +68,6 @@ export interface Subscription {
     created_at: string;
     payment_transactions?: any[];
   };
-  signedwaiver_id?: string;
 }
 
 export interface Session {
@@ -141,21 +140,6 @@ export interface PaymentLinkDetails {
     brand: string;
     last4: string;
     expiry: string;
-  }[];
-  subscriptions?: {
-    subscription_id: string;
-    subscription_type: string;
-    status: string;
-    total_amount: number;
-    discount_amount?: number;
-    discount_percentage?: number;
-    billing_period_start?: string;
-    billing_period_end?: string;
-    term_name?: string;
-    term_duration_months?: number;
-    payment_mode?: string;
-    recurrence?: string;
-    covered_profiles?: { role: string; name: string }[];
   }[];
 }
 

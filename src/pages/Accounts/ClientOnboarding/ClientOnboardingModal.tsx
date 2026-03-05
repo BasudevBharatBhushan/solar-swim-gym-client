@@ -680,7 +680,14 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
       <DialogContent 
         ref={dialogContentRef}
         onScroll={handleScroll}
-        sx={{ mt: 2, px: isMobile ? 2 : 4 }}
+        sx={{ 
+          mt: 2, 
+          px: isMobile ? 2 : 4,
+          display: isMobile && activeStep === 1 ? 'flex' : 'block',
+          flexDirection: 'column',
+          overflow: isMobile && activeStep === 1 ? 'hidden' : 'auto',
+          height: isMobile && activeStep === 1 ? '100%' : 'auto'
+        }}
       >
         {!isSuccess ? (
           <>
@@ -712,7 +719,14 @@ export const ClientOnboardingModal: React.FC<ClientOnboardingModalProps> = ({ op
                 </Box>
             )}
             
-            <Box sx={{ minHeight: '300px', p: isMobile ? 0 : 1 }}>
+            <Box sx={{ 
+                minHeight: '300px', 
+                p: isMobile ? 0 : 1,
+                flex: isMobile && activeStep === 1 ? 1 : 'none',
+                display: isMobile && activeStep === 1 ? 'flex' : 'block',
+                flexDirection: 'column',
+                overflow: 'hidden'
+            }}>
                 {renderStepContent(activeStep)}
             </Box>
           </>

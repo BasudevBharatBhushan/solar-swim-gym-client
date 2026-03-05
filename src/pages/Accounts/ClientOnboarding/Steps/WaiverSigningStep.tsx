@@ -253,8 +253,8 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
 
     return (
         <Grid container sx={{ 
-            height: isMobile ? 'calc(100vh - 180px)' : '600px', 
-            minHeight: isMobile ? '400px' : '600px',
+            height: isMobile ? '100%' : '600px', 
+            flexGrow: isMobile ? 1 : 0,
             border: '1px solid #e2e8f0', 
             borderRadius: 2, 
             overflow: 'hidden', 
@@ -377,12 +377,13 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
 
             {/* Right Content: Waiver - Contracts */}
             <Grid size={{ xs: 12, md: 9 }} sx={{ 
-                height: isMobile ? 'calc(100% - 60px)' : '100%', 
-                flex: isMobile ? 1 : 'none',
+                height: '100%', 
+                flex: 1,
                 display: 'flex', 
                 flexDirection: 'column', 
                 bgcolor: '#fff', 
-                overflow: 'hidden' 
+                overflow: 'hidden',
+                minHeight: 0 // Crucial for nested flex scrolling
             }}>
                 <Box sx={{ p: isMobile ? 2 : 3, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -482,15 +483,18 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
 
                 {(!currentMember.isSigned || (hasNextMember && currentMember.isSigned)) && currentMember.waiverTemplate && (
                     <Box sx={{ 
-                        p: isMobile ? 2 : 3, 
-                        borderTop: '1px solid #e2e8f0', 
+                        p: isMobile ? 1.5 : 3, 
+                        borderTop: '2px solid #e2e8f0', 
                         bgcolor: '#f8fafc',
                         display: 'flex',
                         flexDirection: isMobile ? 'column' : 'row',
                         justifyContent: 'space-between',
                         alignItems: isMobile ? 'stretch' : 'center',
-                        gap: 2,
-                        zIndex: 10
+                        gap: isMobile ? 1.5 : 2,
+                        zIndex: 10,
+                        position: isMobile ? 'sticky' : 'relative',
+                        bottom: 0,
+                        boxShadow: isMobile ? '0 -4px 12px rgba(0,0,0,0.05)' : 'none'
                     }}>
                         {!currentMember.isSigned ? (
                             <>
@@ -518,11 +522,11 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                                     onClick={handleSign}
                                     disabled={!currentMember.agreed || currentMember.loading}
                                     sx={{ 
-                                        px: 6, 
-                                        py: 2, 
+                                        px: isMobile ? 4 : 6, 
+                                        py: isMobile ? 1.5 : 2, 
                                         borderRadius: 3,
                                         fontWeight: 800,
-                                        fontSize: '1.1rem',
+                                        fontSize: isMobile ? '1rem' : '1.1rem',
                                         textTransform: 'none',
                                         boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
                                         '&:hover': {
@@ -546,11 +550,11 @@ export const WaiverSigningStep = forwardRef<WaiverSigningStepRef, WaiverSigningS
                                 endIcon={<ArrowForwardIcon />}
                                 sx={{ 
                                     ml: 'auto',
-                                    px: 6, 
-                                    py: 2, 
+                                    px: isMobile ? 4 : 6, 
+                                    py: isMobile ? 1.5 : 2, 
                                     borderRadius: 3,
                                     fontWeight: 800,
-                                    fontSize: '1.1rem',
+                                    fontSize: isMobile ? '1rem' : '1.1rem',
                                     textTransform: 'none',
                                     boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
                                     '&:hover': {
