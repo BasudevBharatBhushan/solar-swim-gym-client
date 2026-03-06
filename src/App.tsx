@@ -40,6 +40,7 @@ import { CreditCard, Subscriptions } from '@mui/icons-material';
 import { getLocationConfig } from './utils/locationConfig';
 import { PublicWaiverSigning } from './pages/PublicWaiverSigning';
 import { PublicPayment } from './pages/PublicPayment/PublicPayment';
+import NotFound from './pages/NotFound';
 
 const LoginRedirect = () => {
   const { isAuthenticated, role } = useAuth();
@@ -137,7 +138,7 @@ const AppRoutes = () => {
       <Route path="/admin/settings/dropdown-values" element={<MainLayout><DropdownValues /></MainLayout>} />
 
       {/* Catch all */}
-      <Route path="*" element={<Navigate to={homeRedirect} replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };

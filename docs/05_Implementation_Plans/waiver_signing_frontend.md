@@ -32,11 +32,15 @@ Create `src/services/publicWaiverService.ts`:
 ## 3. Admin/Staff UI Modifications
 
 ### 3.1 Create `GenerateWaiverDialog.tsx`
-Create a new standalone dialog component that can be invoked from the Account details or Subscriptions lists.
+Create a new standalone dialog component that can be invoked from the Account details or Subscriptions lists. The key feature is **Automated Template Resolution**—staff should not have to manually pick a template.
+
+- **Initialization Logic**:
+  - The dialog accepts a context: `subscription` (optional) and `profile_id`.
+  - Upon opening, it automatically identifies the applicable `waiver_template_id` and `waiver_type` using the **Smart Resolution Logic** (see 3.2).
+  - If multiple templates apply (rare) or no template is found, show an appropriate warning or a restricted selection.
 - **Inputs**:
-  - **Waiver Template**: Dropdown to select the base template (`waiver_template_id`).
-  - **Type**: Dropdown for `REGISTRATION`, `MEMBERSHIP`, or `SERVICE`.
-  - **Variables**: Dynamic input fields based on template requirements.
+  - **Context Info**: Read-only display of the identified Waiver Name (e.g., "Registration Waiver" or "Membership Contract - Gold Plan").
+  - **Variables**: Dynamic input fields based on the resolved template's requirements.
   - **Expiry (Days)**: Pre-filled (e.g., 7 days).
 - **Actions**:
   - **Generate & Copy Link**: Calls `generateWaiverRequest`, constructs the frontend URL, and copies `public_signing_url` to the clipboard.
@@ -45,16 +49,22 @@ Create a new standalone dialog component that can be invoked from the Account de
     - Preloads an **Email Composition Dialog** with a simple body containing the contract link.
     - Staff reviews the pre-loaded template and hits "Send" to dispatch the message.
 
-### 3.2 Add Waiver Tracking & Linking UI
+### 3.2 Add Waiver Tracking & Smart Resolution logic
 Update `src/pages/Accounts/AccountDetail.tsx` and `src/pages/Accounts/components/SubscriptionsTab.tsx`:
 - Implement a **Waivers Tab** (or a section within **Subscriptions**) that displays data from `getWaiverStatus()`.
 - Display a list of **Pending** and **Signed** waivers.
-- **Pending Section**: 
-  - For each pending request, add a **"View Template"** action.
-  - **Template Resolution Logic**: Follows the rules in `Marketplace.tsx`:
+- **Smart Resolution Logic (Mirroring `Marketplace.tsx`)**:
+  - Centralize this logic into a utility function (e.g., `resolveWaiverTemplate(templates, item)`) used by both the Marketplace and Admin UI.
+  - **Rules**:
     - `SERVICE`: Match `waiverTemplate.service_id` with subscription's `service_id`.
     - `MEMBERSHIP` (Plan): Match `waiverTemplate.membership_category_id` with `subscription.reference_id`.
-    - `MEMBERSHIP` (Fee/Term): Match `waiverTemplate.subterm_id` with `subscription.subscription_term_id` OR `waiverTemplate.base_price_id` with `subscription.reference_id`.
+    - `MEMBERSHIP` (Fee/Term/Base): 
+      - Match `waiverTemplate.template_category` (case-insensitive "membership") AND `waiverTemplate.subterm_id` with `subscription.subscription_term_id`.
+      - OR Match `waiverTemplate.base_price_id` with `subscription.reference_id`.
+    - `REGISTRATION`: Match `waiverTemplate.template_category` (case-insensitive "registration").
+- **Pending Section Actions**: 
+  - **"View Template"**: Opens preview using the resolved template.
+  - **"Send Reminder (Email)"**: Opens `GenerateWaiverDialog` with pre-resolved template.
 - **Signed Section**:
   - Display `waiver_type` and link status.
   - Provide a **"Link to Subscription"** action (opening a small dialog to pick a subscription) which calls `linkWaiverToSubscription`.
@@ -99,9 +109,8 @@ Create a branded, unauthenticated page for waiver review and signing.
 - [ ] Define TypeScript interfaces in `src/types/index.ts` for waiver payloads and responses.
 - [ ] Implement `waiverService.ts` and `publicWaiverService.ts`.
 - [ ] Install signature canvas dependency: `npm install react-signature-canvas`.
-- [ ] Develop `GenerateWaiverDialog.tsx`.
-- [ ] Update `SubscriptionsTab.tsx` with "View Contract" buttons and "Link to Subscription" logic.
-- [ ] Implement the Template Resolution utility function to match waivers to subscriptions.
+- [ ] Implement the **Smart Template Resolution** utility function to match waivers to subscriptions/profiles (centralize this from `Marketplace.tsx`).
+- [ ] Develop `GenerateWaiverDialog.tsx` with automatic template detection.
 - [ ] Set up the `/public/sign-waiver` route in `App.tsx`.
 - [ ] Build `PublicWaiver.tsx` with the signature canvas and test submission flow.
 - [ ] Complete E2E functional testing: Generate -> Email -> Access public link -> Sign -> View signed contract in Account Detail.

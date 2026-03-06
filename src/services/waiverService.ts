@@ -136,14 +136,29 @@ export const waiverService = {
     return apiClient.post('/waiver-requests', payload, options);
   },
 
-  // Fetch a waiver request via public token
+  // Fetch a waiver request via public token (Moved to publicWaiverService natively, leaving for backwards compat but shouldn't be used)
   getPublicWaiverRequest: async (token: string): Promise<PublicWaiverDetailsResponse> => {
     return apiClient.get(`/public/waiver-request/${token}`);
   },
 
-  // Submit a public waiver signature
+  // Submit a public waiver signature (Moved to publicWaiverService)
   submitPublicWaiver: async (token: string, payload: SubmitPublicWaiverPayload) => {
     return apiClient.post(`/public/waiver-request/${token}/submit`, payload);
+  },
+
+  // Get Waiver Status (Pending/Signed)
+  getWaiverStatus: async (params: { account_id: string; profile_id?: string; status?: 'pending' | 'signed' }) => {
+    return apiClient.get('/waivers/status', params);
+  },
+
+  // Link Signed Waiver to a Subscription
+  linkWaiverToSubscription: async (subscriptionId: string, payload: { signedwaiver_id: string }) => {
+    return apiClient.patch(`/subscriptions/${subscriptionId}/waiver`, payload);
+  },
+
+  // Get a single Signed Waiver by ID
+  getSignedWaiver: async (signedWaiverId: string) => {
+    return apiClient.get(`/signed-waivers/${signedWaiverId}`);
   },
 
   // Upload signature image

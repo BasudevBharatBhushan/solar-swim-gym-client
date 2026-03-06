@@ -26,7 +26,7 @@ import { billingService } from '../../../services/billingService';
 import { serviceCatalog } from '../../../services/serviceCatalog';
 import { basePriceService, BasePrice } from '../../../services/basePriceService';
 import { membershipService, MembershipProgram } from '../../../services/membershipService';
-import { waiverService, DetailedSignedWaiver } from '../../../services/waiverService';
+import { waiverService, SignedWaiver } from '../../../services/waiverService';
 import { Subscription } from '../../../types';
 import { useConfig } from '../../../context/ConfigContext';
 import { getAgeGroupName } from '../../../lib/ageUtils';
@@ -36,6 +36,8 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import SendIcon from '@mui/icons-material/Send';
+import { GenerateWaiverDialog } from './GenerateWaiverDialog';
 
 interface SubscriptionsTabProps {
   accountId: string;
@@ -71,13 +73,15 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   // Contract dialog state
   const [contractDialogOpen, setContractDialogOpen] = useState(false);
   const [contractLoading, setContractLoading] = useState(false);
-  const [contractData, setContractData] = useState<DetailedSignedWaiver | null>(null);
+  const [contractData, setContractData] = useState<any | null>(null);
   const [contractIsPending, setContractIsPending] = useState(false);
+  const [selectedSubscriptionForContract, setSelectedSubscriptionForContract] = useState<any>(null);
 
   const handleContractClick = async (sub: any) => {
     setContractDialogOpen(true);
     setContractData(null);
     setContractIsPending(false);
+    setSelectedSubscriptionForContract(sub);
     if (sub.signedwaiver_id) {
       setContractLoading(true);
       try {
@@ -93,6 +97,13 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
       setContractIsPending(true);
     }
   };
+
+  const [generateWaiverOpen, setGenerateWaiverOpen] = useState(false);
+  const handleOpenGenerateWaiver = () => {
+    setContractDialogOpen(false);
+    setGenerateWaiverOpen(true);
+  };
+
 
   const handleManageSuccess = () => {
     // Re-fetch subscriptions after a successful update
@@ -321,6 +332,30 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                                       </Button>
                                                     </Tooltip>
                                                   )}
+                                                  {isStaffOrAbove && (
+                                                    <Tooltip title="View or send contract" arrow>
+                                                      <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        onClick={(e) => { e.stopPropagation(); handleContractClick(sub); }}
+                                                        startIcon={<HistoryEduIcon sx={{ fontSize: '0.8rem !important' }} />}
+                                                        sx={{
+                                                          fontSize: '0.65rem',
+                                                          fontWeight: 700,
+                                                          height: 22,
+                                                          px: 1,
+                                                          py: 0,
+                                                          textTransform: 'none',
+                                                          borderColor: (sub as any).signedwaiver_id ? '#10b981' : '#f59e0b',
+                                                          color: (sub as any).signedwaiver_id ? '#059669' : '#b45309',
+                                                          bgcolor: (sub as any).signedwaiver_id ? '#f0fdf4' : '#fffbeb',
+                                                          '&:hover': { bgcolor: (sub as any).signedwaiver_id ? '#dcfce7' : '#fef3c7' },
+                                                        }}
+                                                      >
+                                                        Contract
+                                                      </Button>
+                                                    </Tooltip>
+                                                  )}
                                                </Stack>
                                           </Box>
 
@@ -527,31 +562,30 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                     {isStaffOrAbove && (
                                         <TableCell align="right">
                                           <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                            {/* Contract button — only for MEMBERSHIP_FEE */}
-                                            {sub.subscription_type === 'MEMBERSHIP_FEE' && (
-                                              <Tooltip title="View contract / waiver" arrow>
-                                                <Button
-                                                  size="small"
-                                                  variant="outlined"
-                                                  onClick={() => handleContractClick(sub)}
-                                                  startIcon={<HistoryEduIcon sx={{ fontSize: '0.8rem !important' }} />}
-                                                  sx={{
-                                                    fontSize: '0.65rem',
-                                                    fontWeight: 700,
-                                                    height: 22,
-                                                    px: 1,
-                                                    py: 0,
-                                                    textTransform: 'none',
-                                                    borderColor: (sub as any).signedwaiver_id ? '#10b981' : '#f59e0b',
-                                                    color: (sub as any).signedwaiver_id ? '#059669' : '#b45309',
-                                                    bgcolor: (sub as any).signedwaiver_id ? '#f0fdf4' : '#fffbeb',
-                                                    '&:hover': { bgcolor: (sub as any).signedwaiver_id ? '#dcfce7' : '#fef3c7' },
-                                                  }}
-                                                >
-                                                  Contract
-                                                </Button>
-                                              </Tooltip>
-                                            )}
+                                            {/* Contract button — available for all memberships */}
+                                            <Tooltip title="View contract / waiver" arrow>
+                                              <Button
+                                                size="small"
+                                                variant="outlined"
+                                                onClick={() => handleContractClick(sub)}
+                                                startIcon={<HistoryEduIcon sx={{ fontSize: '0.8rem !important' }} />}
+                                                sx={{
+                                                  fontSize: '0.65rem',
+                                                  fontWeight: 700,
+                                                  height: 22,
+                                                  px: 1,
+                                                  py: 0,
+                                                  textTransform: 'none',
+                                                  borderColor: (sub as any).signedwaiver_id ? '#10b981' : '#f59e0b',
+                                                  color: (sub as any).signedwaiver_id ? '#059669' : '#b45309',
+                                                  bgcolor: (sub as any).signedwaiver_id ? '#f0fdf4' : '#fffbeb',
+                                                  '&:hover': { bgcolor: (sub as any).signedwaiver_id ? '#dcfce7' : '#fef3c7' },
+                                                }}
+                                              >
+                                                Contract
+                                              </Button>
+                                            </Tooltip>
+
                                             {/* Manage button */}
                                             {sub.status !== 'CANCELLED' && (
                                               <Tooltip title="Manage subscription (status & pricing)" arrow>
@@ -605,10 +639,18 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
             <Box sx={{ py: 4, textAlign: 'center' }}>
               <HistoryEduIcon sx={{ fontSize: 56, color: '#f59e0b', mb: 2 }} />
               <Typography variant="h6" fontWeight={700} color="#b45309">Contract Not Yet Signed</Typography>
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
+              <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
                 This subscription does not have a signed waiver on file.
-                Send a waiver email from the Waivers tab to collect the signature.
+                Generate a new waiver link to collect the signature.
               </Typography>
+              <Button 
+                variant="contained" 
+                startIcon={<SendIcon />} 
+                onClick={handleOpenGenerateWaiver}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+              >
+                Send / Generate Waiver
+              </Button>
             </Box>
           )}
           {contractData && !contractLoading && (
@@ -644,6 +686,18 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
           onClose={() => { setManageOpen(false); setManagedSub(null); }}
           onSuccess={handleManageSuccess}
           subscription={managedSub}
+        />
+      )}
+
+      {/* Generate Waiver Dialog */}
+      {isStaffOrAbove && (
+        <GenerateWaiverDialog
+          open={generateWaiverOpen}
+          onClose={() => setGenerateWaiverOpen(false)}
+          accountId={accountId}
+          profileId={selectedProfileId || (selectedSubscriptionForContract ? getCoverage(selectedSubscriptionForContract)[0]?.profile_id : '') || ''}
+          profileName="Primary Contact"
+          subscription={selectedSubscriptionForContract}
         />
       )}
     </Box>

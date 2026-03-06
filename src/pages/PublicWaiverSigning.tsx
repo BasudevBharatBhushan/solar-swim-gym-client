@@ -15,7 +15,7 @@ import {
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 
-import { waiverService, PublicWaiverDetailsResponse } from '../services/waiverService';
+import { publicWaiverService, PublicWaiverDetailsResponse } from '../services/publicWaiverService';
 import { WaiverPreview } from '../components/Waiver/WaiverPreview';
 import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../components/Waiver/SignaturePad';
 
@@ -41,7 +41,7 @@ export const PublicWaiverSigning = () => {
 
     const fetchWaiver = async () => {
       try {
-        const response = await waiverService.getPublicWaiverRequest(token);
+        const response = await publicWaiverService.getWaiverDetails(token);
         setWaiverDetails(response.data);
       } catch (err: any) {
         console.error('Failed to load waiver:', err);
@@ -88,7 +88,7 @@ export const PublicWaiverSigning = () => {
             });
           }
 
-          await waiverService.submitPublicWaiver(token, {
+          await publicWaiverService.submitWaiver(token, {
             signature_base64: base64,
             final_content: contentWithVars,
             agreed
