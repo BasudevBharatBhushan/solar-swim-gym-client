@@ -1,6 +1,6 @@
 /**
  * Normalizes a public URL returned by the backend to use the current window's origin.
- * This ensures that links work correctly across different environments (local, staging, production).
+ * This ensures that links work correctly across different environments (local, staging, production)..
  */
 export const normalizePublicUrl = (url: string | undefined | null): string => {
   if (!url) return '';
