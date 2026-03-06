@@ -30,6 +30,7 @@ import { ProfileUpsertDialog } from './components/ProfileUpsertDialog';
 import { SavedCardsTab } from './components/SavedCardsTab';
 import { useAuth } from '../../context/AuthContext';
 import { ManagerPasscodeDialog } from '../../components/Common/ManagerPasscodeDialog';
+import { normalizePublicUrl } from '../../utils/urlUtils';
 
 interface WaiverComposeDraft {
   to: string;
@@ -317,7 +318,8 @@ export const AccountDetail = () => {
                      }
                   };
                   const reqRes = await waiverService.createWaiverRequest(payload, currentLocationId);
-                  linksText += `\n- Sign for ${profile.first_name}: ${reqRes.data.public_signing_url}`;
+                  const publicUrl = normalizePublicUrl(reqRes.data.public_signing_url);
+                  linksText += `\n- Sign for ${profile.first_name}: ${publicUrl}`;
                }
              }
           }
@@ -584,38 +586,6 @@ export const AccountDetail = () => {
                     </span>
                 </Tooltip>
 
-                <Tooltip title="Send payment link via email" arrow>
-                    <span>
-                        <Button
-                            startIcon={<PaymentsIcon sx={{ fontSize: '0.95rem !important' }} />}
-                            endIcon={<LaunchIcon sx={{ fontSize: '0.75rem !important', opacity: 0.6 }} />}
-                            onClick={handleSendPaymentLink}
-                            disabled={true}
-                            size="small"
-                            sx={{
-                                textTransform: 'none',
-                                fontWeight: 600,
-                                fontSize: '0.8rem',
-                                px: 1.75,
-                                py: 0.75,
-                                borderRadius: '6px',
-                                border: '1.5px solid #10b981',
-                                color: '#047857',
-                                bgcolor: '#ecfdf5',
-                                '&:hover': {
-                                    bgcolor: '#d1fae5',
-                                    borderColor: '#059669',
-                                    boxShadow: '0 2px 8px rgba(16,185,129,0.15)',
-                                },
-                                transition: 'all 0.2s ease',
-                                '&.Mui-disabled': { opacity: 0.5 },
-                            }}
-                        >
-                            Send Payment Link
-                        </Button>
-                    </span>
-                </Tooltip>
-
                 <Box sx={{ width: '1px', height: 24, bgcolor: '#e2e8f0', mx: 0.5 }} />
 
                 <Button
@@ -764,7 +734,11 @@ export const AccountDetail = () => {
                         />
                     )}
                     {tabValue === 1 && (
-                        <SubscriptionsTab accountId={account.account_id} selectedProfileId={selectedProfileId} />
+                        <SubscriptionsTab 
+                          accountId={account.account_id} 
+                          selectedProfileId={selectedProfileId} 
+                          profiles={account.profiles || []}
+                        />
                     )}
                     {tabValue === 2 && (
                         <WaiversTab

@@ -11,6 +11,7 @@ interface WaiverPreviewProps {
     last_name: string;
     guardian_name?: string;
   };
+  variables?: Record<string, string>;
   agreed: boolean;
   onAgreeChange: (checked: boolean) => void;
   signatureComponent?: React.ReactNode;
@@ -25,6 +26,7 @@ interface WaiverPreviewProps {
 export const WaiverPreview: React.FC<WaiverPreviewProps> = ({ 
   content, 
   data, 
+  variables,
   agreed, 
   onAgreeChange, 
   signatureComponent,
@@ -37,11 +39,20 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
   const processContent = () => {
     let html = content;
     // Perform variable replacements
-    html = html.replace(/\[FullName\]/g, `${data.first_name} ${data.last_name}`);
-    html = html.replace(/\[GuardianName\]/g, data.guardian_name || 'N/A');
-    html = html.replace(/\[CurrentDate\]/g, new Date().toLocaleDateString());
+    html = html.replace(/\[FullName\]/gi, `${data.first_name} ${data.last_name}`);
+    html = html.replace(/\[GuardianName\]/gi, data.guardian_name || 'N/A');
+    html = html.replace(/\[CurrentDate\]/gi, new Date().toLocaleDateString());
 
-    const parts = html.split('[AcceptSignature]');
+    if (variables) {
+      Object.entries(variables).forEach(([key, val]) => {
+        const regex = new RegExp(`\\[${key}\\]`, 'gi');
+        html = html.replace(regex, String(val));
+      });
+    }
+
+    // Use regex to split on [AcceptSignature] case-insensitively and handle spaces
+    const signatureRegex = /\[\s*Accept\s*Signature\s*\]/gi;
+    const parts = html.split(signatureRegex);
 
     // Quill formatting overrides for the preview container
     const editorStyles = {
@@ -77,8 +88,8 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
     };
 
     // Render logic using direct JSX to avoid unmounting sub-components on re-render
-    const renderQuill = (value: string) => (
-      <Box sx={editorStyles}>
+    const renderQuill = (value: string, key: string) => (
+      <Box key={key} sx={editorStyles}>
         <ReactQuill
           value={value}
           readOnly={true}
@@ -89,17 +100,19 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
     );
 
     const renderSignature = (
-      <Box sx={{ 
+      <Box key="signature-block" sx={{ 
         my: 4, 
         p: { xs: 2, md: 3 }, 
-        border: '2px dashed #cbd5e1', 
+        border: signatureComponent ? 'none' : '2px dashed #cbd5e1', 
         borderRadius: 2, 
-        bgcolor: '#f8fafc', 
+        bgcolor: signatureComponent ? 'transparent' : '#f8fafc', 
         textAlign: 'center' 
       }}>
-        <Typography variant="overline" gutterBottom color="text.secondary" sx={{ fontWeight: 800, mb: 2, display: 'block' }}>
-          PLEASE PROVIDE YOUR SIGNATURE BELOW
-        </Typography>
+        {!signatureComponent && (
+            <Typography variant="overline" gutterBottom color="text.secondary" sx={{ fontWeight: 800, mb: 2, display: 'block' }}>
+                PLEASE PROVIDE YOUR SIGNATURE BELOW
+            </Typography>
+        )}
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           {signatureComponent}
         </Box>
@@ -118,19 +131,14 @@ export const WaiverPreview: React.FC<WaiverPreviewProps> = ({
           minHeight: fullHeight ? 'auto' : '1000px',
           borderRadius: '2px',
         }}
+        className="print-content"
       >
-        {parts.length > 1 && signatureComponent ? (
-          <>
-            {renderQuill(parts[0])}
-            {renderSignature}
-            {renderQuill(parts[1])}
-          </>
-        ) : (
-          <>
-            {renderQuill(html)}
-            {signatureComponent && renderSignature}
-          </>
-        )}
+        {parts.map((part, index) => (
+          <React.Fragment key={`fragment-${index}`}>
+            {renderQuill(part, `quill-${index}`)}
+            {index < parts.length - 1 && renderSignature}
+          </React.Fragment>
+        ))}
       </Box>
     );
   };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
@@ -19,6 +19,8 @@ import {
   Divider,
   Button,
   Tooltip,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import TuneIcon from '@mui/icons-material/Tune';
 import { useAuth } from '../../../context/AuthContext';
@@ -26,8 +28,8 @@ import { billingService } from '../../../services/billingService';
 import { serviceCatalog } from '../../../services/serviceCatalog';
 import { basePriceService, BasePrice } from '../../../services/basePriceService';
 import { membershipService, MembershipProgram } from '../../../services/membershipService';
-import { waiverService, SignedWaiver } from '../../../services/waiverService';
-import { Subscription } from '../../../types';
+import { waiverService } from '../../../services/waiverService';
+import { Subscription, Profile } from '../../../types';
 import { useConfig } from '../../../context/ConfigContext';
 import { getAgeGroupName } from '../../../lib/ageUtils';
 import { SubscriptionManageDialog } from './SubscriptionManageDialog';
@@ -36,17 +38,31 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import SendIcon from '@mui/icons-material/Send';
+import { emailService } from '../../../services/emailService';
+import { EmailComposer } from '../../../components/Email/EmailComposer';
+import PrintIcon from '@mui/icons-material/Print';
+import EmailIcon from '@mui/icons-material/Email';
 import { GenerateWaiverDialog } from './GenerateWaiverDialog';
+import { WaiverPreview } from '../../../components/Waiver/WaiverPreview';
+import { SignaturePad, SignaturePadRef, getSignatureBlob } from '../../../components/Waiver/SignaturePad';
+import { resolveWaiverTemplates, getSubscriptionWaiverContext } from '../../../utils/waiverUtils';
+import { WaiverTemplate } from '../../../services/waiverService';
+// removed invalid snackbarService
+
+
 
 interface SubscriptionsTabProps {
   accountId: string;
   selectedProfileId: string | null;
+  profiles: Profile[];
 }
 
-export const SubscriptionsTab = ({ accountId, selectedProfileId }: SubscriptionsTabProps) => {
-  const { currentLocationId, role } = useAuth();
-  const { ageGroups } = useConfig();
+export const SubscriptionsTab = ({ accountId, selectedProfileId, profiles }: SubscriptionsTabProps) => {
+  const { currentLocationId, role, locations } = useAuth();
+  const { ageGroups, subscriptionTerms } = useConfig();
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [serviceImages, setServiceImages] = useState<Record<string, string>>({});
   const [serviceDetails, setServiceDetails] = useState<Record<string, any>>({}); // To store extra pack details if needed
@@ -59,6 +75,22 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   // Manage dialog state
   const [manageOpen, setManageOpen] = useState(false);
   const [managedSub, setManagedSub] = useState<any>(null);
+
+  const [pendingTemplate, setPendingTemplate] = useState<WaiverTemplate | null>(null);
+  const [agreed, setAgreed] = useState(false);
+  const [isSigningInPlace, setIsSigningInPlace] = useState(false);
+  const signaturePadRef = useRef<SignaturePadRef>(null);
+
+  const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'error' | 'success' | 'warning' | 'info' }>({
+    open: false,
+    message: '',
+    severity: 'info'
+  });
+
+  const showToast = (message: string, severity: 'error' | 'success' | 'warning' | 'info' = 'info') => {
+    setToast({ open: true, message, severity });
+  };
+
   
   // Filter for membership status: ACTIVE, PENDING, CANCELLED
   const [membershipStatusFilter, setMembershipStatusFilter] = useState<string>('ACTIVE');
@@ -77,11 +109,118 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
   const [contractIsPending, setContractIsPending] = useState(false);
   const [selectedSubscriptionForContract, setSelectedSubscriptionForContract] = useState<any>(null);
 
+  const [generateWaiverOpen, setGenerateWaiverOpen] = useState(false);
+  const [openCompose, setOpenCompose] = useState(false);
+  const [composeDraft, setComposeDraft] = useState<{
+    to: string;
+    subject: string;
+    body: string;
+    templateId?: string;
+    attachments: File[];
+    accountId?: string;
+  } | null>(null);
+
+  const getWaiverVariables = useCallback((sub: any) => {
+    const coverage = getCoverage(sub);
+    let profile = coverage[0]?.profile;
+    
+    if (!profile && selectedProfileId) {
+      profile = profiles.find(p => p.profile_id === selectedProfileId);
+    }
+    
+    if (!profile && coverage[0]?.profile_id) {
+       profile = profiles.find(p => p.profile_id === coverage[0].profile_id);
+    }
+
+    const specificName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Primary Contact';
+    
+    // Find base price
+    let matchBasePrice = basePrices.find((bp: any) => bp.base_price_id === sub.reference_id);
+    if (!matchBasePrice) {
+        const feeSub = subscriptions.find(s => s.subscription_type === 'MEMBERSHIP_FEE');
+        if (feeSub) {
+            matchBasePrice = basePrices.find(bp => bp.base_price_id === feeSub.reference_id);
+        }
+    }
+    
+    // Find category
+    let matchCat = (membershipPrograms as any[]).flatMap((p: any) => p.categories || []).find((c: any) => c?.category_id === sub.reference_id);
+    if (!matchCat) {
+        const joiningSub = subscriptions.find(s => 
+            (s.subscription_type === 'MEMBERSHIP_JOINING' || s.subscription_type === 'MEMBERSHIP_RENEWAL')
+        );
+        if (joiningSub) {
+            matchCat = (membershipPrograms as any[]).flatMap((p: any) => p.categories || []).find((c: any) => c?.category_id === joiningSub.reference_id);
+        }
+    }
+
+    const lengthOfContract = matchBasePrice?.duration_months ?? 0;
+    const autoRenewalTerm = matchBasePrice?.recurrence_unit_value ?? lengthOfContract;
+    const displayTerm = lengthOfContract > 0 ? `${lengthOfContract} Month${lengthOfContract > 1 ? 's' : ''}` : 'N/A';
+    const displayAutoRenewal = autoRenewalTerm > 0 ? `${autoRenewalTerm} Month${autoRenewalTerm > 1 ? 's' : ''}` : 'N/A';
+    const currentDate = new Date().toLocaleDateString();
+    const fmtCurr = (val: number) => `$${(val || 0).toFixed(2)}`;
+    
+    const joiningFeeAmt = (matchCat?.fees || []).find((f: any) => f.fee_type === 'JOINING' && f.is_active !== false)?.amount ?? 0;
+    const annualFeeAmt = (matchCat?.fees || []).find((f: any) => f.fee_type === 'ANNUAL' && f.is_active !== false)?.amount ?? 0;
+    
+    const subTermId = sub.subscription_term_id;
+    const subTermDisplay = matchBasePrice?.term_name || subscriptionTerms?.find(t => t.subscription_term_id === subTermId)?.name || 'Membership';
+    
+    const guardianName = (profile as any)?.guardian_email || (profile as any)?.guardian_name || profiles.find(p => p.is_primary)?.guardian_name || 'N/A';
+    const currentLocation = locations.find((l: any) => l.location_id === currentLocationId);
+    const cName = currentLocation?.name || 'Solar Swim Gym';
+    const cAddress = currentLocation?.address || 'Location Address';
+
+    const serviceDetail = serviceDetails[sub.subscription_id] || {};
+    const serviceName = serviceDetail.service?.name || sub.plan_name || 'N/A';
+    const servicePackName = serviceDetail.name || sub.plan_name || 'N/A';
+    const usageLimit = serviceDetail.max_uses_per_period 
+        ? `${serviceDetail.max_uses_per_period} Uses / ${serviceDetail.usage_period_length || 1} ${serviceDetail.usage_period_unit || 'Period'}`
+        : 'Unlimited';
+
+    return {
+       FullName: specificName,
+       GuardianName: guardianName,
+       DOB: (profile as any)?.date_of_birth ? new Date((profile as any).date_of_birth).toLocaleDateString() : 'N/A',
+       CurrentDate: currentDate,
+       AcceptSignature: '[AcceptSignature]',
+       CardLast4: 'N/A',
+       MembershipPlanName: matchBasePrice?.name || sub.plan_name || 'N/A',
+       MembershipName: matchBasePrice?.name || sub.plan_name || 'N/A',
+       MembershipPlanType: String(matchBasePrice?.role || 'N/A').replace(/_/g, ' '),
+       MembershpPlanType: String(matchBasePrice?.role || 'N/A').replace(/_/g, ' '),
+       MembershipFee: fmtCurr(matchBasePrice?.price || sub.price || 0),
+       JoningFee: fmtCurr(joiningFeeAmt),
+       JoiningFee: fmtCurr(joiningFeeAmt),
+       AnnualFee: fmtCurr(annualFeeAmt),
+       MonthlyDues: autoRenewalTerm === 1 ? fmtCurr(matchBasePrice?.price || sub.price || 0) : 'N/A',
+       SubscriptionTerm: subTermDisplay,
+       LengthOfContract: displayTerm,
+       AutomaticRenewalTerm: displayAutoRenewal,
+       EffectiveDate: sub.billing_period_start ? new Date(sub.billing_period_start).toLocaleDateString() : currentDate,
+       Relationship: 'Guardian',
+       price: fmtCurr(sub.price || 0),
+       service_name: serviceName,
+       service_pack_name: servicePackName,
+       usage_limit: usageLimit,
+       service_start_date: currentDate,
+       service_end_date: sub.billing_period_end ? new Date(sub.billing_period_end).toLocaleDateString() : 'N/A',
+       company_name: cName,
+       company_address: cAddress
+    };
+  }, [basePrices, membershipPrograms, profiles, selectedProfileId, subscriptions, subscriptionTerms, serviceDetails, locations, currentLocationId]);
+
+
+
   const handleContractClick = async (sub: any) => {
     setContractDialogOpen(true);
     setContractData(null);
     setContractIsPending(false);
     setSelectedSubscriptionForContract(sub);
+    setPendingTemplate(null);
+    setAgreed(false);
+
     if (sub.signedwaiver_id) {
       setContractLoading(true);
       try {
@@ -95,10 +234,135 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
       }
     } else {
       setContractIsPending(true);
+      // Resolve template
+      try {
+        setContractLoading(true);
+        const templatesRes = await waiverService.getWaiverTemplates(currentLocationId || undefined);
+        const allTemplates: WaiverTemplate[] = (templatesRes as any)?.data || [];
+        const context = getSubscriptionWaiverContext(sub);
+        const matched = resolveWaiverTemplates(allTemplates, context);
+        if (matched.length > 0) {
+          setPendingTemplate(matched[0]);
+        }
+      } catch (err) {
+        console.error('Failed to resolve pending template', err);
+      } finally {
+        setContractLoading(false);
+      }
     }
   };
 
-  const [generateWaiverOpen, setGenerateWaiverOpen] = useState(false);
+  const handleEmailDraftReady = async (draft: { subject: string; body: string; to?: string; templateId?: string; publicUrl: string }) => {
+    let finalSubject = draft.subject;
+    let finalBody = draft.body;
+    let finalTemplateId = draft.templateId;
+    
+    try {
+      const templates = await emailService.getTemplates(currentLocationId || '');
+      const template = templates.find(t => 
+         t.subject?.includes('Complete Your Registration') || 
+         t.subject?.includes('Waiver Signing')
+      );
+      if (template) {
+        finalSubject = template.subject.replace(/\{\{company\}?\}?/g, 'Glass Court Swim and Fitness');
+        finalBody = template.body_content
+          .replace(/\{\{contract_link\}\}/g, draft.publicUrl)
+          .replace(/\{\{company\}\}/g, 'Glass Court Swim and Fitness')
+          .replace(/\{\{year\}\}/g, new Date().getFullYear().toString());
+        finalTemplateId = template.email_template_id;
+      }
+    } catch (templateError) {
+      console.warn('Could not fetch templates', templateError);
+    }
+
+    if (!finalBody.includes(draft.publicUrl)) {
+      finalBody = `${finalBody}\n\nSign your waiver here: ${draft.publicUrl}`;
+    }
+
+    setComposeDraft({
+      to: draft.to || '',
+      subject: finalSubject,
+      body: finalBody,
+      templateId: finalTemplateId,
+      attachments: [],
+      accountId: accountId
+    });
+    setOpenCompose(true);
+  };
+
+  const handleComposerSuccess = () => {
+    showToast('Email sent successfully!', 'success');
+    setOpenCompose(false);
+    setComposeDraft(null);
+  };
+
+  const handleSignInPlace = async () => {
+    if (!pendingTemplate || !signaturePadRef.current || !currentLocationId || !selectedSubscriptionForContract) return;
+
+    if (signaturePadRef.current.isEmpty()) {
+      showToast('Please sign to continue.', 'warning');
+      return;
+    }
+
+    const canvas = signaturePadRef.current.getCanvas();
+    if (!canvas) return;
+
+    setIsSigningInPlace(true);
+    try {
+      const blob = await getSignatureBlob(canvas);
+      if (!blob) throw new Error('Failed to capture signature');
+
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = async () => {
+        try {
+          const base64 = reader.result as string;
+          const sigResponse = await waiverService.uploadSignature(base64);
+          
+          
+          let content = pendingTemplate.content;
+          const variables = getWaiverVariables(selectedSubscriptionForContract) as Record<string, string>;
+          
+          // Replace all variables in content
+          Object.entries(variables).forEach(([key, value]) => {
+            content = content.replace(new RegExp(`\\[${key}\\]`, 'gi'), value);
+          });
+          
+          const coverage = getCoverage(selectedSubscriptionForContract);
+          const profileId = coverage[0]?.profile_id || selectedProfileId;
+
+          const signedRes = await waiverService.upsertSignedWaiver({
+            profile_id: profileId,
+            waiver_template_id: pendingTemplate.waiver_template_id,
+            waiver_type: selectedSubscriptionForContract.subscription_type === 'SERVICE' ? 'SERVICE' : 'MEMBERSHIP',
+            content,
+            signature_url: sigResponse.signature_url,
+            subscription_id: selectedSubscriptionForContract.subscription_id
+          }, currentLocationId);
+
+          // Link to subscription
+          await waiverService.linkWaiverToSubscription(selectedSubscriptionForContract.subscription_id, {
+            signedwaiver_id: signedRes.signed_waiver_id
+          });
+
+          showToast(`Contract signed successfully and linked to subscription!`, 'success');
+          setContractDialogOpen(false);
+          fetchSubscriptions(); // Refresh to show "Signed"
+        } catch (err: any) {
+          console.error('Signing failed', err);
+          showToast(err.message || 'Signing failed', 'error');
+        } finally {
+          setIsSigningInPlace(false);
+        }
+      };
+    } catch (err: any) {
+      console.error('Signing failed', err);
+      showToast(err.message || 'Signing failed', 'error');
+      setIsSigningInPlace(false);
+    }
+  };
+
+
   const handleOpenGenerateWaiver = () => {
     setContractDialogOpen(false);
     setGenerateWaiverOpen(true);
@@ -562,29 +826,32 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
                                     {isStaffOrAbove && (
                                         <TableCell align="right">
                                           <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                            {/* Contract button — available for all memberships */}
-                                            <Tooltip title="View contract / waiver" arrow>
-                                              <Button
-                                                size="small"
-                                                variant="outlined"
-                                                onClick={() => handleContractClick(sub)}
-                                                startIcon={<HistoryEduIcon sx={{ fontSize: '0.8rem !important' }} />}
-                                                sx={{
-                                                  fontSize: '0.65rem',
-                                                  fontWeight: 700,
-                                                  height: 22,
-                                                  px: 1,
-                                                  py: 0,
-                                                  textTransform: 'none',
-                                                  borderColor: (sub as any).signedwaiver_id ? '#10b981' : '#f59e0b',
-                                                  color: (sub as any).signedwaiver_id ? '#059669' : '#b45309',
-                                                  bgcolor: (sub as any).signedwaiver_id ? '#f0fdf4' : '#fffbeb',
-                                                  '&:hover': { bgcolor: (sub as any).signedwaiver_id ? '#dcfce7' : '#fef3c7' },
-                                                }}
-                                              >
-                                                Contract
-                                              </Button>
-                                            </Tooltip>
+                                            {/* Contract button — available for all memberships except JOINING */}
+                                            {sub.subscription_type !== 'MEMBERSHIP_JOINING' && (
+                                              <Tooltip title="View contract / waiver" arrow>
+                                                <Button
+                                                  size="small"
+                                                  variant="outlined"
+                                                  onClick={() => handleContractClick(sub)}
+                                                  startIcon={<HistoryEduIcon sx={{ fontSize: '0.85rem !important' }} />}
+                                                  sx={{
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 700,
+                                                    textTransform: 'none',
+                                                    borderColor: (sub as any).signedwaiver_id ? '#10b981' : '#f59e0b',
+                                                    color: (sub as any).signedwaiver_id ? '#059669' : '#b45309',
+                                                    bgcolor: (sub as any).signedwaiver_id ? '#f0fdf4' : '#fffbeb',
+                                                    '&:hover': { bgcolor: (sub as any).signedwaiver_id ? '#dcfce7' : '#fef3c7' },
+                                                    borderRadius: '6px',
+                                                    px: 1.5,
+                                                    py: 0.4,
+                                                  }}
+                                                >
+                                                  Contract
+                                                </Button>
+                                              </Tooltip>
+                                            )}
+
 
                                             {/* Manage button */}
                                             {sub.status !== 'CANCELLED' && (
@@ -629,55 +896,180 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
 
       {/* Contract Viewing Dialog */}
       <Dialog open={contractDialogOpen} onClose={() => setContractDialogOpen(false)} maxWidth="md" fullWidth scroll="paper">
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid #e2e8f0' }}>
           <HistoryEduIcon color={contractIsPending ? 'warning' : 'success'} />
-          {contractIsPending ? 'Contract — Pending Signature' : 'Signed Contract'}
+          <Typography variant="h6" fontWeight={800}>
+            {contractIsPending ? 'Review & Sign Contract' : 'Signed Contract'}
+          </Typography>
         </DialogTitle>
-        <DialogContent dividers>
-          {contractLoading && <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}
-          {contractIsPending && !contractLoading && (
-            <Box sx={{ py: 4, textAlign: 'center' }}>
-              <HistoryEduIcon sx={{ fontSize: 56, color: '#f59e0b', mb: 2 }} />
-              <Typography variant="h6" fontWeight={700} color="#b45309">Contract Not Yet Signed</Typography>
-              <Typography color="text.secondary" sx={{ mt: 1, mb: 3 }}>
-                This subscription does not have a signed waiver on file.
-                Generate a new waiver link to collect the signature.
-              </Typography>
-              <Button 
-                variant="contained" 
-                startIcon={<SendIcon />} 
-                onClick={handleOpenGenerateWaiver}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
-              >
-                Send / Generate Waiver
-              </Button>
+        <DialogContent sx={{ bgcolor: '#f8fafc', p: 0 }}>
+          {contractLoading && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', p: 8 }}>
+              <CircularProgress size={40} />
+              <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary', fontWeight: 600 }}>Loading contract details...</Typography>
             </Box>
           )}
-          {contractData && !contractLoading && (
-            <Box>
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <Chip label={contractData.waiver_type} size="small" color="primary" />
-                {contractData.subscription && <Chip label={`Status: ${contractData.subscription.status}`} size="small" color="success" variant="outlined" />}
-              </Box>
-              <Box
-                sx={{ bgcolor: '#f8fafc', p: 3, borderRadius: 2, border: '1px solid #e2e8f0', '& img': { maxWidth: '100%' } }}
-                dangerouslySetInnerHTML={{ __html: contractData.content }}
-              />
-              {contractData.signature_url && (
-                <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #e2e8f0' }}>
-                  <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Digital Signature</Typography>
-                  <Box sx={{ bgcolor: '#fff', p: 2, border: '1px solid #e2e8f0', borderRadius: 1, display: 'inline-block' }}>
-                    <img src={contractData.signature_url} alt="Signature" style={{ maxHeight: 80 }} />
-                  </Box>
+          
+          {contractIsPending && !contractLoading && (
+            <Box sx={{ p: { xs: 1, md: 4 } }}>
+              {pendingTemplate ? (
+                <>
+                  <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+                    This subscription requires a signed contract. You can sign it in-place below or generate a link for the customer.
+                  </Alert>
+
+                  <WaiverPreview
+                    content={pendingTemplate.content}
+                    variables={getWaiverVariables(selectedSubscriptionForContract) as Record<string, string>}
+                    data={{
+                      first_name: (() => {
+                        const coverage = getCoverage(selectedSubscriptionForContract);
+                        return coverage[0]?.profile?.first_name || 'Member';
+                      })(),
+                      last_name: (() => {
+                        const coverage = getCoverage(selectedSubscriptionForContract);
+                        return coverage[0]?.profile?.last_name || '';
+                      })(),
+                      guardian_name: (getWaiverVariables(selectedSubscriptionForContract) as any)?.GuardianName
+                    }}
+                    agreed={agreed}
+                    onAgreeChange={setAgreed}
+                    hideCheckbox={true}
+                    fullHeight={true}
+                    signatureComponent={
+                      <SignaturePad
+                        ref={signaturePadRef}
+                        width={500}
+                        height={180}
+                      />
+                    }
+                  />
+                </>
+              ) : (
+                <Box sx={{ py: 8, textAlign: 'center' }}>
+                  <HistoryEduIcon sx={{ fontSize: 64, color: '#94a3b8', mb: 2, opacity: 0.5 }} />
+                  <Typography variant="h6" fontWeight={700} color="text.secondary">No Suitable Template Found</Typography>
+                  <Typography variant="body2" color="text.disabled" sx={{ mt: 1, maxWidth: 400, mx: 'auto' }}>
+                    We couldn't automatically find a contract template for this purchase. 
+                    Please ensure templates are configured for this membership/service.
+                  </Typography>
+                  <Button 
+                    variant="outlined" 
+                    startIcon={<SendIcon />} 
+                    onClick={handleOpenGenerateWaiver}
+                    sx={{ mt: 4, textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                  >
+                    Manually Select Template
+                  </Button>
                 </Box>
               )}
             </Box>
           )}
+
+          {contractData && !contractLoading && (
+            <Box sx={{ p: { xs: 1, md: 4 } }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Stack direction="row" spacing={1}>
+                  <Chip label={contractData.waiver_type} size="small" color="primary" sx={{ fontWeight: 800 }} />
+                  <Chip label="SIGNED" size="small" color="success" sx={{ fontWeight: 800 }} />
+                </Stack>
+                <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                  Signed on {new Date(contractData.signed_at).toLocaleString()}
+                </Typography>
+              </Box>
+
+              <WaiverPreview
+                content={contractData.content}
+                data={{
+                  first_name: '', // already replaced in content
+                  last_name: '' 
+                }}
+                agreed={true}
+                onAgreeChange={() => {}}
+                hideCheckbox={true}
+                fullHeight={true}
+                signatureComponent={
+                  contractData.signature_url ? (
+                    <Box sx={{ p: 2, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                       <img src={contractData.signature_url} alt="Signature" style={{ maxHeight: 100 }} />
+                    </Box>
+                  ) : null
+                }
+              />
+            </Box>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setContractDialogOpen(false)} sx={{ textTransform: 'none' }}>Close</Button>
+
+        {contractIsPending && !contractLoading && pendingTemplate && (
+          <Box sx={{ p: 3, pt: 2, bgcolor: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <FormControlLabel
+              control={
+                <Checkbox 
+                  checked={agreed} 
+                  onChange={(e) => setAgreed(e.target.checked)} 
+                  color="primary"
+                />
+              }
+              label={
+                <Typography variant="body2" fontWeight={600} color="#1e293b">
+                  I have read and agree to all terms and conditions
+                </Typography>
+              }
+              sx={{ mb: 2 }}
+            />
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', width: '100%' }}>
+              <Button 
+                variant="contained" 
+                color="primary"
+                size="large"
+                startIcon={isSigningInPlace ? <CircularProgress size={20} color="inherit" /> : <HistoryEduIcon />} 
+                onClick={handleSignInPlace}
+                disabled={!agreed || isSigningInPlace}
+                sx={{ textTransform: 'none', fontWeight: 800, borderRadius: 2, px: 4 }}
+              >
+                {isSigningInPlace ? 'Submitting...' : 'Sign & Submit Now'}
+              </Button>
+              <Button 
+                variant="outlined" 
+                size="large"
+                startIcon={<SendIcon />} 
+                onClick={handleOpenGenerateWaiver}
+                sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, color: '#334155', borderColor: '#cbd5e1' }}
+              >
+                Generate Signing Link
+              </Button>
+            </Box>
+          </Box>
+        )}
+
+        <DialogActions sx={{ p: 2, borderTop: (contractIsPending && !contractLoading && pendingTemplate) ? 'none' : '1px solid #e2e8f0', bgcolor: (contractIsPending && !contractLoading && pendingTemplate) ? '#f8fafc' : 'transparent' }}>
+          <Button onClick={() => setContractDialogOpen(false)} sx={{ textTransform: 'none', fontWeight: 700 }} color="inherit">Close</Button>
+          {!contractIsPending && contractData && role !== 'MEMBER' && (
+             <Button
+                onClick={() => handleEmailDraftReady({ 
+                    subject: 'Signed Contract Copy', 
+                    body: 'Please find your signed contract details below.', 
+                    publicUrl: '' 
+                })}
+                color="primary"
+                startIcon={<EmailIcon />}
+                disabled={contractLoading}
+                sx={{ textTransform: 'none', fontWeight: 700 }}
+             >
+                Compose Email
+             </Button>
+          )}
+          <Button 
+            onClick={() => window.print()} 
+            color="primary" 
+            startIcon={<PrintIcon />}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Print
+          </Button>
         </DialogActions>
       </Dialog>
+
 
       {/* Subscription manage dialog (staff/admin/superadmin only) */}
       {isStaffOrAbove && managedSub && (
@@ -690,16 +1082,61 @@ export const SubscriptionsTab = ({ accountId, selectedProfileId }: Subscriptions
       )}
 
       {/* Generate Waiver Dialog */}
-      {isStaffOrAbove && (
-        <GenerateWaiverDialog
-          open={generateWaiverOpen}
-          onClose={() => setGenerateWaiverOpen(false)}
-          accountId={accountId}
-          profileId={selectedProfileId || (selectedSubscriptionForContract ? getCoverage(selectedSubscriptionForContract)[0]?.profile_id : '') || ''}
-          profileName="Primary Contact"
-          subscription={selectedSubscriptionForContract}
-        />
-      )}
+      {isStaffOrAbove && (() => {
+          let initVars: Record<string, string> = {};
+          if (selectedSubscriptionForContract) {
+             initVars = getWaiverVariables(selectedSubscriptionForContract);
+          }
+          return (
+             <GenerateWaiverDialog
+               open={generateWaiverOpen}
+               onClose={() => setGenerateWaiverOpen(false)}
+               accountId={accountId}
+               profileId={selectedProfileId || (selectedSubscriptionForContract ? getCoverage(selectedSubscriptionForContract)[0]?.profile_id : '') || ''}
+               profileName={initVars.FullName || 'Primary Contact'}
+               subscription={selectedSubscriptionForContract}
+               initialVariables={initVars}
+               onEmailDraftReady={handleEmailDraftReady}
+               onLinkGenerated={() => showToast('Link generated and copied to clipboard!', 'success')}
+             />
+          );
+      })()}
+
+      {/* Email Compose Dialog */}
+      <Dialog open={openCompose} onClose={() => setOpenCompose(false)} maxWidth="md" fullWidth>
+        <DialogContent>
+          {composeDraft && (
+            <EmailComposer
+              onClose={() => setOpenCompose(false)}
+              onSuccess={handleComposerSuccess}
+              initialTo={composeDraft.to}
+              initialSubject={composeDraft.subject}
+              initialBody={composeDraft.body}
+              initialTemplateId={composeDraft.templateId}
+              initialAttachments={composeDraft.attachments}
+              initialAccountId={accountId}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={toast.open} 
+        autoHideDuration={6000} 
+        onClose={() => setToast(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setToast(prev => ({ ...prev, open: false }))} 
+          severity={toast.severity} 
+          variant="filled" 
+          sx={{ width: '100%', borderRadius: 2, fontWeight: 600 }}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
+

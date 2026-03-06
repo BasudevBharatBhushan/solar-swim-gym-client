@@ -9,7 +9,6 @@ import {
   Paper,
   Checkbox,
   FormControlLabel,
-  Divider,
   Alert
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -91,7 +90,8 @@ export const PublicWaiverSigning = () => {
           await publicWaiverService.submitWaiver(token, {
             signature_base64: base64,
             final_content: contentWithVars,
-            agreed
+            agreed,
+            subscription_id: waiverDetails.subscription_id
           });
 
           setSuccess(true);
@@ -134,38 +134,39 @@ export const PublicWaiverSigning = () => {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', py: { xs: 4, md: 8 }, px: 2 }}>
-      <Container maxWidth="md">
-        <Paper elevation={3} sx={{ borderRadius: 4, overflow: 'hidden' }}>
+    <Box sx={{ height: '100vh', bgcolor: '#f8fafc', py: { xs: 0, md: 4 }, px: { xs: 0, md: 2 } }}>
+      <Container maxWidth="md" sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <Paper elevation={3} sx={{ borderRadius: { xs: 0, md: 4 }, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
           
-          <Box sx={{ bgcolor: 'primary.main', p: 3, color: 'white', textAlign: 'center' }}>
-            <Typography variant="h5" fontWeight={800}>
+          <Box sx={{ bgcolor: 'white', borderBottom: '1px solid #f1f5f9', p: { xs: 2.5, md: 4 }, color: '#1e293b', textAlign: 'center', flexShrink: 0 }}>
+            <Typography variant="h5" fontWeight={800} color="#0f172a" sx={{ letterSpacing: '-0.02em' }}>
               {waiverDetails?.location_name || 'Glass Court Swim and Fitness'}
             </Typography>
-            <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+            <Typography variant="subtitle1" sx={{ color: '#64748b', fontWeight: 500, mt: 0.5 }}>
               Document Signing Request
             </Typography>
           </Box>
 
-          <Box sx={{ p: { xs: 3, md: 5 } }}>
-            {error && (
-              <Alert severity="error" icon={<ErrorOutlineIcon fontSize="inherit" />} sx={{ mb: 4, borderRadius: 2 }}>
+          {error && (
+            <Box sx={{ p: { xs: 3, md: 5 }, pb: 0 }}>
+              <Alert severity="error" icon={<ErrorOutlineIcon fontSize="inherit" />} sx={{ borderRadius: 2 }}>
                 {error}
               </Alert>
-            )}
+            </Box>
+          )}
 
-            {!waiverDetails ? (
-              <Box sx={{ textAlign: 'center', py: 5 }}>
-                <ErrorOutlineIcon color="error" sx={{ fontSize: 60, mb: 2, opacity: 0.5 }} />
-                <Typography variant="h6" color="text.secondary">Waiver not found or expired.</Typography>
-              </Box>
-            ) : (
-              <>
-                <Typography variant="h6" fontWeight={700} gutterBottom color="text.primary">
+          {!waiverDetails ? (
+            <Box sx={{ textAlign: 'center', py: 5, p: { xs: 3, md: 5 } }}>
+              <ErrorOutlineIcon color="error" sx={{ fontSize: 60, mb: 2, opacity: 0.5 }} />
+              <Typography variant="h6" color="text.secondary">Waiver not found or expired.</Typography>
+            </Box>
+          ) : (
+            <>
+                <Typography variant="h6" fontWeight={700} gutterBottom color="text.primary" sx={{ px: { xs: 2, md: 4 }, pt: { xs: 2, md: 3 } }}>
                   Review & Sign Document
                 </Typography>
                 
-                <Box sx={{ mb: 4, p: 2, bgcolor: '#f1f5f9', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                <Box sx={{ mb: 2, mx: { xs: 2, md: 4 }, p: 2, bgcolor: '#f1f5f9', borderRadius: 2, border: '1px solid #e2e8f0', flexShrink: 0 }}>
                    <Typography variant="body2" color="text.secondary">
                      <strong>Document Type:</strong> {waiverDetails.waiver_type} Waiver
                    </Typography>
@@ -175,7 +176,7 @@ export const PublicWaiverSigning = () => {
                 </Box>
 
                 {/* Pre-replace variables for the preview */}
-                <Box>
+                <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 2, md: 4 }, pb: 4, display: 'flex', flexDirection: 'column' }}>
                   <WaiverPreview
                     content={(() => {
                       let content = waiverDetails.template_content;
@@ -191,7 +192,7 @@ export const PublicWaiverSigning = () => {
                     agreed={agreed}
                     onAgreeChange={setAgreed}
                     hideCheckbox={true}
-                    fullHeight={false}
+                    fullHeight={true}
                     signatureComponent={
                       <SignaturePad
                         ref={signaturePadRef}
@@ -202,47 +203,64 @@ export const PublicWaiverSigning = () => {
                   />
                 </Box>
 
-                <Divider sx={{ my: 4 }} />
+                {/* Fixed Footer for Checkbox and Submit */}
+                <Box sx={{ 
+                  p: { xs: 2, md: 3 }, 
+                  bgcolor: '#fff', 
+                  borderTop: '1px solid #e2e8f0', 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  alignItems: 'center',
+                  boxShadow: '0 -4px 12px rgba(0,0,0,0.05)',
+                  flexShrink: 0
+                }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={agreed}
+                        onChange={(e) => {
+                            setAgreed(e.target.checked);
+                            if (e.target.checked) setError(null);
+                        }}
+                        color="primary"
+                        sx={{ '& .MuiSvgIcon-root': { fontSize: 28 } }}
+                      />
+                    }
+                    label={
+                      <Typography variant="body1" fontWeight={600} color="#1e293b">
+                        I have read, understand, and agree to the terms outlined above.
+                      </Typography>
+                    }
+                    sx={{ mb: 2, width: '100%', justifyContent: 'center' }}
+                  />
 
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={agreed}
-                      onChange={(e) => {
-                          setAgreed(e.target.checked);
-                          if (e.target.checked) setError(null);
-                      }}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Typography variant="body1" fontWeight={600} color="text.primary">
-                      I have read, understand, and agree to the terms outlined above.
-                    </Typography>
-                  }
-                  sx={{ mb: 3 }}
-                />
-
-                <Button
-                  fullWidth
-                  variant="contained"
-                  size="large"
-                  onClick={handleSign}
-                  disabled={!agreed || signing}
-                  sx={{
-                    py: 1.5,
-                    fontSize: '1.1rem',
-                    fontWeight: 800,
-                    textTransform: 'none',
-                    borderRadius: 3,
-                    boxShadow: 2
-                  }}
-                >
-                  {signing ? 'Submitting Signature...' : 'Submit & Sign Waiver'}
-                </Button>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    size="large"
+                    onClick={handleSign}
+                    disabled={!agreed || signing}
+                    sx={{
+                      py: 1.5,
+                      fontSize: '1.1rem',
+                      fontWeight: 800,
+                      textTransform: 'none',
+                      borderRadius: 3,
+                      boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)',
+                      maxWidth: '400px',
+                      '&:hover': {
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 6px 20px rgba(0,118,255,0.23)'
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {signing ? 'Submitting Signature...' : 'Submit & Sign Waiver'}
+                  </Button>
+                </Box>
               </>
             )}
-          </Box>
+          {/* Removed wrapping Box */}
         </Paper>
       </Container>
     </Box>

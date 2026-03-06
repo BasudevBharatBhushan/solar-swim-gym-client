@@ -18,6 +18,7 @@ import EmailIcon from '@mui/icons-material/Email';
 import { useAuth } from '../../../context/AuthContext';
 import { waiverService, WaiverTemplate } from '../../../services/waiverService';
 import { resolveWaiverTemplates, getSubscriptionWaiverContext, WaiverResolutionContext } from '../../../utils/waiverUtils';
+import { normalizePublicUrl } from '../../../utils/urlUtils';
 
 interface GenerateWaiverDialogProps {
   open: boolean;
@@ -26,6 +27,9 @@ interface GenerateWaiverDialogProps {
   profileId: string;
   profileName: string;
   subscription?: any; // If provided, context is derived from here
+  preSelectedTemplateId?: string; // If provided, skips best-resolution testing and forces
+  preSelectedWaiverType?: string; // Overrides the waiverType extracted from subscription
+  initialVariables?: Record<string, string>; // Prefilled variables from parent context
   onLinkGenerated?: (url: string) => void;
   onEmailDraftReady?: (draft: { subject: string; body: string; to?: string; templateId?: string; publicUrl: string }) => void;
 }
@@ -37,6 +41,9 @@ export const GenerateWaiverDialog: React.FC<GenerateWaiverDialogProps> = ({
   profileId,
   profileName,
   subscription,
+  preSelectedTemplateId,
+  preSelectedWaiverType,
+  initialVariables,
   onLinkGenerated,
   onEmailDraftReady,
 }) => {
@@ -50,10 +57,15 @@ export const GenerateWaiverDialog: React.FC<GenerateWaiverDialogProps> = ({
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   
   const [expiryDays, setExpiryDays] = useState<number>(7);
-  const [variables, setVariables] = useState<Record<string, string>>({
-    FullName: profileName,
-    CurrentDate: new Date().toLocaleDateString(),
-  });
+  const [variables, setVariables] = useState<Record<string, string>>({});
+  
+  useEffect(() => {
+    setVariables({
+      FullName: profileName,
+      CurrentDate: new Date().toLocaleDateString(),
+      ...(initialVariables || {})
+    });
+  }, [profileName, initialVariables]);
   
   const [generating, setGenerating] = useState(false);
 
@@ -84,6 +96,16 @@ export const GenerateWaiverDialog: React.FC<GenerateWaiverDialogProps> = ({
   };
 
   const resolveBestTemplates = () => {
+    // If explicit pre-selection dictates our answer
+    if (preSelectedTemplateId) {
+       const matched = templates.filter(t => t.waiver_template_id === preSelectedTemplateId);
+       if (matched.length > 0) {
+          setResolvedTemplates(matched);
+          setSelectedTemplateId(matched[0].waiver_template_id);
+          return;
+       }
+    }
+
     let context: WaiverResolutionContext;
 
     if (subscription) {
@@ -120,8 +142,8 @@ export const GenerateWaiverDialog: React.FC<GenerateWaiverDialogProps> = ({
     
     try {
       // Determine waiver type from context or template
-      let waiverType = 'REGISTRATION';
-      if (subscription) {
+      let waiverType = preSelectedWaiverType || 'REGISTRATION';
+      if (!preSelectedWaiverType && subscription) {
          waiverType = subscription.subscription_type;
       }
       // Clean up MEMBERSHIP_FEE/BASE
@@ -139,7 +161,7 @@ export const GenerateWaiverDialog: React.FC<GenerateWaiverDialogProps> = ({
       };
 
       const res = await waiverService.createWaiverRequest(payload, currentLocationId);
-      return res.data.public_signing_url;
+      return normalizePublicUrl(res.data.public_signing_url);
       
     } catch (err: any) {
       console.error(err);

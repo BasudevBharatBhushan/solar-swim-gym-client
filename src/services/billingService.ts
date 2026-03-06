@@ -112,12 +112,12 @@ export const billingService = {
 
   voidTransaction: async (data: { transactionId: string, invoiceId: string, accountId: string }, locationId?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.post('/payment/void', data, options);
+    return apiClient.post('/void', data, options);
   },
 
   refundTransaction: async (data: { transactionId: string, invoiceId: string, accountId: string, refundAmount?: number }, locationId?: string) => {
     const options = locationId ? { headers: { 'x-location-id': locationId } } : {};
-    return apiClient.post('/payment/refund', data, options);
+    return apiClient.post('/refund', data, options);
   },
 
   cancelInvoice: async (invoiceId: string, locationId?: string) => {

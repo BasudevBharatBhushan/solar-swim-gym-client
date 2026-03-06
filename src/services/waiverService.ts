@@ -60,6 +60,7 @@ export interface UpsertSignedWaiverPayload {
     waiver_type: string;
     content: string;
     signature_url: string;
+    subscription_id?: string;
 }
 
 export interface UpsertSignedWaiverResponse {
@@ -90,6 +91,7 @@ export interface CreateWaiverRequestPayload {
   profile_id: string;
   waiver_template_id: string;
   waiver_type: string;
+  subscription_id?: string;
   expires_in_days?: number;
   variables: Record<string, any>;
 }
@@ -113,6 +115,7 @@ export interface PublicWaiverDetailsResponse {
     waiver_type: string;
     location_name: string;
     template_content: string;
+    subscription_id?: string;
     resolved_variables: Record<string, string>;
   }
 }
@@ -121,6 +124,7 @@ export interface SubmitPublicWaiverPayload {
   signature_base64: string;
   final_content: string;
   agreed: boolean;
+  subscription_id?: string;
 }
 
 export const waiverService = {

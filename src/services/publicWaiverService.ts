@@ -8,6 +8,7 @@ export interface PublicWaiverDetailsResponse {
     waiver_type: string;
     location_name: string;
     template_content: string;
+    subscription_id?: string;
     resolved_variables: Record<string, string>;
   }
 }
@@ -16,6 +17,7 @@ export interface SubmitPublicWaiverPayload {
   signature_base64: string;
   final_content: string;
   agreed: boolean;
+  subscription_id?: string;
 }
 
 export const publicWaiverService = {
